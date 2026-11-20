@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "ccr-*"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    name: Typecheck & unit tests (core, server, dashboard, mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Core
+        run: |
+          npm run typecheck -w @surgeonpulse/core
+          npm test -w @surgeonpulse/core
+      - name: Server
+        run: |
+          npm run typecheck -w @surgeonpulse/server
+          npm test -w @surgeonpulse/server
+      - name: Dashboard
+        run: |
+          npm run typecheck -w @surgeonpulse/dashboard
+          npm test -w @surgeonpulse/dashboard
+          npm run build -w @surgeonpulse/dashboard
+      - name: Mobile
+        run: |
+          npm run typecheck -w @surgeonpulse/mobile
+          npm test -w @surgeonpulse/mobile -- --ci
+      - name: Mobile web export
+        working-directory: apps/mobile
+        run: npx expo export --platform web --output-dir dist-web
+
+  dashboard-e2e:
+    name: Dashboard end-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/dashboard
+      - run: npm run e2e -w @surgeonpulse/dashboard -- --trace off
+
+  python:
+    name: Python analysis toolkit (incl. TS ↔ Python parity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e "analysis[dev]"
+      - run: pytest -q analysis
