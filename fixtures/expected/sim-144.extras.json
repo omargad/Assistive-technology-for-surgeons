@@ -1,0 +1,715 @@
+{
+  "sessionEnd": 1767601800000,
+  "derivePhases": [
+    {
+      "phase": "pre-op",
+      "index": 0,
+      "start": 1767600000000,
+      "end": 1767600213011
+    },
+    {
+      "phase": "incision",
+      "index": 1,
+      "start": 1767600213011,
+      "end": 1767600407371
+    },
+    {
+      "phase": "dissection",
+      "index": 2,
+      "start": 1767600407371,
+      "end": 1767601062183
+    },
+    {
+      "phase": "critical",
+      "index": 3,
+      "start": 1767601062183,
+      "end": 1767601339738
+    },
+    {
+      "phase": "closure",
+      "index": 4,
+      "start": 1767601339738,
+      "end": 1767601691608
+    },
+    {
+      "phase": "post-op",
+      "index": 5,
+      "start": 1767601691608,
+      "end": 1767601800000
+    }
+  ],
+  "hrStats": {
+    "count": 1150,
+    "mean": 75.66173913043478,
+    "median": 75.5,
+    "min": 61,
+    "max": 90,
+    "sd": 5.731246446687776,
+    "p95": 85
+  },
+  "percentiles": [
+    {
+      "p": 0,
+      "value": 61
+    },
+    {
+      "p": 5,
+      "value": 66
+    },
+    {
+      "p": 33.3,
+      "value": 73
+    },
+    {
+      "p": 50,
+      "value": 75.5
+    },
+    {
+      "p": 95,
+      "value": 85
+    },
+    {
+      "p": 99.9,
+      "value": 89
+    },
+    {
+      "p": 100,
+      "value": 90
+    }
+  ],
+  "detectGaps2000": [
+    {
+      "start": 1767600030000,
+      "end": 1767600055000,
+      "durationMs": 25000
+    },
+    {
+      "start": 1767600067000,
+      "end": 1767600077000,
+      "durationMs": 10000
+    },
+    {
+      "start": 1767600139000,
+      "end": 1767600159000,
+      "durationMs": 20000
+    },
+    {
+      "start": 1767600176000,
+      "end": 1767600192000,
+      "durationMs": 16000
+    },
+    {
+      "start": 1767600212000,
+      "end": 1767600249000,
+      "durationMs": 37000
+    },
+    {
+      "start": 1767600435000,
+      "end": 1767600471000,
+      "durationMs": 36000
+    },
+    {
+      "start": 1767600475000,
+      "end": 1767600513000,
+      "durationMs": 38000
+    },
+    {
+      "start": 1767600528000,
+      "end": 1767600562000,
+      "durationMs": 34000
+    },
+    {
+      "start": 1767600583000,
+      "end": 1767600615000,
+      "durationMs": 32000
+    },
+    {
+      "start": 1767600628000,
+      "end": 1767600666000,
+      "durationMs": 38000
+    },
+    {
+      "start": 1767600737000,
+      "end": 1767600754000,
+      "durationMs": 17000
+    },
+    {
+      "start": 1767600781000,
+      "end": 1767600788000,
+      "durationMs": 7000
+    },
+    {
+      "start": 1767600808000,
+      "end": 1767600822000,
+      "durationMs": 14000
+    },
+    {
+      "start": 1767600886000,
+      "end": 1767600896000,
+      "durationMs": 10000
+    },
+    {
+      "start": 1767600914000,
+      "end": 1767600933000,
+      "durationMs": 19000
+    },
+    {
+      "start": 1767600949000,
+      "end": 1767600959000,
+      "durationMs": 10000
+    },
+    {
+      "start": 1767600993000,
+      "end": 1767601017000,
+      "durationMs": 24000
+    },
+    {
+      "start": 1767601049000,
+      "end": 1767601075000,
+      "durationMs": 26000
+    },
+    {
+      "start": 1767601115000,
+      "end": 1767601146000,
+      "durationMs": 31000
+    },
+    {
+      "start": 1767601159000,
+      "end": 1767601174000,
+      "durationMs": 15000
+    },
+    {
+      "start": 1767601183000,
+      "end": 1767601211000,
+      "durationMs": 28000
+    },
+    {
+      "start": 1767601212000,
+      "end": 1767601250000,
+      "durationMs": 38000
+    },
+    {
+      "start": 1767601271000,
+      "end": 1767601308000,
+      "durationMs": 37000
+    },
+    {
+      "start": 1767601439000,
+      "end": 1767601460000,
+      "durationMs": 21000
+    },
+    {
+      "start": 1767601480000,
+      "end": 1767601510000,
+      "durationMs": 30000
+    },
+    {
+      "start": 1767601531000,
+      "end": 1767601571000,
+      "durationMs": 40000
+    },
+    {
+      "start": 1767601606000,
+      "end": 1767601618000,
+      "durationMs": 12000
+    },
+    {
+      "start": 1767601764000,
+      "end": 1767601777000,
+      "durationMs": 13000
+    }
+  ],
+  "dataQuality2000": {
+    "coverage": 0.6538888888888889,
+    "gapCount": 28,
+    "longestGapSec": 40,
+    "rrArtifactRatio": 0.033402922755741124,
+    "sampleRateHz": 0.9762107051826678
+  },
+  "timeInZonesMaxHr185Gap3000": [
+    {
+      "id": "z1",
+      "label": "Very light",
+      "seconds": 1206,
+      "fraction": 1
+    },
+    {
+      "id": "z2",
+      "label": "Light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z3",
+      "label": "Moderate",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z4",
+      "label": "Hard",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z5",
+      "label": "Maximum",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "timeInZonesBaseline65": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 533,
+      "fraction": 0.4223454833597464
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 632,
+      "fraction": 0.5007923930269413
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 97,
+      "fraction": 0.0768621236133122
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "episodeThreshold": 80.5,
+  "episodesNoMerge": [
+    {
+      "start": 1767600343000,
+      "end": 1767600343000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600343000,
+      "meanBpm": 81,
+      "phase": "incision",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600345000,
+      "end": 1767600347000,
+      "durationSec": 2,
+      "peakBpm": 82,
+      "peakT": 1767600346000,
+      "meanBpm": 81.66666666666667,
+      "phase": "incision",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600367000,
+      "end": 1767600372000,
+      "durationSec": 5,
+      "peakBpm": 82,
+      "peakT": 1767600371000,
+      "meanBpm": 81.33333333333333,
+      "phase": "incision",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600374000,
+      "end": 1767600379000,
+      "durationSec": 5,
+      "peakBpm": 82,
+      "peakT": 1767600378000,
+      "meanBpm": 81.16666666666667,
+      "phase": "incision",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600383000,
+      "end": 1767600429000,
+      "durationSec": 46,
+      "peakBpm": 87,
+      "peakT": 1767600395000,
+      "meanBpm": 83.36170212765957,
+      "phase": "incision",
+      "relatedEventIds": ["c973b3a8-e7c1-49d4-ac1b-badc9fa7995b"]
+    },
+    {
+      "start": 1767600431000,
+      "end": 1767600432000,
+      "durationSec": 1,
+      "peakBpm": 82,
+      "peakT": 1767600431000,
+      "meanBpm": 81.5,
+      "phase": "dissection",
+      "relatedEventIds": ["c973b3a8-e7c1-49d4-ac1b-badc9fa7995b"]
+    },
+    {
+      "start": 1767600562000,
+      "end": 1767600568000,
+      "durationSec": 6,
+      "peakBpm": 82,
+      "peakT": 1767600562000,
+      "meanBpm": 81.42857142857143,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600570000,
+      "end": 1767600583000,
+      "durationSec": 13,
+      "peakBpm": 86,
+      "peakT": 1767600579000,
+      "meanBpm": 84.21428571428571,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600615000,
+      "end": 1767600620000,
+      "durationSec": 5,
+      "peakBpm": 85,
+      "peakT": 1767600615000,
+      "meanBpm": 82.33333333333333,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600623000,
+      "end": 1767600623000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600623000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600626000,
+      "end": 1767600628000,
+      "durationSec": 2,
+      "peakBpm": 83,
+      "peakT": 1767600627000,
+      "meanBpm": 82.33333333333333,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600666000,
+      "end": 1767600672000,
+      "durationSec": 6,
+      "peakBpm": 82,
+      "peakT": 1767600667000,
+      "meanBpm": 81.42857142857143,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600684000,
+      "end": 1767600692000,
+      "durationSec": 8,
+      "peakBpm": 83,
+      "peakT": 1767600687000,
+      "meanBpm": 81.33333333333333,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600695000,
+      "end": 1767600696000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767600695000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600699000,
+      "end": 1767600699000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600699000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600708000,
+      "end": 1767600708000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600708000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600718000,
+      "end": 1767600719000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767600718000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600734000,
+      "end": 1767600737000,
+      "durationSec": 3,
+      "peakBpm": 84,
+      "peakT": 1767600736000,
+      "meanBpm": 82.75,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600759000,
+      "end": 1767600781000,
+      "durationSec": 22,
+      "peakBpm": 87,
+      "peakT": 1767600767000,
+      "meanBpm": 83.78260869565217,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600788000,
+      "end": 1767600797000,
+      "durationSec": 9,
+      "peakBpm": 85,
+      "peakT": 1767600788000,
+      "meanBpm": 83.3,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600827000,
+      "end": 1767600827000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600827000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600907000,
+      "end": 1767600907000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600907000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600914000,
+      "end": 1767600914000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600914000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601087000,
+      "end": 1767601087000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601087000,
+      "meanBpm": 81,
+      "phase": "critical",
+      "relatedEventIds": ["f6971be6-c1c8-404f-8257-5e12f66b9378"]
+    },
+    {
+      "start": 1767601091000,
+      "end": 1767601096000,
+      "durationSec": 5,
+      "peakBpm": 83,
+      "peakT": 1767601095000,
+      "meanBpm": 82,
+      "phase": "critical",
+      "relatedEventIds": ["f6971be6-c1c8-404f-8257-5e12f66b9378"]
+    },
+    {
+      "start": 1767601111000,
+      "end": 1767601115000,
+      "durationSec": 4,
+      "peakBpm": 82,
+      "peakT": 1767601115000,
+      "meanBpm": 81.2,
+      "phase": "critical",
+      "relatedEventIds": ["f6971be6-c1c8-404f-8257-5e12f66b9378"]
+    },
+    {
+      "start": 1767601146000,
+      "end": 1767601159000,
+      "durationSec": 13,
+      "peakBpm": 89,
+      "peakT": 1767601159000,
+      "meanBpm": 87,
+      "phase": "critical",
+      "relatedEventIds": ["f6971be6-c1c8-404f-8257-5e12f66b9378"]
+    },
+    {
+      "start": 1767601174000,
+      "end": 1767601183000,
+      "durationSec": 9,
+      "peakBpm": 90,
+      "peakT": 1767601175000,
+      "meanBpm": 87.1,
+      "phase": "critical",
+      "relatedEventIds": ["f6971be6-c1c8-404f-8257-5e12f66b9378"]
+    },
+    {
+      "start": 1767601211000,
+      "end": 1767601212000,
+      "durationSec": 1,
+      "peakBpm": 88,
+      "peakT": 1767601212000,
+      "meanBpm": 87.5,
+      "phase": "critical",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601250000,
+      "end": 1767601271000,
+      "durationSec": 21,
+      "peakBpm": 89,
+      "peakT": 1767601262000,
+      "meanBpm": 86,
+      "phase": "critical",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601308000,
+      "end": 1767601308000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601308000,
+      "meanBpm": 81,
+      "phase": "critical",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601311000,
+      "end": 1767601325000,
+      "durationSec": 14,
+      "peakBpm": 85,
+      "peakT": 1767601320000,
+      "meanBpm": 82.73333333333333,
+      "phase": "critical",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601330000,
+      "end": 1767601344000,
+      "durationSec": 14,
+      "peakBpm": 86,
+      "peakT": 1767601339000,
+      "meanBpm": 82.93333333333334,
+      "phase": "critical",
+      "relatedEventIds": ["e9f11290-424e-434f-bf6d-2e0211f3be76"]
+    }
+  ],
+  "episodesLongMerge": [
+    {
+      "start": 1767600343000,
+      "end": 1767600432000,
+      "durationSec": 89,
+      "peakBpm": 87,
+      "peakT": 1767600395000,
+      "meanBpm": 82.8,
+      "phase": "incision",
+      "relatedEventIds": ["c973b3a8-e7c1-49d4-ac1b-badc9fa7995b"]
+    },
+    {
+      "start": 1767600562000,
+      "end": 1767600827000,
+      "durationSec": 265,
+      "peakBpm": 87,
+      "peakT": 1767600767000,
+      "meanBpm": 82.75824175824175,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601087000,
+      "end": 1767601344000,
+      "durationSec": 257,
+      "peakBpm": 90,
+      "peakT": 1767601175000,
+      "meanBpm": 84.62637362637362,
+      "phase": "critical",
+      "relatedEventIds": ["f6971be6-c1c8-404f-8257-5e12f66b9378","e9f11290-424e-434f-bf6d-2e0211f3be76"]
+    }
+  ],
+  "episodesNoContext": [
+    {
+      "start": 1767600343000,
+      "end": 1767600432000,
+      "durationSec": 89,
+      "peakBpm": 87,
+      "peakT": 1767600395000,
+      "meanBpm": 82.8,
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600666000,
+      "end": 1767600827000,
+      "durationSec": 161,
+      "peakBpm": 87,
+      "peakT": 1767600767000,
+      "meanBpm": 82.66666666666667,
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601146000,
+      "end": 1767601212000,
+      "durationSec": 66,
+      "peakBpm": 90,
+      "peakT": 1767601175000,
+      "meanBpm": 87.07692307692308,
+      "relatedEventIds": []
+    }
+  ],
+  "computeBaselineFirst5Min": {
+    "startedAt": 1767600000000,
+    "endedAt": 1767600300000,
+    "restingHr": 73.81725888324873,
+    "source": "measured",
+    "rmssd": 31.085578168606656,
+    "sdnn": 43.56229167641736
+  },
+  "cleanRrCustom": {
+    "valid": [true,true,true,true,true,true,true,true,true,true,false,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,false,false,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,false,false,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true],
+    "report": {
+      "total": 1437,
+      "removed": 57,
+      "ratio": 0.03966597077244259
+    }
+  },
+  "computeHrvCustom": {
+    "hrv": {
+      "n": 1389,
+      "pairs": 1335,
+      "meanRr": 793.0454211663063,
+      "sdnn": 64.28537648964517,
+      "rmssd": 30.10922592068867,
+      "pnn50": 9.063670411985019,
+      "meanHr": 75.65770938032773
+    },
+    "artifacts": {
+      "total": 1437,
+      "removed": 48,
+      "ratio": 0.033402922755741124
+    }
+  },
+  "baevskyBin25": 25.798704123611465,
+  "baevskyBin100": 87.38808710656022
+}

@@ -1,0 +1,10 @@
+{
+  "sessionIds": ["edge-sparse-0001"],
+  "participantCodes": ["EDGE-02"],
+  "deidentified": false,
+  "warningCount": 0,
+  "warnings": [],
+  "firstSampleTimes": [
+    [1782863974000]
+  ]
+}

@@ -1,0 +1,268 @@
+{
+  "sessionId": "de495ace-b588-41f1-ad34-8240080e24e3",
+  "participantCode": "SIM-001",
+  "procedureName": "Laparoscopic cholecystectomy",
+  "specialty": "General surgery",
+  "approach": "laparoscopic",
+  "role": "primary",
+  "urgency": "elective",
+  "complexity": 2,
+  "startedAt": 1767600000000,
+  "endedAt": 1767601200000,
+  "durationSec": 1200,
+  "hr": {
+    "count": 600,
+    "mean": 79.165,
+    "median": 80,
+    "min": 65,
+    "max": 92,
+    "sd": 6.1133785527220175,
+    "p95": 89
+  },
+  "hrv": {
+    "n": 1565,
+    "pairs": 1555,
+    "meanRr": 758.2006709265188,
+    "sdnn": 62.81875779981011,
+    "rmssd": 28.22393217014053,
+    "pnn50": 7.97427652733119,
+    "meanHr": 79.13472290479537
+  },
+  "rrArtifacts": {
+    "total": 1579,
+    "removed": 14,
+    "ratio": 0.008866371120962635
+  },
+  "stressIndex": 72.69384969120746,
+  "baseline": {
+    "startedAt": 1767599700000,
+    "endedAt": 1767600000000,
+    "restingHr": 68.07333333333334,
+    "rmssd": 33.30258305779317,
+    "sdnn": 25.681682929382614,
+    "source": "measured"
+  },
+  "meanHrDelta": 11.091666666666669,
+  "peakHrDelta": 23.926666666666662,
+  "maxHr": 182,
+  "zones": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 484,
+      "fraction": 0.4033333333333333
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 644,
+      "fraction": 0.5366666666666666
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 72,
+      "fraction": 0.06
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "highIntensityFraction": 0,
+  "phases": [
+    {
+      "phase": "pre-op",
+      "index": 0,
+      "start": 1767600000000,
+      "end": 1767600103705,
+      "durationSec": 103.705,
+      "hr": {
+        "count": 52,
+        "mean": 72.65384615384616,
+        "median": 73,
+        "min": 68,
+        "max": 76,
+        "sd": 2.1862728188888885,
+        "p95": 76
+      },
+      "hrv": {
+        "n": 124,
+        "pairs": 122,
+        "meanRr": 824.7386048387098,
+        "sdnn": 37.39355735513602,
+        "rmssd": 37.08963335999278,
+        "pnn50": 16.39344262295082,
+        "meanHr": 72.75032313024066
+      },
+      "meanHrDelta": 4.580512820512823
+    },
+    {
+      "phase": "incision",
+      "index": 1,
+      "start": 1767600103705,
+      "end": 1767600243182,
+      "durationSec": 139.477,
+      "hr": {
+        "count": 70,
+        "mean": 85.72857142857143,
+        "median": 88,
+        "min": 76,
+        "max": 92,
+        "sd": 4.745467489902608,
+        "p95": 90
+      },
+      "hrv": {
+        "n": 198,
+        "pairs": 196,
+        "meanRr": 700.5258181818177,
+        "sdnn": 42.4197474302711,
+        "rmssd": 22.18082203648651,
+        "pnn50": 2.0408163265306123,
+        "meanHr": 85.64994814284964
+      },
+      "meanHrDelta": 17.65523809523809
+    },
+    {
+      "phase": "dissection",
+      "index": 2,
+      "start": 1767600243182,
+      "end": 1767600672616,
+      "durationSec": 429.434,
+      "hr": {
+        "count": 215,
+        "mean": 76.48837209302326,
+        "median": 78,
+        "min": 65,
+        "max": 86,
+        "sd": 6.047213357705355,
+        "p95": 84
+      },
+      "hrv": {
+        "n": 541,
+        "pairs": 537,
+        "meanRr": 785.5714621072084,
+        "sdnn": 66.50201301946898,
+        "rmssd": 28.910829658870842,
+        "pnn50": 9.869646182495345,
+        "meanHr": 76.37751992550321
+      },
+      "meanHrDelta": 8.41503875968992
+    },
+    {
+      "phase": "critical",
+      "index": 3,
+      "start": 1767600672616,
+      "end": 1767600901725,
+      "durationSec": 229.109,
+      "hr": {
+        "count": 114,
+        "mean": 78.65789473684211,
+        "median": 78,
+        "min": 68,
+        "max": 91,
+        "sd": 5.444537649691671,
+        "p95": 90.35
+      },
+      "hrv": {
+        "n": 298,
+        "pairs": 296,
+        "meanRr": 761.9317818791941,
+        "sdnn": 55.836362232898374,
+        "rmssd": 30.457989327681105,
+        "pnn50": 9.797297297297296,
+        "meanHr": 78.74720733136859
+      },
+      "meanHrDelta": 10.584561403508772
+    },
+    {
+      "phase": "closure",
+      "index": 4,
+      "start": 1767600901725,
+      "end": 1767601138912,
+      "durationSec": 237.187,
+      "hr": {
+        "count": 119,
+        "mean": 82.73109243697479,
+        "median": 82,
+        "min": 79,
+        "max": 91,
+        "sd": 2.427586787331623,
+        "p95": 87
+      },
+      "hrv": {
+        "n": 323,
+        "pairs": 320,
+        "meanRr": 725.1234024767791,
+        "sdnn": 27.4351738358394,
+        "rmssd": 24.715037517610117,
+        "pnn50": 5,
+        "meanHr": 82.74453671617832
+      },
+      "meanHrDelta": 14.657759103641453
+    },
+    {
+      "phase": "post-op",
+      "index": 5,
+      "start": 1767601138912,
+      "end": 1767601200000,
+      "durationSec": 61.088,
+      "hr": {
+        "count": 30,
+        "mean": 82.1,
+        "median": 82,
+        "min": 76,
+        "max": 85,
+        "sd": 2.324531840148048,
+        "p95": 85
+      },
+      "hrv": {
+        "n": 81,
+        "pairs": 79,
+        "meanRr": 732.687160493827,
+        "sdnn": 28.66094054172716,
+        "rmssd": 25.56591144176365,
+        "pnn50": 2.5316455696202533,
+        "meanHr": 81.89033906307344
+      },
+      "meanHrDelta": 14.026666666666657
+    }
+  ],
+  "episodes": [
+    {
+      "start": 1767600124000,
+      "end": 1767600496000,
+      "durationSec": 372,
+      "peakBpm": 92,
+      "peakT": 1767600152000,
+      "meanBpm": 84.50704225352112,
+      "phase": "incision",
+      "relatedEventIds": ["53d6edda-4860-4827-9250-9e3ef832726e","b795de15-6c55-48ef-8087-e9fc16bfc85e","82f9a603-3578-4006-953b-221363ca3049"]
+    },
+    {
+      "start": 1767600836000,
+      "end": 1767601190000,
+      "durationSec": 354,
+      "peakBpm": 91,
+      "peakT": 1767600884000,
+      "meanBpm": 83.44378698224853,
+      "phase": "critical",
+      "relatedEventIds": ["95c1ef16-2a11-4fb6-bcf1-dd04a6d4b6f1","8053284e-35fa-416a-8bbf-61fd79bdaf9f"]
+    }
+  ],
+  "markerCounts": {
+    "interruption": 1
+  },
+  "workload": null,
+  "performance": null,
+  "perceivedStress": null,
+  "quality": {
+    "coverage": 0.9983333333333333,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": 0.008866371120962635,
+    "sampleRateHz": 0.5
+  }
+}

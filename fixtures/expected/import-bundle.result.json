@@ -1,0 +1,11 @@
+{
+  "sessionIds": ["edge-empty-0001","edge-sparse-0001"],
+  "participantCodes": ["EDGE-03","EDGE-02"],
+  "deidentified": true,
+  "warningCount": 1,
+  "warnings": ["Skipped sessions[1]: rr[0].ms: Too small: expected number to be >=0"],
+  "firstSampleTimes": [
+    [],
+    [1782863974000]
+  ]
+}

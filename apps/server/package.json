@@ -7,6 +7,10 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "dev": "tsx watch src/main.ts",
+    "build": "tsx scripts/build.ts",
+    "start:dist": "node dist/main.js",
+    "backup": "tsx src/backup.ts",
+    "simulate": "tsx scripts/simulate.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

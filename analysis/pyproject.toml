@@ -1,0 +1,45 @@
+[build-system]
+# setuptools >= 64 is needed for PEP 660 editable installs (`pip install -e analysis[dev]`).
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surgeonpulse-analysis"
+version = "0.1.0"
+description = "Research toolkit for SurgeonPulse exports: a Python port of the @surgeonpulse/core HR/HRV analytics, tidy pandas frames and cohort statistics."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.23",
+  "pandas>=2.0",
+]
+keywords = ["heart rate variability", "HRV", "surgery", "SURG-TLX", "workload", "research"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+surgeonpulse = "surgeonpulse_analysis.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+surgeonpulse_analysis = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Lets `python -m pytest` work from a plain checkout without installing the package.
+pythonpath = ["src", "tests"]
+addopts = "-ra"
+xfail_strict = true

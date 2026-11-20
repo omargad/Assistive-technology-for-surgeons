@@ -1,0 +1,23 @@
+# BuildKit reads this file for `docker build -f apps/server/Dockerfile .` (build context = repository root).
+# Keep secrets, research data and other apps out of the build context.
+**/node_modules
+**/.git
+**/dist
+**/dist-web
+**/data
+**/*.sqlite
+**/*.sqlite-*
+**/*.sqlite3
+**/*.db
+**/.env
+**/.env.*
+!**/.env.example
+**/coverage
+**/*.log
+analysis
+docs
+fixtures
+apps/dashboard/*
+!apps/dashboard/package.json
+apps/mobile/*
+!apps/mobile/package.json

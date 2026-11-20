@@ -1,0 +1,13 @@
+session_id,participant_code,t_iso,t_offset_s,type,kind,logged_by,note
+edge-phases-0001,EDGE-01,2026-03-02T09:29:30.000Z,-30,phase,pre-op,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:30:20.000Z,20,phase,pre-op,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:31:00.000Z,60,phase,incision,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:31:10.000Z,70,marker,complication,self,bleeding
+edge-phases-0001,EDGE-01,2026-03-02T09:32:00.000Z,120,phase,dissection,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:32:00.000Z,120,phase,critical,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:33:35.000Z,215,marker,interruption,team,
+edge-phases-0001,EDGE-01,2026-03-02T09:34:20.000Z,260,marker,equipment,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:35:30.000Z,330,phase,closure,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:37:10.000Z,430,marker,teaching,self,
+edge-phases-0001,EDGE-01,2026-03-02T09:38:40.000Z,520,marker,complication,retrospective,
+edge-phases-0001,EDGE-01,2026-03-02T09:40:00.000Z,600,phase,post-op,self,

@@ -1,0 +1,11 @@
+{
+  "sessionIds": ["edge-sparse-0001","unsorted"],
+  "participantCodes": ["EDGE-02","EDGE-03"],
+  "deidentified": false,
+  "warningCount": 2,
+  "warnings": ["Skipped sessions[1]: samples[0].bpm: Too big: expected number to be <=300","Skipped sessions[2]: participantCode: Invalid input: expected string, received undefined"],
+  "firstSampleTimes": [
+    [1782863974000],
+    [1767222001000,1767222002000]
+  ]
+}

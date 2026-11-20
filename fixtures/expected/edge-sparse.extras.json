@@ -1,0 +1,145 @@
+{
+  "sessionEnd": 1782863982000,
+  "derivePhases": [],
+  "hrStats": {
+    "count": 1,
+    "mean": 77,
+    "median": 77,
+    "min": 77,
+    "max": 77,
+    "sd": 0,
+    "p95": 77
+  },
+  "percentiles": [
+    {
+      "p": 0,
+      "value": 77
+    },
+    {
+      "p": 5,
+      "value": 77
+    },
+    {
+      "p": 33.3,
+      "value": 77
+    },
+    {
+      "p": 50,
+      "value": 77
+    },
+    {
+      "p": 95,
+      "value": 77
+    },
+    {
+      "p": 99.9,
+      "value": 77
+    },
+    {
+      "p": 100,
+      "value": 77
+    }
+  ],
+  "detectGaps2000": [],
+  "dataQuality2000": {
+    "coverage": 0,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": 0,
+    "sampleRateHz": 0
+  },
+  "timeInZonesMaxHr185Gap3000": [
+    {
+      "id": "z1",
+      "label": "Very light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z2",
+      "label": "Light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z3",
+      "label": "Moderate",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z4",
+      "label": "Hard",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z5",
+      "label": "Maximum",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "timeInZonesBaseline65": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "episodeThreshold": 82,
+  "episodesNoMerge": [],
+  "episodesLongMerge": [],
+  "episodesNoContext": [],
+  "computeBaselineFirst5Min": {
+    "startedAt": 1782863970000,
+    "endedAt": 1782864270000,
+    "restingHr": 77,
+    "source": "measured"
+  },
+  "cleanRrCustom": {
+    "valid": [true,true,true,true,true,true,true,true,true,true,true,true],
+    "report": {
+      "total": 12,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "computeHrvCustom": {
+    "hrv": {
+      "n": 12,
+      "pairs": 11,
+      "meanRr": 820,
+      "sdnn": 17.056057308448835,
+      "rmssd": 26.967994498529684,
+      "pnn50": 0,
+      "meanHr": 73.17073170731707
+    },
+    "artifacts": {
+      "total": 12,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "baevskyBin25": null,
+  "baevskyBin100": null
+}

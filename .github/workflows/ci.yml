@@ -28,6 +28,14 @@ jobs:
         run: |
           npm run typecheck -w @surgeonpulse/core
           npm test -w @surgeonpulse/core
+      - name: Parity fixtures are up to date with the TypeScript implementation
+        run: |
+          npm run fixtures -w @surgeonpulse/core
+          if [ -n "$(git status --porcelain -- fixtures)" ]; then
+            echo "::error::fixtures/ is stale - run 'npm run fixtures -w @surgeonpulse/core' and commit the result"
+            git status --short -- fixtures
+            exit 1
+          fi
       - name: Server
         run: |
           npm run typecheck -w @surgeonpulse/server
@@ -61,13 +69,20 @@ jobs:
       - run: npm run e2e -w @surgeonpulse/dashboard -- --trace off
 
   python:
-    name: Python analysis toolkit (incl. TS ↔ Python parity)
-    runs-on: ubuntu-latest
+    name: Python analysis toolkit (incl. TS ↔ Python parity) · ${{ matrix.os }} · py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install -e "analysis[dev]"
-      - run: pytest -q analysis
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e "analysis[dev]"
+      - run: python -m pytest -q analysis
+      - name: CLI smoke test (console script)
+        run: surgeonpulse summarize fixtures/cohort-small.json -o analysis-out/summaries.csv

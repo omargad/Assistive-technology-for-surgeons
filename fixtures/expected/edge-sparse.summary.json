@@ -1,0 +1,43 @@
+{
+  "sessionId": "edge-sparse-0001",
+  "participantCode": "EDGE-02",
+  "procedureName": "Diagnostic laparoscopy",
+  "startedAt": 1782863970000,
+  "endedAt": 1782863982000,
+  "durationSec": 12,
+  "hr": {
+    "count": 1,
+    "mean": 77,
+    "median": 77,
+    "min": 77,
+    "max": 77,
+    "sd": 0,
+    "p95": 77
+  },
+  "hrv": null,
+  "rrArtifacts": {
+    "total": 12,
+    "removed": 0,
+    "ratio": 0
+  },
+  "stressIndex": null,
+  "baseline": null,
+  "meanHrDelta": null,
+  "peakHrDelta": null,
+  "maxHr": null,
+  "zones": [],
+  "highIntensityFraction": null,
+  "phases": [],
+  "episodes": [],
+  "markerCounts": {},
+  "workload": null,
+  "performance": null,
+  "perceivedStress": null,
+  "quality": {
+    "coverage": 0,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": 0,
+    "sampleRateHz": 0
+  }
+}

@@ -2,12 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f7fa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1419" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      name="description"
+      content="SurgeonPulse research and performance-feedback dashboard. Data loaded from files stays in this browser."
+    />
+    <title>SurgeonPulse Dashboard</title>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>SurgeonPulse Dashboard needs JavaScript enabled.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

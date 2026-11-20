@@ -1,0 +1,595 @@
+{
+  "sessionEnd": 1767602100000,
+  "derivePhases": [
+    {
+      "phase": "pre-op",
+      "index": 0,
+      "start": 1767600000000,
+      "end": 1767600184458
+    },
+    {
+      "phase": "incision",
+      "index": 1,
+      "start": 1767600184458,
+      "end": 1767600351700
+    },
+    {
+      "phase": "dissection",
+      "index": 2,
+      "start": 1767600351700,
+      "end": 1767601261177
+    },
+    {
+      "phase": "critical",
+      "index": 3,
+      "start": 1767601261177,
+      "end": 1767601546979
+    },
+    {
+      "phase": "closure",
+      "index": 4,
+      "start": 1767601546979,
+      "end": 1767602010103
+    },
+    {
+      "phase": "post-op",
+      "index": 5,
+      "start": 1767602010103,
+      "end": 1767602100000
+    }
+  ],
+  "hrStats": {
+    "count": 2100,
+    "mean": 76.31285714285714,
+    "median": 76,
+    "min": 65,
+    "max": 94,
+    "sd": 5.182677787646867,
+    "p95": 85.04999999999995
+  },
+  "percentiles": [
+    {
+      "p": 0,
+      "value": 65
+    },
+    {
+      "p": 5,
+      "value": 69
+    },
+    {
+      "p": 33.3,
+      "value": 74
+    },
+    {
+      "p": 50,
+      "value": 76
+    },
+    {
+      "p": 95,
+      "value": 85.04999999999995
+    },
+    {
+      "p": 99.9,
+      "value": 92
+    },
+    {
+      "p": 100,
+      "value": 94
+    }
+  ],
+  "detectGaps2000": [],
+  "dataQuality2000": {
+    "coverage": 0.9995238095238095,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": 0.010918674698795181,
+    "sampleRateHz": 1
+  },
+  "timeInZonesMaxHr185Gap3000": [
+    {
+      "id": "z1",
+      "label": "Very light",
+      "seconds": 2100,
+      "fraction": 1
+    },
+    {
+      "id": "z2",
+      "label": "Light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z3",
+      "label": "Moderate",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z4",
+      "label": "Hard",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z5",
+      "label": "Maximum",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "timeInZonesBaseline65": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 837,
+      "fraction": 0.3985714285714286
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 1120,
+      "fraction": 0.5333333333333333
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 143,
+      "fraction": 0.0680952380952381
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "episodeThreshold": 81,
+  "episodesNoMerge": [
+    {
+      "start": 1767600327000,
+      "end": 1767600327000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600327000,
+      "meanBpm": 81,
+      "phase": "incision",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600330000,
+      "end": 1767600335000,
+      "durationSec": 5,
+      "peakBpm": 84,
+      "peakT": 1767600331000,
+      "meanBpm": 82.16666666666667,
+      "phase": "incision",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600342000,
+      "end": 1767600343000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767600342000,
+      "meanBpm": 81,
+      "phase": "incision",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600348000,
+      "end": 1767600352000,
+      "durationSec": 4,
+      "peakBpm": 83,
+      "peakT": 1767600350000,
+      "meanBpm": 82.2,
+      "phase": "incision",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600354000,
+      "end": 1767600356000,
+      "durationSec": 2,
+      "peakBpm": 82,
+      "peakT": 1767600355000,
+      "meanBpm": 81.33333333333333,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600359000,
+      "end": 1767600359000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600359000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600363000,
+      "end": 1767600364000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767600363000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600366000,
+      "end": 1767600371000,
+      "durationSec": 5,
+      "peakBpm": 82,
+      "peakT": 1767600366000,
+      "meanBpm": 81.66666666666667,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600383000,
+      "end": 1767600384000,
+      "durationSec": 1,
+      "peakBpm": 82,
+      "peakT": 1767600383000,
+      "meanBpm": 82,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600386000,
+      "end": 1767600391000,
+      "durationSec": 5,
+      "peakBpm": 82,
+      "peakT": 1767600387000,
+      "meanBpm": 81.5,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600411000,
+      "end": 1767600412000,
+      "durationSec": 1,
+      "peakBpm": 82,
+      "peakT": 1767600411000,
+      "meanBpm": 81.5,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600450000,
+      "end": 1767600452000,
+      "durationSec": 2,
+      "peakBpm": 82,
+      "peakT": 1767600451000,
+      "meanBpm": 81.33333333333333,
+      "phase": "dissection",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600683000,
+      "end": 1767600687000,
+      "durationSec": 4,
+      "peakBpm": 82,
+      "peakT": 1767600683000,
+      "meanBpm": 81.4,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600691000,
+      "end": 1767600691000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600691000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600704000,
+      "end": 1767600707000,
+      "durationSec": 3,
+      "peakBpm": 82,
+      "peakT": 1767600706000,
+      "meanBpm": 81.5,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600723000,
+      "end": 1767600724000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767600723000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600726000,
+      "end": 1767600732000,
+      "durationSec": 6,
+      "peakBpm": 83,
+      "peakT": 1767600727000,
+      "meanBpm": 82.14285714285714,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600734000,
+      "end": 1767600736000,
+      "durationSec": 2,
+      "peakBpm": 83,
+      "peakT": 1767600735000,
+      "meanBpm": 82.33333333333333,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600844000,
+      "end": 1767600844000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600844000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600919000,
+      "end": 1767600920000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767600919000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600931000,
+      "end": 1767600931000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600931000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601035000,
+      "end": 1767601035000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601035000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601039000,
+      "end": 1767601044000,
+      "durationSec": 5,
+      "peakBpm": 82,
+      "peakT": 1767601043000,
+      "meanBpm": 81.16666666666667,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601050000,
+      "end": 1767601076000,
+      "durationSec": 26,
+      "peakBpm": 87,
+      "peakT": 1767601059000,
+      "meanBpm": 83.22222222222223,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601079000,
+      "end": 1767601084000,
+      "durationSec": 5,
+      "peakBpm": 84,
+      "peakT": 1767601079000,
+      "meanBpm": 83.66666666666667,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601087000,
+      "end": 1767601193000,
+      "durationSec": 106,
+      "peakBpm": 94,
+      "peakT": 1767601134000,
+      "meanBpm": 87.57943925233644,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601195000,
+      "end": 1767601233000,
+      "durationSec": 38,
+      "peakBpm": 87,
+      "peakT": 1767601219000,
+      "meanBpm": 83.94871794871794,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601235000,
+      "end": 1767601252000,
+      "durationSec": 17,
+      "peakBpm": 85,
+      "peakT": 1767601247000,
+      "meanBpm": 82.77777777777777,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601258000,
+      "end": 1767601259000,
+      "durationSec": 1,
+      "peakBpm": 82,
+      "peakT": 1767601259000,
+      "meanBpm": 81.5,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601263000,
+      "end": 1767601388000,
+      "durationSec": 125,
+      "peakBpm": 87,
+      "peakT": 1767601275000,
+      "meanBpm": 83.27777777777777,
+      "phase": "critical",
+      "relatedEventIds": ["f7f60689-da50-4a4a-bae4-928c9c9c1d1a"]
+    },
+    {
+      "start": 1767601531000,
+      "end": 1767601533000,
+      "durationSec": 2,
+      "peakBpm": 82,
+      "peakT": 1767601532000,
+      "meanBpm": 81.33333333333333,
+      "phase": "critical",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601535000,
+      "end": 1767601535000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601535000,
+      "meanBpm": 81,
+      "phase": "critical",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601538000,
+      "end": 1767601556000,
+      "durationSec": 18,
+      "peakBpm": 86,
+      "peakT": 1767601543000,
+      "meanBpm": 83.52631578947368,
+      "phase": "critical",
+      "relatedEventIds": ["25bb335d-2855-4a19-9d5d-30a1522c1a9a"]
+    },
+    {
+      "start": 1767601558000,
+      "end": 1767601563000,
+      "durationSec": 5,
+      "peakBpm": 83,
+      "peakT": 1767601560000,
+      "meanBpm": 81.5,
+      "phase": "closure",
+      "relatedEventIds": ["25bb335d-2855-4a19-9d5d-30a1522c1a9a"]
+    },
+    {
+      "start": 1767602099000,
+      "end": 1767602099000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767602099000,
+      "meanBpm": 81,
+      "phase": "post-op",
+      "relatedEventIds": ["1fad10f3-dafa-4973-8f82-1d7d0f6d7c28"]
+    }
+  ],
+  "episodesLongMerge": [
+    {
+      "start": 1767600327000,
+      "end": 1767600452000,
+      "durationSec": 125,
+      "peakBpm": 84,
+      "peakT": 1767600331000,
+      "meanBpm": 81.64102564102564,
+      "phase": "incision",
+      "relatedEventIds": ["24d29f93-fa2f-4b03-a612-cff43d9da88c"]
+    },
+    {
+      "start": 1767600683000,
+      "end": 1767600736000,
+      "durationSec": 53,
+      "peakBpm": 83,
+      "peakT": 1767600727000,
+      "meanBpm": 81.72727272727273,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601035000,
+      "end": 1767601388000,
+      "durationSec": 353,
+      "peakBpm": 94,
+      "peakT": 1767601134000,
+      "meanBpm": 84.66265060240964,
+      "phase": "dissection",
+      "relatedEventIds": ["f7f60689-da50-4a4a-bae4-928c9c9c1d1a"]
+    },
+    {
+      "start": 1767601531000,
+      "end": 1767601563000,
+      "durationSec": 32,
+      "peakBpm": 86,
+      "peakT": 1767601543000,
+      "meanBpm": 82.79310344827586,
+      "phase": "critical",
+      "relatedEventIds": ["25bb335d-2855-4a19-9d5d-30a1522c1a9a"]
+    }
+  ],
+  "episodesNoContext": [
+    {
+      "start": 1767600327000,
+      "end": 1767600412000,
+      "durationSec": 85,
+      "peakBpm": 84,
+      "peakT": 1767600331000,
+      "meanBpm": 81.66666666666667,
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601035000,
+      "end": 1767601388000,
+      "durationSec": 353,
+      "peakBpm": 94,
+      "peakT": 1767601134000,
+      "meanBpm": 84.66265060240964,
+      "relatedEventIds": []
+    }
+  ],
+  "computeBaselineFirst5Min": {
+    "startedAt": 1767600000000,
+    "endedAt": 1767600300000,
+    "restingHr": 72.93333333333334,
+    "source": "measured",
+    "rmssd": 33.55326717376265,
+    "sdnn": 43.76842565044081
+  },
+  "cleanRrCustom": {
+    "valid": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,false,true,true,true,true,false,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true],
+    "report": {
+      "total": 2656,
+      "removed": 44,
+      "ratio": 0.016566265060240965
+    }
+  },
+  "computeHrvCustom": {
+    "hrv": {
+      "n": 2627,
+      "pairs": 2605,
+      "meanRr": 786.2320974495638,
+      "sdnn": 57.211271466794926,
+      "rmssd": 29.908510532542998,
+      "pnn50": 8.36852207293666,
+      "meanHr": 76.31334334305647
+    },
+    "artifacts": {
+      "total": 2656,
+      "removed": 29,
+      "ratio": 0.010918674698795181
+    }
+  },
+  "baevskyBin25": 34.00464818151265,
+  "baevskyBin100": 108.35463229829428
+}

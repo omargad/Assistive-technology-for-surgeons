@@ -1,0 +1,3 @@
+# Keep LF line endings on Windows checkouts too (Dockerfile, .env.example and sources are
+# consumed by Linux containers and by tools that are picky about CRLF).
+* text=auto eol=lf

@@ -7,7 +7,9 @@
  *
  * Numeric ranges (SPEC.md › io/schema.ts): bpm 0–300, RR 0–5000 ms, ratings
  * 0–100, performance and perceived stress 0–10, complexity 1–5. All numbers
- * must be finite (zod v4 rejects NaN and ±Infinity by default).
+ * must be finite (zod v4 rejects NaN and ±Infinity by default). Time windows
+ * must not run backwards: a session's `endedAt` (when present) and a
+ * baseline's `endedAt` must be ≥ their `startedAt`.
  */
 import { z } from 'zod';
 import { SCHEMA_VERSION } from '../types';
@@ -202,14 +204,16 @@ export const PostOpReportSchema = z.object({
   notes: z.string().optional(),
 });
 
-export const BaselineSchema = z.object({
-  startedAt: epochMs,
-  endedAt: epochMs,
-  restingHr: bpm,
-  rmssd: nonNegative.optional(),
-  sdnn: nonNegative.optional(),
-  source: z.enum(['measured', 'manual', 'profile']),
-});
+export const BaselineSchema = z
+  .object({
+    startedAt: epochMs,
+    endedAt: epochMs,
+    restingHr: bpm,
+    rmssd: nonNegative.optional(),
+    sdnn: nonNegative.optional(),
+    source: z.enum(['measured', 'manual', 'profile']),
+  })
+  .refine((b) => b.endedAt >= b.startedAt, { message: 'endedAt must not be before startedAt', path: ['endedAt'] });
 
 // ---------------------------------------------------------------------------
 // Session & bundle
@@ -234,7 +238,13 @@ export const SurgicalSessionSchema = z.object({
   events: z.array(SessionEventSchema),
   postOp: PostOpReportSchema.optional(),
   tags: z.array(z.string()).optional(),
-});
+})
+  // finishSession enforces this for sessions recorded in the app; imports must not bypass it (a backwards window
+  // would give a negative duration and phase segments that start before the session).
+  .refine((s) => s.endedAt === undefined || s.endedAt >= s.startedAt, {
+    message: 'endedAt must not be before startedAt',
+    path: ['endedAt'],
+  });
 
 export const ExportBundleSchema = z.object({
   format: z.literal('surgeonpulse-export'),
@@ -255,7 +265,7 @@ type Check<T extends true> = T;
 type Assignable<From, To> = [From] extends [To] ? true : false;
 type Mutual<A, B> = Assignable<A, B> extends true ? Assignable<B, A> : false;
 
-export type _SchemaContractChecks = [
+type _SchemaContractChecks = [
   Check<Mutual<z.infer<typeof SensorInfoSchema>, SensorInfo>>,
   Check<Mutual<z.infer<typeof AppInfoSchema>, AppInfo>>,
   Check<Mutual<z.infer<typeof HeartRateSampleSchema>, HeartRateSample>>,
@@ -332,6 +342,13 @@ export function formatZodIssues(
  */
 const MIGRATIONS: Readonly<Record<number, (raw: Record<string, unknown>) => Record<string, unknown>>> = {};
 
+function describeValue(x: unknown): string {
+  if (typeof x === 'string') return x.length <= 40 ? JSON.stringify(x) : 'string';
+  if (x === null) return 'null';
+  if (typeof x === 'object') return Array.isArray(x) ? 'array' : 'object';
+  return String(x);
+}
+
 function isPlainObject(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x);
 }
@@ -347,14 +364,14 @@ function isPlainObject(x: unknown): x is Record<string, unknown> {
  */
 export function migrateSession(raw: unknown): unknown {
   if (!isPlainObject(raw)) {
-    throw new SessionParseError([`(root): Expected a session object, received ${raw === null ? 'null' : Array.isArray(raw) ? 'array' : typeof raw}`]);
+    throw new SessionParseError([`(root): Expected a session object, received ${describeValue(raw)}`]);
   }
   const version = raw.schemaVersion;
   if (version === undefined) {
     throw new SessionParseError(['schemaVersion: Missing schemaVersion; cannot tell which format this session uses']);
   }
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
-    throw new SessionParseError([`schemaVersion: Unsupported schemaVersion ${JSON.stringify(version) ?? String(version)}`]);
+    throw new SessionParseError([`schemaVersion: Unsupported schemaVersion ${describeValue(version)}`]);
   }
   if (version > SCHEMA_VERSION) {
     throw new SessionParseError([

@@ -1,0 +1,258 @@
+{
+  "sessionId": "2aa8a43d-14a5-4bd1-8fca-0145312d5ad4",
+  "participantCode": "SIM-001",
+  "procedureName": "Laparoscopic cholecystectomy",
+  "specialty": "General surgery",
+  "approach": "laparoscopic",
+  "role": "primary",
+  "urgency": "elective",
+  "complexity": 2,
+  "trainingLevel": "fellow",
+  "startedAt": 1767600000000,
+  "endedAt": 1767601800000,
+  "durationSec": 1800,
+  "hr": {
+    "count": 1150,
+    "mean": 75.66173913043478,
+    "median": 75.5,
+    "min": 61,
+    "max": 90,
+    "sd": 5.731246446687776,
+    "p95": 85
+  },
+  "hrv": {
+    "n": 1389,
+    "pairs": 1335,
+    "meanRr": 793.0454211663063,
+    "sdnn": 64.28537648964517,
+    "rmssd": 30.10922592068867,
+    "pnn50": 9.063670411985019,
+    "meanHr": 75.65770938032773
+  },
+  "rrArtifacts": {
+    "total": 1437,
+    "removed": 48,
+    "ratio": 0.033402922755741124
+  },
+  "stressIndex": 49.1046483221046,
+  "baseline": {
+    "startedAt": 1767599700000,
+    "endedAt": 1767600000000,
+    "restingHr": 68.1,
+    "rmssd": 34.23366672810897,
+    "sdnn": 26.334719822861672,
+    "source": "measured"
+  },
+  "meanHrDelta": 7.561739130434788,
+  "peakHrDelta": 21.900000000000006,
+  "maxHr": null,
+  "zones": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 840,
+      "fraction": 0.6656101426307448
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 414,
+      "fraction": 0.32805071315372425
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 8,
+      "fraction": 0.006339144215530904
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "highIntensityFraction": null,
+  "phases": [
+    {
+      "phase": "pre-op",
+      "index": 0,
+      "start": 1767600000000,
+      "end": 1767600213011,
+      "durationSec": 213.011,
+      "hr": {
+        "count": 146,
+        "mean": 73.28767123287672,
+        "median": 74,
+        "min": 65,
+        "max": 80,
+        "sd": 3.743424403347894,
+        "p95": 78
+      },
+      "hrv": {
+        "n": 166,
+        "pairs": 157,
+        "meanRr": 817.4004999999999,
+        "sdnn": 47.19674554133939,
+        "rmssd": 31.76722107610436,
+        "pnn50": 10.19108280254777,
+        "meanHr": 73.40342953056673
+      },
+      "meanHrDelta": 5.187671232876724
+    },
+    {
+      "phase": "incision",
+      "index": 1,
+      "start": 1767600213011,
+      "end": 1767600407371,
+      "durationSec": 194.36,
+      "hr": {
+        "count": 159,
+        "mean": 77.83018867924528,
+        "median": 77,
+        "min": 72,
+        "max": 87,
+        "sd": 3.517060674335835,
+        "p95": 84.1
+      },
+      "hrv": {
+        "n": 193,
+        "pairs": 186,
+        "meanRr": 769.7437927461139,
+        "sdnn": 41.25416766482192,
+        "rmssd": 29.881701283327594,
+        "pnn50": 7.526881720430108,
+        "meanHr": 77.94801408653895
+      },
+      "meanHrDelta": 9.730188679245288
+    },
+    {
+      "phase": "dissection",
+      "index": 2,
+      "start": 1767600407371,
+      "end": 1767601062183,
+      "durationSec": 654.812,
+      "hr": {
+        "count": 375,
+        "mean": 78.01066666666667,
+        "median": 79,
+        "min": 65,
+        "max": 87,
+        "sd": 4.385792976834477,
+        "p95": 85
+      },
+      "hrv": {
+        "n": 468,
+        "pairs": 447,
+        "meanRr": 770.3408974358971,
+        "sdnn": 47.90290774379628,
+        "rmssd": 28.485051634924172,
+        "pnn50": 7.158836689038031,
+        "meanHr": 77.88759521883338
+      },
+      "meanHrDelta": 9.910666666666671
+    },
+    {
+      "phase": "critical",
+      "index": 3,
+      "start": 1767601062183,
+      "end": 1767601339738,
+      "durationSec": 277.555,
+      "hr": {
+        "count": 121,
+        "mean": 83.04132231404958,
+        "median": 83,
+        "min": 75,
+        "max": 90,
+        "sd": 3.4650557816935548,
+        "p95": 88
+      },
+      "hrv": {
+        "n": 166,
+        "pairs": 159,
+        "meanRr": 722.4621626506023,
+        "sdnn": 34.20502966228251,
+        "rmssd": 24.344696334961945,
+        "pnn50": 3.7735849056603774,
+        "meanHr": 83.04933199528298
+      },
+      "meanHrDelta": 14.941322314049586
+    },
+    {
+      "phase": "closure",
+      "index": 4,
+      "start": 1767601339738,
+      "end": 1767601691608,
+      "durationSec": 351.87,
+      "hr": {
+        "count": 253,
+        "mean": 70.11067193675889,
+        "median": 70,
+        "min": 61,
+        "max": 84,
+        "sd": 4.64659851088003,
+        "p95": 78
+      },
+      "hrv": {
+        "n": 285,
+        "pairs": 276,
+        "meanRr": 856.3939719298244,
+        "sdnn": 61.570174640713326,
+        "rmssd": 35.03054098387845,
+        "pnn50": 15.579710144927537,
+        "meanHr": 70.06121244033767
+      },
+      "meanHrDelta": 2.0106719367588965
+    },
+    {
+      "phase": "post-op",
+      "index": 5,
+      "start": 1767601691608,
+      "end": 1767601800000,
+      "durationSec": 108.392,
+      "hr": {
+        "count": 96,
+        "mean": 71.83333333333333,
+        "median": 72,
+        "min": 68,
+        "max": 76,
+        "sd": 1.613539206815199,
+        "p95": 74
+      },
+      "hrv": {
+        "n": 111,
+        "pairs": 107,
+        "meanRr": 835.7703963963962,
+        "sdnn": 27.40514489994345,
+        "rmssd": 28.545862799244162,
+        "pnn50": 9.345794392523365,
+        "meanHr": 71.79005173993109
+      },
+      "meanHrDelta": 3.7333333333333343
+    }
+  ],
+  "episodes": [],
+  "markerCounts": {},
+  "workload": {
+    "instrument": "nasa-tlx",
+    "raw": 43.333333333333336,
+    "weighted": null,
+    "dimensions": {
+      "mental": 65,
+      "physical": 30,
+      "temporal": 45,
+      "performance": 25,
+      "effort": 60,
+      "frustration": 35
+    }
+  },
+  "performance": 7,
+  "perceivedStress": 1,
+  "quality": {
+    "coverage": 0.7005555555555556,
+    "gapCount": 28,
+    "longestGapSec": 40,
+    "rrArtifactRatio": 0.033402922755741124,
+    "sampleRateHz": 0.9111816019032514
+  }
+}

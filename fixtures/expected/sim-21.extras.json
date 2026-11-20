@@ -1,0 +1,465 @@
+{
+  "sessionEnd": 1767601800000,
+  "derivePhases": [
+    {
+      "phase": "pre-op",
+      "index": 0,
+      "start": 1767600000000,
+      "end": 1767600176779
+    },
+    {
+      "phase": "incision",
+      "index": 1,
+      "start": 1767600176779,
+      "end": 1767600315974
+    },
+    {
+      "phase": "dissection",
+      "index": 2,
+      "start": 1767600315974,
+      "end": 1767601073031
+    },
+    {
+      "phase": "critical",
+      "index": 3,
+      "start": 1767601073031,
+      "end": 1767601303928
+    },
+    {
+      "phase": "closure",
+      "index": 4,
+      "start": 1767601303928,
+      "end": 1767601704917
+    },
+    {
+      "phase": "post-op",
+      "index": 5,
+      "start": 1767601704917,
+      "end": 1767601800000
+    }
+  ],
+  "hrStats": {
+    "count": 1800,
+    "mean": 75.47055555555555,
+    "median": 76,
+    "min": 60,
+    "max": 96,
+    "sd": 7.887988752633445,
+    "p95": 91
+  },
+  "percentiles": [
+    {
+      "p": 0,
+      "value": 60
+    },
+    {
+      "p": 5,
+      "value": 63
+    },
+    {
+      "p": 33.3,
+      "value": 72
+    },
+    {
+      "p": 50,
+      "value": 76
+    },
+    {
+      "p": 95,
+      "value": 91
+    },
+    {
+      "p": 99.9,
+      "value": 95.20100000000025
+    },
+    {
+      "p": 100,
+      "value": 96
+    }
+  ],
+  "detectGaps2000": [],
+  "dataQuality2000": {
+    "coverage": 0.9994444444444445,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": null,
+    "sampleRateHz": 1
+  },
+  "timeInZonesMaxHr185Gap3000": [
+    {
+      "id": "z1",
+      "label": "Very light",
+      "seconds": 1800,
+      "fraction": 1
+    },
+    {
+      "id": "z2",
+      "label": "Light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z3",
+      "label": "Moderate",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z4",
+      "label": "Hard",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z5",
+      "label": "Maximum",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "timeInZonesBaseline65": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 783,
+      "fraction": 0.435
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 789,
+      "fraction": 0.43833333333333335
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 222,
+      "fraction": 0.12333333333333334
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 6,
+      "fraction": 0.0033333333333333335
+    }
+  ],
+  "episodeThreshold": 81,
+  "episodesNoMerge": [
+    {
+      "start": 1767600759000,
+      "end": 1767600760000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767600759000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600775000,
+      "end": 1767600780000,
+      "durationSec": 5,
+      "peakBpm": 83,
+      "peakT": 1767600778000,
+      "meanBpm": 82.16666666666667,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600783000,
+      "end": 1767600788000,
+      "durationSec": 5,
+      "peakBpm": 83,
+      "peakT": 1767600786000,
+      "meanBpm": 81.83333333333333,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767600795000,
+      "end": 1767600795000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767600795000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601000000,
+      "end": 1767601000000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601000000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601007000,
+      "end": 1767601007000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601007000,
+      "meanBpm": 81,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601107000,
+      "end": 1767601116000,
+      "durationSec": 9,
+      "peakBpm": 82,
+      "peakT": 1767601112000,
+      "meanBpm": 81.3,
+      "phase": "critical",
+      "relatedEventIds": ["6f2df16c-c350-40f9-b49c-42a5685815af"]
+    },
+    {
+      "start": 1767601119000,
+      "end": 1767601344000,
+      "durationSec": 225,
+      "peakBpm": 96,
+      "peakT": 1767601215000,
+      "meanBpm": 89.75221238938053,
+      "phase": "critical",
+      "relatedEventIds": ["6f2df16c-c350-40f9-b49c-42a5685815af","132900f3-8ddc-4573-84b4-2603f2f0b9fa"]
+    },
+    {
+      "start": 1767601535000,
+      "end": 1767601540000,
+      "durationSec": 5,
+      "peakBpm": 84,
+      "peakT": 1767601536000,
+      "meanBpm": 83,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601547000,
+      "end": 1767601548000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767601547000,
+      "meanBpm": 81,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601552000,
+      "end": 1767601584000,
+      "durationSec": 32,
+      "peakBpm": 84,
+      "peakT": 1767601555000,
+      "meanBpm": 82.54545454545455,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601586000,
+      "end": 1767601600000,
+      "durationSec": 14,
+      "peakBpm": 84,
+      "peakT": 1767601587000,
+      "meanBpm": 82.06666666666666,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601607000,
+      "end": 1767601620000,
+      "durationSec": 13,
+      "peakBpm": 83,
+      "peakT": 1767601611000,
+      "meanBpm": 81.85714285714286,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601622000,
+      "end": 1767601624000,
+      "durationSec": 2,
+      "peakBpm": 81,
+      "peakT": 1767601622000,
+      "meanBpm": 81,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601626000,
+      "end": 1767601627000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767601626000,
+      "meanBpm": 81,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601634000,
+      "end": 1767601635000,
+      "durationSec": 1,
+      "peakBpm": 82,
+      "peakT": 1767601635000,
+      "meanBpm": 81.5,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601639000,
+      "end": 1767601644000,
+      "durationSec": 5,
+      "peakBpm": 83,
+      "peakT": 1767601639000,
+      "meanBpm": 81.83333333333333,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601646000,
+      "end": 1767601700000,
+      "durationSec": 54,
+      "peakBpm": 87,
+      "peakT": 1767601655000,
+      "meanBpm": 83.63636363636364,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601703000,
+      "end": 1767601703000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601703000,
+      "meanBpm": 81,
+      "phase": "closure",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601712000,
+      "end": 1767601712000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601712000,
+      "meanBpm": 81,
+      "phase": "post-op",
+      "relatedEventIds": ["789d725b-3c00-44e8-a49b-2c52b1897c3e"]
+    },
+    {
+      "start": 1767601770000,
+      "end": 1767601771000,
+      "durationSec": 1,
+      "peakBpm": 82,
+      "peakT": 1767601770000,
+      "meanBpm": 82,
+      "phase": "post-op",
+      "relatedEventIds": ["789d725b-3c00-44e8-a49b-2c52b1897c3e"]
+    },
+    {
+      "start": 1767601775000,
+      "end": 1767601776000,
+      "durationSec": 1,
+      "peakBpm": 81,
+      "peakT": 1767601775000,
+      "meanBpm": 81,
+      "phase": "post-op",
+      "relatedEventIds": ["789d725b-3c00-44e8-a49b-2c52b1897c3e"]
+    },
+    {
+      "start": 1767601778000,
+      "end": 1767601780000,
+      "durationSec": 2,
+      "peakBpm": 82,
+      "peakT": 1767601779000,
+      "meanBpm": 81.66666666666667,
+      "phase": "post-op",
+      "relatedEventIds": ["789d725b-3c00-44e8-a49b-2c52b1897c3e"]
+    },
+    {
+      "start": 1767601783000,
+      "end": 1767601783000,
+      "durationSec": 0,
+      "peakBpm": 81,
+      "peakT": 1767601783000,
+      "meanBpm": 81,
+      "phase": "post-op",
+      "relatedEventIds": ["789d725b-3c00-44e8-a49b-2c52b1897c3e"]
+    }
+  ],
+  "episodesLongMerge": [
+    {
+      "start": 1767600759000,
+      "end": 1767600795000,
+      "durationSec": 36,
+      "peakBpm": 83,
+      "peakT": 1767600778000,
+      "meanBpm": 81.8,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601107000,
+      "end": 1767601344000,
+      "durationSec": 237,
+      "peakBpm": 96,
+      "peakT": 1767601215000,
+      "meanBpm": 89.39406779661017,
+      "phase": "critical",
+      "relatedEventIds": ["6f2df16c-c350-40f9-b49c-42a5685815af","132900f3-8ddc-4573-84b4-2603f2f0b9fa"]
+    },
+    {
+      "start": 1767601535000,
+      "end": 1767601783000,
+      "durationSec": 248,
+      "peakBpm": 87,
+      "peakT": 1767601655000,
+      "meanBpm": 82.66216216216216,
+      "phase": "closure",
+      "relatedEventIds": ["789d725b-3c00-44e8-a49b-2c52b1897c3e"]
+    }
+  ],
+  "episodesNoContext": [
+    {
+      "start": 1767601107000,
+      "end": 1767601344000,
+      "durationSec": 237,
+      "peakBpm": 96,
+      "peakT": 1767601215000,
+      "meanBpm": 89.39406779661017,
+      "relatedEventIds": []
+    },
+    {
+      "start": 1767601535000,
+      "end": 1767601712000,
+      "durationSec": 177,
+      "peakBpm": 87,
+      "peakT": 1767601655000,
+      "meanBpm": 82.72857142857143,
+      "relatedEventIds": []
+    }
+  ],
+  "computeBaselineFirst5Min": {
+    "startedAt": 1767600000000,
+    "endedAt": 1767600300000,
+    "restingHr": 68.16666666666667,
+    "source": "measured"
+  },
+  "cleanRrCustom": {
+    "valid": [],
+    "report": {
+      "total": 0,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "computeHrvCustom": {
+    "hrv": null,
+    "artifacts": {
+      "total": 0,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "baevskyBin25": null,
+  "baevskyBin100": null
+}

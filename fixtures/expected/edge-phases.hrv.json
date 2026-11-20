@@ -1,0 +1,264 @@
+{
+  "computeHrv": {
+    "hrv": {
+      "n": 819,
+      "pairs": 815,
+      "meanRr": 715.9000085470086,
+      "sdnn": 79.90184839001225,
+      "rmssd": 23.512712200808245,
+      "pnn50": 0.24539877300613497,
+      "meanHr": 83.81058707035926
+    },
+    "artifacts": {
+      "total": 823,
+      "removed": 4,
+      "ratio": 0.004860267314702308
+    }
+  },
+  "computeHrvMin20": {
+    "hrv": {
+      "n": 819,
+      "pairs": 815,
+      "meanRr": 715.9000085470086,
+      "sdnn": 79.90184839001225,
+      "rmssd": 23.512712200808245,
+      "pnn50": 0.24539877300613497,
+      "meanHr": 83.81058707035926
+    },
+    "artifacts": {
+      "total": 823,
+      "removed": 4,
+      "ratio": 0.004860267314702308
+    }
+  },
+  "cleanRrValid": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true],
+  "cleanRrReport": {
+    "total": 823,
+    "removed": 4,
+    "ratio": 0.004860267314702308
+  },
+  "hrvTimeDomainValid": {
+    "n": 819,
+    "pairs": 818,
+    "meanRr": 715.9000085470086,
+    "sdnn": 79.90184839001225,
+    "rmssd": 23.51885746407865,
+    "pnn50": 0.24449877750611246,
+    "meanHr": 83.81058707035926
+  },
+  "baevskyStressIndex": 81.58362196266964,
+  "rollingHrv": [
+    {
+      "t": 1772443861000,
+      "rmssd": 25.202428997344626,
+      "sdnn": 19.75767772865183,
+      "meanHr": 72.32643572411604,
+      "n": 72
+    },
+    {
+      "t": 1772443891000,
+      "rmssd": 31.46696367261719,
+      "sdnn": 110.86312680856766,
+      "meanHr": 85.04884355085125,
+      "n": 85
+    },
+    {
+      "t": 1772443921000,
+      "rmssd": 20.10342932630595,
+      "sdnn": 19.486499523547053,
+      "meanHr": 98.49823207271959,
+      "n": 92
+    },
+    {
+      "t": 1772443951000,
+      "rmssd": 20.305686558417463,
+      "sdnn": 19.562646900458077,
+      "meanHr": 98.49161832835414,
+      "n": 94
+    },
+    {
+      "t": 1772443981000,
+      "rmssd": 19.800030431846327,
+      "sdnn": 19.018987726723193,
+      "meanHr": 98.45744206073749,
+      "n": 99
+    },
+    {
+      "t": 1772444011000,
+      "rmssd": 19.586885488194895,
+      "sdnn": 18.780799395081978,
+      "meanHr": 98.52680025612179,
+      "n": 96
+    },
+    {
+      "t": 1772444041000,
+      "rmssd": 23.676484009791956,
+      "sdnn": 53.1179593818249,
+      "meanHr": 95.431190699584,
+      "n": 93
+    },
+    {
+      "t": 1772444071000,
+      "rmssd": 25.15254448688454,
+      "sdnn": 75.86007372385903,
+      "meanHr": 85.66137487436336,
+      "n": 86
+    },
+    {
+      "t": 1772444101000,
+      "rmssd": 22.842721143585106,
+      "sdnn": 18.97201562527692,
+      "meanHr": 78.98516526954293,
+      "n": 79
+    },
+    {
+      "t": 1772444131000,
+      "rmssd": 22.937010121367003,
+      "sdnn": 19.227662041976252,
+      "meanHr": 78.97078870525793,
+      "n": 79
+    },
+    {
+      "t": 1772444161000,
+      "rmssd": 22.45728365797769,
+      "sdnn": 18.591996982295335,
+      "meanHr": 78.98858220044293,
+      "n": 79
+    },
+    {
+      "t": 1772444191000,
+      "rmssd": 22.587218889882994,
+      "sdnn": 18.902755604540452,
+      "meanHr": 79.0039501975099,
+      "n": 79
+    },
+    {
+      "t": 1772444221000,
+      "rmssd": 22.47303380095241,
+      "sdnn": 18.60134855496781,
+      "meanHr": 78.97519237638909,
+      "n": 66
+    },
+    {
+      "t": 1772444251000,
+      "rmssd": 22.043637085052456,
+      "sdnn": 18.43197068547247,
+      "meanHr": 78.99056441750342,
+      "n": 66
+    },
+    {
+      "t": 1772444281000,
+      "rmssd": 23.26703632301309,
+      "sdnn": 19.274927287396885,
+      "meanHr": 78.99695335083243,
+      "n": 79
+    },
+    {
+      "t": 1772444311000,
+      "rmssd": 22.635054493769122,
+      "sdnn": 18.980155103545005,
+      "meanHr": 78.98199210579988,
+      "n": 79
+    },
+    {
+      "t": 1772444341000,
+      "rmssd": 22.999634835451253,
+      "sdnn": 19.025730909960547,
+      "meanHr": 78.97077028555834,
+      "n": 79
+    },
+    {
+      "t": 1772444371000,
+      "rmssd": 23.107036717948393,
+      "sdnn": 19.422568552366418,
+      "meanHr": 78.9870250646827,
+      "n": 79
+    },
+    {
+      "t": 1772444401000,
+      "rmssd": 22.893329037303772,
+      "sdnn": 18.9121627669136,
+      "meanHr": 79.00486801661764,
+      "n": 79
+    }
+  ],
+  "rollingHrvCustom": [
+    {
+      "t": 1772443921000,
+      "rmssd": 27.36745724665044,
+      "sdnn": 111.51509862195111,
+      "meanHr": 84.90675557255902,
+      "n": 165
+    },
+    {
+      "t": 1772443966000,
+      "rmssd": 25.157848827629913,
+      "sdnn": 69.91114499467191,
+      "meanHr": 94.95329320219366,
+      "n": 185
+    },
+    {
+      "t": 1772444011000,
+      "rmssd": 20.0067074990332,
+      "sdnn": 19.121075266823716,
+      "meanHr": 98.50939131937136,
+      "n": 190
+    },
+    {
+      "t": 1772444056000,
+      "rmssd": 22.15259708147228,
+      "sdnn": 59.70585571507079,
+      "meanHr": 94.48421450459853,
+      "n": 187
+    },
+    {
+      "t": 1772444101000,
+      "rmssd": 23.270022805924263,
+      "sdnn": 77.2212514373823,
+      "meanHr": 87.10131042064718,
+      "n": 172
+    },
+    {
+      "t": 1772444146000,
+      "rmssd": 24.46259762785898,
+      "sdnn": 38.55534628131131,
+      "meanHr": 79.8804452653244,
+      "n": 159
+    },
+    {
+      "t": 1772444191000,
+      "rmssd": 22.814321323367473,
+      "sdnn": 19.00575768884519,
+      "meanHr": 78.98736597081296,
+      "n": 158
+    },
+    {
+      "t": 1772444236000,
+      "rmssd": 23.086451448317572,
+      "sdnn": 19.309816903034978,
+      "meanHr": 78.99189705659757,
+      "n": 145
+    },
+    {
+      "t": 1772444281000,
+      "rmssd": 22.833364538933633,
+      "sdnn": 18.90602049189217,
+      "meanHr": 78.98704686878912,
+      "n": 145
+    },
+    {
+      "t": 1772444326000,
+      "rmssd": 22.921636499459055,
+      "sdnn": 19.053867256913016,
+      "meanHr": 79.0005767826879,
+      "n": 151
+    },
+    {
+      "t": 1772444371000,
+      "rmssd": 22.930672428689192,
+      "sdnn": 19.141398791925358,
+      "meanHr": 78.98450850506521,
+      "n": 158
+    }
+  ]
+}

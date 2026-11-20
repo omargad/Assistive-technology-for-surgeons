@@ -244,12 +244,12 @@ export function updateEvent(session: SurgicalSession, id: string, patch: Session
   if (current.type === 'marker' && patch.marker !== undefined) merged.marker = patch.marker;
   const updated = withoutUndefined(merged) as unknown as SessionEvent;
 
-  const others = session.events.filter((_, i) => i !== index);
   if (updated.t === current.t) {
     const events = session.events.slice();
     events[index] = updated;
     return { ...session, events };
   }
+  const others = session.events.filter((_, i) => i !== index);
   return { ...session, events: mergeSorted(others, [updated]) };
 }
 

@@ -1,0 +1,838 @@
+{
+  "computeHrv": {
+    "hrv": {
+      "n": 2627,
+      "pairs": 2605,
+      "meanRr": 786.2320974495638,
+      "sdnn": 57.211271466794926,
+      "rmssd": 29.908510532542998,
+      "pnn50": 8.36852207293666,
+      "meanHr": 76.31334334305647
+    },
+    "artifacts": {
+      "total": 2656,
+      "removed": 29,
+      "ratio": 0.010918674698795181
+    }
+  },
+  "computeHrvMin20": {
+    "hrv": {
+      "n": 2627,
+      "pairs": 2605,
+      "meanRr": 786.2320974495638,
+      "sdnn": 57.211271466794926,
+      "rmssd": 29.908510532542998,
+      "pnn50": 8.36852207293666,
+      "meanHr": 76.31334334305647
+    },
+    "artifacts": {
+      "total": 2656,
+      "removed": 29,
+      "ratio": 0.010918674698795181
+    }
+  },
+  "cleanRrValid": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,true],
+  "cleanRrReport": {
+    "total": 2656,
+    "removed": 29,
+    "ratio": 0.010918674698795181
+  },
+  "hrvTimeDomainValid": {
+    "n": 2627,
+    "pairs": 2626,
+    "meanRr": 786.2320974495638,
+    "sdnn": 57.211271466794926,
+    "rmssd": 29.956341561343965,
+    "pnn50": 8.415841584158416,
+    "meanHr": 76.31334334305647
+  },
+  "baevskyStressIndex": 66.38844985051254,
+  "rollingHrv": [
+    {
+      "t": 1767600060000,
+      "rmssd": 33.94265440679477,
+      "sdnn": 37.97609961949398,
+      "meanHr": 73.75370463102317,
+      "n": 70
+    },
+    {
+      "t": 1767600090000,
+      "rmssd": 32.51770132413725,
+      "sdnn": 25.43603930681736,
+      "meanHr": 76.29795942697055,
+      "n": 72
+    },
+    {
+      "t": 1767600120000,
+      "rmssd": 27.641293495098804,
+      "sdnn": 42.46382755963526,
+      "meanHr": 74.44345719305043,
+      "n": 74
+    },
+    {
+      "t": 1767600150000,
+      "rmssd": 30.492880863053234,
+      "sdnn": 42.297113961970666,
+      "meanHr": 70.94332082771662,
+      "n": 69
+    },
+    {
+      "t": 1767600180000,
+      "rmssd": 38.42552742363614,
+      "sdnn": 32.599791944892736,
+      "meanHr": 69.19500629622917,
+      "n": 67
+    },
+    {
+      "t": 1767600210000,
+      "rmssd": 45.280411731493004,
+      "sdnn": 34.572743560974544,
+      "meanHr": 69.34877463646627,
+      "n": 69
+    },
+    {
+      "t": 1767600240000,
+      "rmssd": 38.98426344557976,
+      "sdnn": 36.2931443017562,
+      "meanHr": 71.63505877482459,
+      "n": 72
+    },
+    {
+      "t": 1767600270000,
+      "rmssd": 30.64445908669651,
+      "sdnn": 29.30677637456001,
+      "meanHr": 74.30220324195375,
+      "n": 75
+    },
+    {
+      "t": 1767600300000,
+      "rmssd": 28.490729008441193,
+      "sdnn": 28.336170616178695,
+      "meanHr": 75.41364383644287,
+      "n": 75
+    },
+    {
+      "t": 1767600330000,
+      "rmssd": 25.370853956459573,
+      "sdnn": 29.01340562464791,
+      "meanHr": 76.62356512712336,
+      "n": 76
+    },
+    {
+      "t": 1767600360000,
+      "rmssd": 24.239400030695915,
+      "sdnn": 30.653058346351187,
+      "meanHr": 79.07208382484322,
+      "n": 80
+    },
+    {
+      "t": 1767600390000,
+      "rmssd": 24.95666436370254,
+      "sdnn": 22.77661841999378,
+      "meanHr": 80.5190316423392,
+      "n": 81
+    },
+    {
+      "t": 1767600420000,
+      "rmssd": 31.280890629862235,
+      "sdnn": 33.651930487644954,
+      "meanHr": 78.68904190694217,
+      "n": 78
+    },
+    {
+      "t": 1767600450000,
+      "rmssd": 32.024000641000406,
+      "sdnn": 30.069630555330317,
+      "meanHr": 77.58751250710701,
+      "n": 75
+    },
+    {
+      "t": 1767600480000,
+      "rmssd": 27.372719975536864,
+      "sdnn": 23.640481082611036,
+      "meanHr": 78.1491232064402,
+      "n": 74
+    },
+    {
+      "t": 1767600510000,
+      "rmssd": 28.973411667231908,
+      "sdnn": 36.49014655142031,
+      "meanHr": 75.40400113669834,
+      "n": 74
+    },
+    {
+      "t": 1767600540000,
+      "rmssd": 30.581355335791013,
+      "sdnn": 28.96512098398523,
+      "meanHr": 72.40712876397666,
+      "n": 71
+    },
+    {
+      "t": 1767600570000,
+      "rmssd": 34.533096672389746,
+      "sdnn": 42.88238028833201,
+      "meanHr": 69.39797772221337,
+      "n": 67
+    },
+    {
+      "t": 1767600600000,
+      "rmssd": 39.52085247018527,
+      "sdnn": 34.30981497982372,
+      "meanHr": 68.01549506336701,
+      "n": 68
+    },
+    {
+      "t": 1767600630000,
+      "rmssd": 38.50579001601676,
+      "sdnn": 34.882898463991225,
+      "meanHr": 69.74824320330295,
+      "n": 68
+    },
+    {
+      "t": 1767600660000,
+      "rmssd": 32.440527434428084,
+      "sdnn": 31.290079437172576,
+      "meanHr": 71.5286424181574,
+      "n": 69
+    },
+    {
+      "t": 1767600690000,
+      "rmssd": 26.266567436062903,
+      "sdnn": 41.73355358424473,
+      "meanHr": 74.6711019255427,
+      "n": 73
+    },
+    {
+      "t": 1767600720000,
+      "rmssd": 23.233071368842513,
+      "sdnn": 33.03076042133687,
+      "meanHr": 78.23604215392264,
+      "n": 76
+    },
+    {
+      "t": 1767600750000,
+      "rmssd": 24.925101708117467,
+      "sdnn": 25.082006887789877,
+      "meanHr": 79.54133094098718,
+      "n": 77
+    },
+    {
+      "t": 1767600780000,
+      "rmssd": 28.45060534932178,
+      "sdnn": 41.19784070535574,
+      "meanHr": 76.78158790143755,
+      "n": 73
+    },
+    {
+      "t": 1767600810000,
+      "rmssd": 32.155692305596126,
+      "sdnn": 28.394285050048722,
+      "meanHr": 73.41983959867679,
+      "n": 71
+    },
+    {
+      "t": 1767600840000,
+      "rmssd": 31.53129465645725,
+      "sdnn": 30.640585180949557,
+      "meanHr": 73.933814449305,
+      "n": 74
+    },
+    {
+      "t": 1767600870000,
+      "rmssd": 28.422957980946787,
+      "sdnn": 28.606421533692977,
+      "meanHr": 75.73006145810028,
+      "n": 76
+    },
+    {
+      "t": 1767600900000,
+      "rmssd": 31.115799410785236,
+      "sdnn": 27.91974548581336,
+      "meanHr": 77.13616089018743,
+      "n": 74
+    },
+    {
+      "t": 1767600930000,
+      "rmssd": 32.758998777241736,
+      "sdnn": 27.544948854558122,
+      "meanHr": 78.13032306818202,
+      "n": 74
+    },
+    {
+      "t": 1767600960000,
+      "rmssd": 30.43826341016628,
+      "sdnn": 28.504801876113632,
+      "meanHr": 77.4496588257606,
+      "n": 76
+    },
+    {
+      "t": 1767600990000,
+      "rmssd": 30.14822190848481,
+      "sdnn": 32.16340222761166,
+      "meanHr": 74.61381382241792,
+      "n": 75
+    },
+    {
+      "t": 1767601020000,
+      "rmssd": 32.63539841866811,
+      "sdnn": 27.434637163613964,
+      "meanHr": 73.23946914581173,
+      "n": 74
+    },
+    {
+      "t": 1767601050000,
+      "rmssd": 32.945441166012465,
+      "sdnn": 42.1366064911472,
+      "meanHr": 76.17446343157603,
+      "n": 72
+    },
+    {
+      "t": 1767601080000,
+      "rmssd": 28.720631511064774,
+      "sdnn": 33.746141037110846,
+      "meanHr": 81.21540550842943,
+      "n": 75
+    },
+    {
+      "t": 1767601110000,
+      "rmssd": 26.192041965308853,
+      "sdnn": 27.057179074878874,
+      "meanHr": 83.98198463529103,
+      "n": 82
+    },
+    {
+      "t": 1767601140000,
+      "rmssd": 24.45444073037235,
+      "sdnn": 31.8117718029821,
+      "meanHr": 86.73833842122608,
+      "n": 86
+    },
+    {
+      "t": 1767601170000,
+      "rmssd": 21.332300643624922,
+      "sdnn": 23.23871137102709,
+      "meanHr": 88.7616247393209,
+      "n": 89
+    },
+    {
+      "t": 1767601200000,
+      "rmssd": 20.452927720147585,
+      "sdnn": 28.978413552842426,
+      "meanHr": 87.18588757780654,
+      "n": 87
+    },
+    {
+      "t": 1767601230000,
+      "rmssd": 22.50082822549724,
+      "sdnn": 28.360160605257903,
+      "meanHr": 84.87980312545741,
+      "n": 85
+    },
+    {
+      "t": 1767601260000,
+      "rmssd": 27.18138220064148,
+      "sdnn": 26.543246802797004,
+      "meanHr": 83.15142858443865,
+      "n": 84
+    },
+    {
+      "t": 1767601290000,
+      "rmssd": 29.033214534348936,
+      "sdnn": 26.934930033547037,
+      "meanHr": 82.6144948743247,
+      "n": 82
+    },
+    {
+      "t": 1767601320000,
+      "rmssd": 23.964044918707977,
+      "sdnn": 23.52827609089921,
+      "meanHr": 83.51654005665407,
+      "n": 83
+    },
+    {
+      "t": 1767601350000,
+      "rmssd": 23.18863510637022,
+      "sdnn": 20.67526663849843,
+      "meanHr": 83.22518325351449,
+      "n": 84
+    },
+    {
+      "t": 1767601380000,
+      "rmssd": 25.074025880453625,
+      "sdnn": 20.54322428440609,
+      "meanHr": 83.13531242008345,
+      "n": 83
+    },
+    {
+      "t": 1767601410000,
+      "rmssd": 24.841727788776005,
+      "sdnn": 38.47951651167348,
+      "meanHr": 80.61933926270657,
+      "n": 80
+    },
+    {
+      "t": 1767601440000,
+      "rmssd": 35.14678691076448,
+      "sdnn": 38.92313548832523,
+      "meanHr": 76.37357622257717,
+      "n": 75
+    },
+    {
+      "t": 1767601470000,
+      "rmssd": 35.125238214762845,
+      "sdnn": 36.40905316335832,
+      "meanHr": 76.75522570897526,
+      "n": 75
+    },
+    {
+      "t": 1767601500000,
+      "rmssd": 23.772219255628244,
+      "sdnn": 19.35616713611277,
+      "meanHr": 78.25857153759834,
+      "n": 78
+    },
+    {
+      "t": 1767601530000,
+      "rmssd": 25.967722842220677,
+      "sdnn": 20.73725559052049,
+      "meanHr": 77.71539843937516,
+      "n": 78
+    },
+    {
+      "t": 1767601560000,
+      "rmssd": 28.431147358157485,
+      "sdnn": 35.9564098457679,
+      "meanHr": 80.0182308202552,
+      "n": 80
+    },
+    {
+      "t": 1767601590000,
+      "rmssd": 26.716929612352388,
+      "sdnn": 35.15689894087988,
+      "meanHr": 80.34785263668175,
+      "n": 80
+    },
+    {
+      "t": 1767601620000,
+      "rmssd": 30.733331868343374,
+      "sdnn": 39.23706703999296,
+      "meanHr": 75.46674926642127,
+      "n": 75
+    },
+    {
+      "t": 1767601650000,
+      "rmssd": 32.17322247193421,
+      "sdnn": 33.59349615635207,
+      "meanHr": 71.22140479405984,
+      "n": 71
+    },
+    {
+      "t": 1767601680000,
+      "rmssd": 30.188832721504102,
+      "sdnn": 25.867751626633193,
+      "meanHr": 69.54159225509326,
+      "n": 70
+    },
+    {
+      "t": 1767601710000,
+      "rmssd": 30.18750474082964,
+      "sdnn": 29.069509954809824,
+      "meanHr": 70.61597960815196,
+      "n": 69
+    },
+    {
+      "t": 1767601740000,
+      "rmssd": 29.32816731377218,
+      "sdnn": 27.743811457264677,
+      "meanHr": 72.38754546022129,
+      "n": 68
+    },
+    {
+      "t": 1767601770000,
+      "rmssd": 33.16862462069494,
+      "sdnn": 34.6377726031266,
+      "meanHr": 74.24648199286499,
+      "n": 72
+    },
+    {
+      "t": 1767601800000,
+      "rmssd": 36.69115402710276,
+      "sdnn": 46.077888186416686,
+      "meanHr": 72.81807683801074,
+      "n": 71
+    },
+    {
+      "t": 1767601830000,
+      "rmssd": 32.42372513392942,
+      "sdnn": 29.78165294082282,
+      "meanHr": 70.04643941587314,
+      "n": 68
+    },
+    {
+      "t": 1767601860000,
+      "rmssd": 32.22546665381803,
+      "sdnn": 35.14313808497896,
+      "meanHr": 72.1256079483355,
+      "n": 72
+    },
+    {
+      "t": 1767601890000,
+      "rmssd": 34.98806442791262,
+      "sdnn": 36.93882498216957,
+      "meanHr": 72.1731801644318,
+      "n": 70
+    },
+    {
+      "t": 1767601920000,
+      "rmssd": 32.62360982227168,
+      "sdnn": 35.76802724921395,
+      "meanHr": 71.27849551549797,
+      "n": 69
+    },
+    {
+      "t": 1767601950000,
+      "rmssd": 28.20198204291055,
+      "sdnn": 38.434708347201166,
+      "meanHr": 74.70211659483118,
+      "n": 75
+    },
+    {
+      "t": 1767601980000,
+      "rmssd": 25.44521704461112,
+      "sdnn": 23.933669022230728,
+      "meanHr": 76.94990561144695,
+      "n": 77
+    },
+    {
+      "t": 1767602010000,
+      "rmssd": 26.64926364661257,
+      "sdnn": 24.160088929588273,
+      "meanHr": 76.59214150519075,
+      "n": 76
+    },
+    {
+      "t": 1767602040000,
+      "rmssd": 26.947280544054916,
+      "sdnn": 27.225183628385285,
+      "meanHr": 75.14145131033345,
+      "n": 76
+    },
+    {
+      "t": 1767602070000,
+      "rmssd": 26.950456334450738,
+      "sdnn": 27.419079122944133,
+      "meanHr": 74.78213347145095,
+      "n": 75
+    }
+  ],
+  "rollingHrvCustom": [
+    {
+      "t": 1767600120000,
+      "rmssd": 30.719655474321208,
+      "sdnn": 40.38160528590688,
+      "meanHr": 74.1065566856748,
+      "n": 144
+    },
+    {
+      "t": 1767600165000,
+      "rmssd": 32.41726868339318,
+      "sdnn": 48.81621925936624,
+      "meanHr": 72.70456477758435,
+      "n": 141
+    },
+    {
+      "t": 1767600210000,
+      "rmssd": 38.76759702285493,
+      "sdnn": 39.70514737040121,
+      "meanHr": 70.13698600431692,
+      "n": 138
+    },
+    {
+      "t": 1767600255000,
+      "rmssd": 38.886085746214825,
+      "sdnn": 40.98287237261291,
+      "meanHr": 71.05762189270428,
+      "n": 143
+    },
+    {
+      "t": 1767600300000,
+      "rmssd": 33.965416750789245,
+      "sdnn": 38.60898299563855,
+      "meanHr": 73.51435551577339,
+      "n": 147
+    },
+    {
+      "t": 1767600345000,
+      "rmssd": 27.383536941761,
+      "sdnn": 33.67749320963894,
+      "meanHr": 76.4042438346062,
+      "n": 153
+    },
+    {
+      "t": 1767600390000,
+      "rmssd": 25.108350537068503,
+      "sdnn": 32.11638363411846,
+      "meanHr": 78.58505588035663,
+      "n": 157
+    },
+    {
+      "t": 1767600435000,
+      "rmssd": 28.57724325724132,
+      "sdnn": 29.977049174999657,
+      "meanHr": 79.17012251028741,
+      "n": 159
+    },
+    {
+      "t": 1767600480000,
+      "rmssd": 29.520498229276182,
+      "sdnn": 29.234191982216387,
+      "meanHr": 78.42525796879306,
+      "n": 152
+    },
+    {
+      "t": 1767600525000,
+      "rmssd": 29.86646920030819,
+      "sdnn": 36.43525159222532,
+      "meanHr": 76.09894697821507,
+      "n": 146
+    },
+    {
+      "t": 1767600570000,
+      "rmssd": 31.617709424638434,
+      "sdnn": 52.462577049376854,
+      "meanHr": 72.42556832476158,
+      "n": 141
+    },
+    {
+      "t": 1767600615000,
+      "rmssd": 35.300024818250726,
+      "sdnn": 39.14325347521367,
+      "meanHr": 69.87629355851213,
+      "n": 138
+    },
+    {
+      "t": 1767600660000,
+      "rmssd": 36.08151046039654,
+      "sdnn": 39.27080294036854,
+      "meanHr": 69.74066137546588,
+      "n": 137
+    },
+    {
+      "t": 1767600705000,
+      "rmssd": 29.78364555087238,
+      "sdnn": 49.963320966483046,
+      "meanHr": 73.47315148465734,
+      "n": 143
+    },
+    {
+      "t": 1767600750000,
+      "rmssd": 25.62102383579857,
+      "sdnn": 42.086448451495144,
+      "meanHr": 77.09423865246268,
+      "n": 150
+    },
+    {
+      "t": 1767600795000,
+      "rmssd": 27.28768201169584,
+      "sdnn": 38.38059617215652,
+      "meanHr": 77.37060370450966,
+      "n": 150
+    },
+    {
+      "t": 1767600840000,
+      "rmssd": 30.191152336450784,
+      "sdnn": 39.172203247321505,
+      "meanHr": 75.32111517812874,
+      "n": 147
+    },
+    {
+      "t": 1767600885000,
+      "rmssd": 30.258628484731883,
+      "sdnn": 33.318338565969526,
+      "meanHr": 74.95811463807306,
+      "n": 149
+    },
+    {
+      "t": 1767600930000,
+      "rmssd": 30.76881164271318,
+      "sdnn": 30.540317691167676,
+      "meanHr": 76.89547539076935,
+      "n": 150
+    },
+    {
+      "t": 1767600975000,
+      "rmssd": 31.79050464833673,
+      "sdnn": 31.097581900518627,
+      "meanHr": 76.75586132702749,
+      "n": 150
+    },
+    {
+      "t": 1767601020000,
+      "rmssd": 31.468065289545756,
+      "sdnn": 35.73221495452432,
+      "meanHr": 75.31380501041659,
+      "n": 150
+    },
+    {
+      "t": 1767601065000,
+      "rmssd": 30.85597536933732,
+      "sdnn": 46.269321961935525,
+      "meanHr": 76.27274187189161,
+      "n": 149
+    },
+    {
+      "t": 1767601110000,
+      "rmssd": 29.53834739915782,
+      "sdnn": 50.548051689574706,
+      "meanHr": 80.14160987772064,
+      "n": 154
+    },
+    {
+      "t": 1767601155000,
+      "rmssd": 24.444163603993093,
+      "sdnn": 35.398677667560705,
+      "meanHr": 85.50327985717577,
+      "n": 167
+    },
+    {
+      "t": 1767601200000,
+      "rmssd": 22.568939369314943,
+      "sdnn": 30.383472015514773,
+      "meanHr": 86.96283067867705,
+      "n": 173
+    },
+    {
+      "t": 1767601245000,
+      "rmssd": 23.338172884707394,
+      "sdnn": 32.99013487438567,
+      "meanHr": 86.30129147290313,
+      "n": 172
+    },
+    {
+      "t": 1767601290000,
+      "rmssd": 25.836496578052355,
+      "sdnn": 29.248214849997638,
+      "meanHr": 83.75217850742064,
+      "n": 167
+    },
+    {
+      "t": 1767601335000,
+      "rmssd": 25.973146452021975,
+      "sdnn": 24.953052140761773,
+      "meanHr": 83.14886348902596,
+      "n": 166
+    },
+    {
+      "t": 1767601380000,
+      "rmssd": 24.47084911258515,
+      "sdnn": 22.08110668632201,
+      "meanHr": 83.32549019607845,
+      "n": 166
+    },
+    {
+      "t": 1767601425000,
+      "rmssd": 27.801821788158165,
+      "sdnn": 43.267694854169825,
+      "meanHr": 80.81817763798404,
+      "n": 160
+    },
+    {
+      "t": 1767601470000,
+      "rmssd": 30.129910713355443,
+      "sdnn": 41.8260137698107,
+      "meanHr": 78.70217973049223,
+      "n": 155
+    },
+    {
+      "t": 1767601515000,
+      "rmssd": 30.229311311264343,
+      "sdnn": 30.161907856477754,
+      "meanHr": 76.94934133768476,
+      "n": 152
+    },
+    {
+      "t": 1767601560000,
+      "rmssd": 26.242358688726338,
+      "sdnn": 30.096622516032113,
+      "meanHr": 79.13975685361565,
+      "n": 158
+    },
+    {
+      "t": 1767601605000,
+      "rmssd": 28.66947767990741,
+      "sdnn": 39.14532525888399,
+      "meanHr": 78.32251645827192,
+      "n": 156
+    },
+    {
+      "t": 1767601650000,
+      "rmssd": 29.310197730482805,
+      "sdnn": 58.93932684638268,
+      "meanHr": 75.78183326944438,
+      "n": 151
+    },
+    {
+      "t": 1767601695000,
+      "rmssd": 30.941964120364105,
+      "sdnn": 37.61527417544663,
+      "meanHr": 71.43125221138197,
+      "n": 141
+    },
+    {
+      "t": 1767601740000,
+      "rmssd": 29.68111429536996,
+      "sdnn": 31.67245275703927,
+      "meanHr": 70.91542686145162,
+      "n": 138
+    },
+    {
+      "t": 1767601785000,
+      "rmssd": 32.041535811667494,
+      "sdnn": 37.6709579698081,
+      "meanHr": 72.54021291491867,
+      "n": 139
+    },
+    {
+      "t": 1767601830000,
+      "rmssd": 33.467493020655,
+      "sdnn": 40.386630757759015,
+      "meanHr": 72.1453334762155,
+      "n": 140
+    },
+    {
+      "t": 1767601875000,
+      "rmssd": 34.25908443120286,
+      "sdnn": 38.11685574226126,
+      "meanHr": 71.83243132764767,
+      "n": 142
+    },
+    {
+      "t": 1767601920000,
+      "rmssd": 32.4636783939114,
+      "sdnn": 35.66988283144362,
+      "meanHr": 71.70856236597503,
+      "n": 141
+    },
+    {
+      "t": 1767601965000,
+      "rmssd": 29.84745617664567,
+      "sdnn": 42.59693305668753,
+      "meanHr": 73.89515531130859,
+      "n": 145
+    },
+    {
+      "t": 1767602010000,
+      "rmssd": 27.40124973232669,
+      "sdnn": 33.45859756352968,
+      "meanHr": 75.64158149982578,
+      "n": 151
+    },
+    {
+      "t": 1767602055000,
+      "rmssd": 27.15245880284142,
+      "sdnn": 27.36670684402167,
+      "meanHr": 75.66996356633237,
+      "n": 151
+    }
+  ]
+}

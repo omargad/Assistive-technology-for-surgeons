@@ -51,6 +51,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "doctor": "expo-doctor",
+    "e2e:web": "node e2e/web-flow.mjs",
     "prebuild": "expo prebuild --clean"
   },
   "private": true,

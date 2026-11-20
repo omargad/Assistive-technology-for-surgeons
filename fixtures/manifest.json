@@ -1,0 +1,351 @@
+{
+  "generatedBy": "packages/core/scripts/generate-fixtures.ts",
+  "note": "Regenerate with `npm run fixtures -w @surgeonpulse/core`. Do not edit by hand.",
+  "rollingHrvCustomOptions": {
+    "windowMs": 120000,
+    "stepMs": 45000,
+    "minIntervals": 40
+  },
+  "extrasSpec": {
+    "threshold": "hrStats(samples).median + 5, or 90 without HR",
+    "episodesNoMerge": {
+      "minDurationMs": 0,
+      "mergeGapMs": 0,
+      "context": "segments + events"
+    },
+    "episodesLongMerge": {
+      "minDurationMs": 20000,
+      "mergeGapMs": 60000,
+      "context": "segments + events"
+    },
+    "episodesNoContext": {
+      "context": "none"
+    },
+    "cleanRrCustom": {
+      "minMs": 400,
+      "maxMs": 1500,
+      "maxDeviation": 0.1,
+      "window": 5
+    },
+    "computeHrvCustom": {
+      "gapMs": 1000,
+      "minIntervals": 10,
+      "window": 7
+    },
+    "computeBaselineFirst5Min": "[startedAt, startedAt + 300000)"
+  },
+  "misc": "expected/misc.json",
+  "imports": [
+    {
+      "name": "import-list",
+      "input": "imports/import-list.json",
+      "expected": "expected/import-list.result.json"
+    },
+    {
+      "name": "import-bundle",
+      "input": "imports/import-bundle.json",
+      "expected": "expected/import-bundle.result.json"
+    },
+    {
+      "name": "import-single",
+      "input": "imports/import-single.json",
+      "expected": "expected/import-single.result.json"
+    }
+  ],
+  "sessions": [
+    {
+      "name": "sim-1",
+      "description": "Default physiology, measured baseline, birthYear-derived maxHr for high-intensity fraction.",
+      "session": "sessions/sim-1.json",
+      "simulate": {
+        "seed": 1,
+        "durationMin": 30,
+        "birthYear": 1980,
+        "trainingLevel": "consultant"
+      },
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/sim-1.summary.json",
+        "hrv": "expected/sim-1.hrv.json",
+        "extras": "expected/sim-1.extras.json",
+        "samplesCsv": "expected/sim-1.samples.csv",
+        "rrCsv": "expected/sim-1.rr.csv",
+        "eventsCsv": "expected/sim-1.events.csv"
+      }
+    },
+    {
+      "name": "sim-7",
+      "description": "Frequent data dropouts (5–40 s gaps) and many markers; reactive trainee.",
+      "session": "sessions/sim-7.json",
+      "simulate": {
+        "seed": 7,
+        "durationMin": 40,
+        "dropoutRate": 0.4,
+        "markerRate": 6,
+        "reactivity": 0.85,
+        "experience": 0.1,
+        "trainingLevel": "resident"
+      },
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/sim-7.summary.json",
+        "hrv": "expected/sim-7.hrv.json",
+        "extras": "expected/sim-7.extras.json",
+        "samplesCsv": "expected/sim-7.samples.csv",
+        "rrCsv": "expected/sim-7.rr.csv",
+        "eventsCsv": "expected/sim-7.events.csv"
+      }
+    },
+    {
+      "name": "sim-13",
+      "description": "High RR artefact rate (8 %), highly reactive and inexperienced.",
+      "session": "sessions/sim-13.json",
+      "simulate": {
+        "seed": 13,
+        "durationMin": 25,
+        "artifactRate": 0.08,
+        "reactivity": 0.95,
+        "experience": 0.05
+      },
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/sim-13.summary.json",
+        "hrv": "expected/sim-13.hrv.json",
+        "extras": "expected/sim-13.extras.json",
+        "samplesCsv": "expected/sim-13.samples.csv",
+        "rrCsv": "expected/sim-13.rr.csv",
+        "eventsCsv": "expected/sim-13.events.csv"
+      }
+    },
+    {
+      "name": "sim-21",
+      "description": "No RR intervals (HR-only sensor): HRV, stress index and artefact ratio must be null.",
+      "session": "sessions/sim-21.json",
+      "simulate": {
+        "seed": 21,
+        "durationMin": 30,
+        "includeRr": false
+      },
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/sim-21.summary.json",
+        "hrv": "expected/sim-21.hrv.json",
+        "extras": "expected/sim-21.extras.json",
+        "samplesCsv": "expected/sim-21.samples.csv",
+        "rrCsv": "expected/sim-21.rr.csv",
+        "eventsCsv": "expected/sim-21.events.csv"
+      }
+    },
+    {
+      "name": "sim-34",
+      "description": "No measured baseline; participantSnapshot.restingHr → profile baseline and baseline zones.",
+      "session": "sessions/sim-34.json",
+      "simulate": {
+        "seed": 34,
+        "durationMin": 30,
+        "withBaseline": false,
+        "restingHr": 62
+      },
+      "modifications": ["baseline removed","participantSnapshot = { trainingLevel: \"registrar\", restingHr: 62 }"],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/sim-34.summary.json",
+        "hrv": "expected/sim-34.hrv.json",
+        "extras": "expected/sim-34.extras.json",
+        "samplesCsv": "expected/sim-34.samples.csv",
+        "rrCsv": "expected/sim-34.rr.csv",
+        "eventsCsv": "expected/sim-34.events.csv"
+      }
+    },
+    {
+      "name": "sim-55",
+      "description": "No baseline and no resting HR; maxHr estimated from birthYear (Tanaka) → %maxHR zones.",
+      "session": "sessions/sim-55.json",
+      "simulate": {
+        "seed": 55,
+        "durationMin": 35,
+        "withBaseline": false,
+        "birthYear": 1972,
+        "trainingLevel": "consultant"
+      },
+      "modifications": ["baseline removed","participantSnapshot = { trainingLevel: \"consultant\", birthYear: 1972 }"],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/sim-55.summary.json",
+        "hrv": "expected/sim-55.hrv.json",
+        "extras": "expected/sim-55.extras.json",
+        "samplesCsv": "expected/sim-55.samples.csv",
+        "rrCsv": "expected/sim-55.rr.csv",
+        "eventsCsv": "expected/sim-55.events.csv"
+      }
+    },
+    {
+      "name": "sim-89",
+      "description": "Explicit SummaryOptions (maxHr, atYear, episode threshold, maxGapMs), 2 s sampling, no post-op report.",
+      "session": "sessions/sim-89.json",
+      "simulate": {
+        "seed": 89,
+        "durationMin": 20,
+        "sampleIntervalMs": 2000,
+        "withPostOp": false,
+        "reactivity": 1,
+        "markerRate": 8
+      },
+      "modifications": [],
+      "summaryOptions": {
+        "maxHr": 182,
+        "atYear": 2030,
+        "episodeThresholdBpm": 80,
+        "maxGapMs": 4000
+      },
+      "expected": {
+        "summary": "expected/sim-89.summary.json",
+        "hrv": "expected/sim-89.hrv.json",
+        "extras": "expected/sim-89.extras.json",
+        "samplesCsv": "expected/sim-89.samples.csv",
+        "rrCsv": "expected/sim-89.rr.csv",
+        "eventsCsv": "expected/sim-89.events.csv"
+      }
+    },
+    {
+      "name": "sim-144",
+      "description": "Dropouts + artefacts; NASA-TLX workload with invalid weights (sum 14) → weighted null.",
+      "session": "sessions/sim-144.json",
+      "simulate": {
+        "seed": 144,
+        "durationMin": 30,
+        "dropoutRate": 1,
+        "artifactRate": 0.02,
+        "experience": 0.9,
+        "trainingLevel": "fellow"
+      },
+      "modifications": ["postOp.workload replaced by a NASA-TLX response whose weights sum to 14"],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/sim-144.summary.json",
+        "hrv": "expected/sim-144.hrv.json",
+        "extras": "expected/sim-144.extras.json",
+        "samplesCsv": "expected/sim-144.samples.csv",
+        "rrCsv": "expected/sim-144.rr.csv",
+        "eventsCsv": "expected/sim-144.events.csv"
+      }
+    },
+    {
+      "name": "edge-phases",
+      "description": "Hand-built: phase event before start (clamped), duplicate consecutive phase, zero-length middle segment, final phase at sessionEnd, invalid bpm, 12 s and 4 s gaps, merging/dropped episodes, RR dropout and out-of-range RR.",
+      "session": "sessions/edge-phases.json",
+      "simulate": null,
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/edge-phases.summary.json",
+        "hrv": "expected/edge-phases.hrv.json",
+        "extras": "expected/edge-phases.extras.json",
+        "samplesCsv": "expected/edge-phases.samples.csv",
+        "rrCsv": "expected/edge-phases.rr.csv",
+        "eventsCsv": "expected/edge-phases.events.csv"
+      }
+    },
+    {
+      "name": "edge-window",
+      "description": "Hand-built: samples/RR/events before startedAt and after endedAt (window clipping), unaligned sample times, snapshot maxHr without baseline (median-based episode threshold, %HRmax zones).",
+      "session": "sessions/edge-window.json",
+      "simulate": null,
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/edge-window.summary.json",
+        "hrv": "expected/edge-window.hrv.json",
+        "extras": "expected/edge-window.extras.json",
+        "samplesCsv": "expected/edge-window.samples.csv",
+        "rrCsv": "expected/edge-window.rr.csv",
+        "eventsCsv": "expected/edge-window.events.csv"
+      }
+    },
+    {
+      "name": "edge-sparse",
+      "description": "Hand-built: one HR sample, 12 RR intervals, no events, no endedAt (sessionEnd from data).",
+      "session": "sessions/edge-sparse.json",
+      "simulate": null,
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/edge-sparse.summary.json",
+        "hrv": "expected/edge-sparse.hrv.json",
+        "extras": "expected/edge-sparse.extras.json",
+        "samplesCsv": "expected/edge-sparse.samples.csv",
+        "rrCsv": "expected/edge-sparse.rr.csv",
+        "eventsCsv": "expected/edge-sparse.events.csv"
+      }
+    },
+    {
+      "name": "edge-empty",
+      "description": "Hand-built: no samples/RR/events, zero-length window, snapshot maxHr+restingHr, NASA-TLX without weights.",
+      "session": "sessions/edge-empty.json",
+      "simulate": null,
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/edge-empty.summary.json",
+        "hrv": "expected/edge-empty.hrv.json",
+        "extras": "expected/edge-empty.extras.json",
+        "samplesCsv": "expected/edge-empty.samples.csv",
+        "rrCsv": "expected/edge-empty.rr.csv",
+        "eventsCsv": "expected/edge-empty.events.csv"
+      }
+    }
+  ],
+  "sessionsSummariesCsv": "expected/sessions.summaries.csv",
+  "cohort": {
+    "name": "cohort-small",
+    "bundle": "cohort-small.json",
+    "simulateCohort": {
+      "seed": 2026,
+      "participants": 3,
+      "sessionsPerParticipant": 4,
+      "start": 1767600000000,
+      "spacingDays": 7
+    },
+    "summaryOptions": {},
+    "expected": {
+      "summariesJson": "expected/cohort-small.summaries.json",
+      "summariesCsv": "expected/cohort-small.summaries.csv",
+      "aggregates": "expected/cohort-small.aggregates.json"
+    },
+    "aggregates": [
+      {
+        "metric": "meanHr",
+        "groupBy": "participant"
+      },
+      {
+        "metric": "meanHrDelta",
+        "groupBy": "trainingLevel"
+      },
+      {
+        "metric": "rmssd",
+        "groupBy": "procedure"
+      },
+      {
+        "metric": "workload",
+        "groupBy": "specialty"
+      },
+      {
+        "metric": "episodeCount",
+        "groupBy": "month"
+      },
+      {
+        "metric": "criticalMeanHr",
+        "groupBy": "approach"
+      },
+      {
+        "metric": "coveragePct",
+        "groupBy": "none"
+      }
+    ]
+  },
+  "nonFiniteOutputs": {}
+}

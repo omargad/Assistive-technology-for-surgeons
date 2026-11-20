@@ -1,0 +1,176 @@
+# surgeonpulse-analysis
+
+The Python research toolkit for SurgeonPulse exports. It does three things:
+
+- **Re-implements the analytics** of `@surgeonpulse/core` (heart rate, HRV, zones, phases, stress
+  episodes, data quality and SURG-TLX). It was written independently from
+  [`packages/core/SPEC.md`](../packages/core/SPEC.md), and the summary dicts use the same camelCase
+  keys as the TypeScript `SessionSummary`.
+- **Builds tidy pandas DataFrames** from an export: `sessions`, `samples`, `rr`, `events` and
+  `participants`. `t` is `datetime64[ms, UTC]` and `t_offset_s` is the time since the session started.
+- **Supports cohort analysis.** You get one wide row per session (the same columns as the app's
+  `summariesToCsv`, ready for SPSS/R/Stata), grouped statistics, per-surgeon learning curves and
+  phase profiles.
+
+The TypeScript and Python implementations are checked against each other on every CI run, on
+Linux, Windows and macOS (see [Parity](#parity-with-the-typescript-implementation)).
+
+## Install
+
+Requires Python ≥ 3.10, numpy and pandas. Run these commands from the repository root:
+
+```bash
+python -m venv .venv
+# macOS / Linux:
+source .venv/bin/activate
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+
+python -m pip install -e "analysis[dev]"     # dev extra = pytest
+```
+
+This installs the `surgeonpulse` command. `python -m surgeonpulse_analysis …` does the same thing,
+which is handy if the scripts directory isn't on your `PATH` (common on Windows).
+
+## Command line
+
+```bash
+# One wide CSV row per session (same columns as the app / dashboard export)
+surgeonpulse summarize export.json -o summaries.csv
+surgeonpulse summarize export.json --max-hr 185 --episode-threshold 95 > summaries.csv
+
+# Tidy long-format CSVs: samples.csv, rr.csv, events.csv, sessions.csv, participants.csv
+surgeonpulse frames export.json -o outdir/
+
+# Plain-text cohort report (participants, phase profile, learning curves, workload)
+surgeonpulse report export.json
+surgeonpulse report export.json -o report.txt
+```
+
+`export.json` can be an export bundle (`format: "surgeonpulse-export"`), a single session, or a
+JSON array of sessions. That's the same input the app's `parseImport` accepts. Invalid sessions are
+skipped, and a warning on stderr names the session index and the field at fault.
+
+All CSVs follow RFC 4180 with CRLF line endings and UTF-8 encoding. Numbers are formatted like
+JavaScript's `String(n)` and times as ISO-8601 UTC (`2026-01-05T08:00:00.000Z`). As a result,
+`samples.csv`, `rr.csv`, `events.csv` and `summaries.csv` are **byte-identical** to the files the
+app produces.
+
+## Python API
+
+```python
+from surgeonpulse_analysis import (
+    load_export, sessions_to_frames, summarize_session, summaries_frame,
+    aggregate, learning_curve, phase_profile,
+)
+
+bundle = load_export("export.json")          # dict: participants, sessions, …
+
+# Per-session analytics (same keys as the TypeScript SessionSummary)
+s = summarize_session(bundle["sessions"][0], max_hr=185)
+s["hrv"]["rmssd"], s["quality"]["coverage"], s["phases"][0]["meanHrDelta"]
+
+# Tidy frames for plotting / mixed models
+frames = sessions_to_frames(bundle)
+samples = frames["samples"]                  # session_id, participant_code, t, t_ms, t_offset_s, bpm, contact, phase
+samples.groupby(["participant_code", "phase"])["bpm"].mean()
+
+# Cohort analysis
+df = summaries_frame(bundle)                 # one row per session, summariesToCsv columns
+aggregate(df, "meanHrDelta", "trainingLevel")   # group, n, mean, sd, median, min, max
+learning_curve(df, "criticalMeanHrDelta")       # OLS slope per participant + pooled
+phase_profile(df)                               # mean HR / HR delta / RMSSD by operative phase
+```
+
+`aggregate` and `learning_curve` accept the app's metric keys (`meanHr`, `peakHr`, `meanHrDelta`,
+`peakHrDelta`, `rmssd`, `sdnn`, `stressIndex`, `highIntensityPct`, `episodeCount`,
+`episodeMinutes`, `workload`, `performance`, `perceivedStress`, `durationMin`, `criticalMeanHr`,
+`criticalMeanHrDelta`, `coveragePct`) or any numeric column name. The group keys are
+`participant`, `procedure`, `specialty`, `approach`, `role`, `trainingLevel`, `urgency`, `month`
+and `none`.
+
+Function names are snake_case ports of the TypeScript names (`cleanRr` → `clean_rr`,
+`summarizeSession` → `summarize_session`), and options become keyword arguments
+(`{minIntervals: 20}` → `min_intervals=20`). Where TypeScript returns `null`, these functions
+return `None`, and they never produce NaN or ∞. DataFrames use NaN for missing values, as pandas
+normally does.
+
+## Metrics and definitions
+
+| Metric (summary key / CSV column) | Definition | Reference |
+| --- | --- | --- |
+| `hr.mean/median/min/max/sd/p95` (`hr_*`) | Over valid samples (finite, 25–250 bpm), not time-weighted; SD with n−1; p95 by linear interpolation (NumPy `linear`) | Hyndman & Fan 1996 (def. 7) |
+| Artefact rejection (`rr_artifact_pct`) | RR outside 300–2000 ms, or deviating > 20 % from the median of the ±5 neighbouring valid beats | Task Force 1996 (editing of ectopic beats/artefacts) |
+| `hrv.meanRr`, `sdnn` | Mean and sample SD of all valid RR intervals | Task Force of ESC/NASPE 1996 |
+| `hrv.rmssd` | √(mean of squared successive differences), using only valid pairs within a contiguous run (a gap > 3 s + RR starts a new run) | Task Force 1996 |
+| `hrv.pnn50` | % of valid successive differences with \|Δ\| > 50 ms | Task Force 1996 |
+| `stressIndex` (`stress_index`) | Baevsky SI = AMo / (2·Mo·MxDMn), 50 ms bins, Mo and MxDMn in seconds, AMo in % | Baevsky & Chernikova 2017 |
+| `maxHr` | Override → participant `maxHr` → 208 − 0.7·age, rounded half-up | Tanaka, Monahan & Seals 2001 |
+| `zones` | Baseline zones (rest+10/20/30 bpm) when a baseline exists, else 60/70/80/90 % of HRmax; time-weighted dwell, gaps capped at 5 s | — |
+| `highIntensityFraction` (`high_intensity_pct`) | Time-weighted fraction with HR ≥ 70 % HRmax | — |
+| `baseline` / `meanHrDelta` / `peakHrDelta` | Measured pre-op resting HR (5 min), else profile resting HR; delta = session (or phase) mean/max − resting | — |
+| `phases` (`<phase>_*`) | Segments from phase markers; per-phase HR stats, HRV (≥ 20 intervals) and HR delta; repeated phases are duration-weighted in the CSV | — |
+| `episodes` (`episode_count/minutes`) | Runs with HR ≥ threshold (rest + 20 bpm, else median + 15), merged across ≤ 30 s, kept if ≥ 60 s; peak, mean, phase at peak, events from 2 min before | — |
+| `quality.coverage` (`coverage_pct`) | Covered time (gaps capped at 5 s, clipped to the session) ÷ duration | — |
+| `workload.raw` / `weighted` | SURG-TLX: mean of the 6 ratings (0–100); weighted = Σ(rating·weight)/15 when the 15 pairwise tallies are valid | Wilson et al. 2011; Hart & Staveland 1988 |
+| learning curve slope | OLS slope of a metric against each surgeon's session number | — |
+
+References:
+
+- Task Force of the European Society of Cardiology and the North American Society of Pacing and
+  Electrophysiology (1996). Heart rate variability: standards of measurement, physiological
+  interpretation and clinical use. *Circulation* 93:1043–1065.
+- Baevsky R.M., Chernikova A.G. (2017). Heart rate variability analysis: physiological foundations
+  and main methods. *Cardiometry* 10:66–76.
+- Tanaka H., Monahan K.D., Seals D.R. (2001). Age-predicted maximal heart rate revisited. *J Am
+  Coll Cardiol* 37:153–156.
+- Wilson M.R., Poolton J.M., Malhotra N., Ngo K., Bright E., Masters R.S.W. (2011). Development
+  and validation of a surgical workload measure: the Surgery Task Load Index (SURG-TLX). *World J
+  Surg* 35:1961–1969.
+- Hart S.G., Staveland L.E. (1988). Development of NASA-TLX. *Advances in Psychology* 52:139–183.
+- Hyndman R.J., Fan Y. (1996). Sample quantiles in statistical packages. *Am Stat* 50:361–365.
+
+## Parity with the TypeScript implementation
+
+`packages/core/scripts/generate-fixtures.ts` uses the public API of `@surgeonpulse/core` to write
+simulated and hand-built sessions, a small cohort bundle and the expected outputs to
+[`/fixtures`](../fixtures/README.md). `tests/test_parity.py` recomputes all of it in Python and
+compares the results field by field:
+
+- **Exact:** counts, ids, timestamps, strings and booleans.
+- **Within tolerance:** all other numbers, with `rtol = 1e-9` and `atol = 1e-6`.
+- **Byte-for-byte:** the samples/RR/events CSVs.
+
+```bash
+# regenerate fixtures after changing the TypeScript analytics (deterministic output)
+npm run fixtures -w @surgeonpulse/core
+
+# run the Python tests (unit + parity); either works from a plain checkout
+cd analysis && python -m pytest -q
+python -m pytest -q analysis
+```
+
+CI fails when `fixtures/` is stale. Suppose a mismatch turns out to come from the TypeScript side
+violating SPEC.md. In that case, add the check id to `TS_DISCREPANCIES` in `tests/test_parity.py`.
+The check is then marked `xfail(strict=True)`, so the suite stays green until TypeScript is fixed,
+and then fails so you remember to remove the mark. **The list is currently empty: every check
+agrees.**
+
+## Cross-platform notes
+
+The toolkit runs unchanged on Windows, macOS and Linux, and CI runs the tests on all three with
+Python 3.10 and 3.13. It relies on these choices:
+
+- Files are read as UTF-8, and a BOM written by a Windows editor is accepted. Files are written as
+  UTF-8 with `newline=""`, so CRLF is never doubled. CSV sent to stdout is written as bytes.
+- Times are computed from the Unix epoch with `timedelta`, not with `time.localtime` or
+  `fromtimestamp`, which fail for negative values on Windows. ISO strings are formatted field by
+  field, because `strftime("%Y")` isn't zero-padded on every platform.
+- Integer columns are explicitly `int64`. NumPy < 2 defaults to 32-bit integers on Windows, which
+  would overflow epoch milliseconds.
+- Summation runs left to right, as in JavaScript, rather than with Python ≥ 3.12's compensated
+  `sum`. Rounding uses JavaScript's half-up `Math.round`, not Python's banker's rounding. Both
+  keep results identical to the app.
+- The report is plain ASCII, so it prints on any console code page.
+- `fixtures/.gitattributes` turns off end-of-line conversion, so Git on Windows can't rewrite the
+  byte-compared fixtures.

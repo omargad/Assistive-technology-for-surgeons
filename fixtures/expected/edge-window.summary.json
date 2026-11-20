@@ -1,0 +1,177 @@
+{
+  "sessionId": "edge-window-0001",
+  "participantCode": "EDGE-04",
+  "procedureName": "Laparoscopic appendicectomy",
+  "approach": "laparoscopic",
+  "urgency": "emergency",
+  "trainingLevel": "intern",
+  "startedAt": 1776258000000,
+  "endedAt": 1776258360000,
+  "durationSec": 360,
+  "hr": {
+    "count": 383,
+    "mean": 116.177545691906,
+    "median": 126,
+    "min": 88,
+    "max": 133,
+    "sd": 17.27025155361097,
+    "p95": 133
+  },
+  "hrv": {
+    "n": 751,
+    "pairs": 750,
+    "meanRr": 519.5886631158453,
+    "sdnn": 82.76010366105773,
+    "rmssd": 14.87223686959475,
+    "pnn50": 0.4,
+    "meanHr": 115.47596061891491
+  },
+  "rrArtifacts": {
+    "total": 751,
+    "removed": 0,
+    "ratio": 0
+  },
+  "stressIndex": 177.77667377281566,
+  "baseline": null,
+  "meanHrDelta": null,
+  "peakHrDelta": null,
+  "maxHr": 170,
+  "zones": [
+    {
+      "id": "z1",
+      "label": "Very light",
+      "seconds": 74,
+      "fraction": 0.18925831202046037
+    },
+    {
+      "id": "z2",
+      "label": "Light",
+      "seconds": 96,
+      "fraction": 0.24552429667519182
+    },
+    {
+      "id": "z3",
+      "label": "Moderate",
+      "seconds": 221,
+      "fraction": 0.5652173913043478
+    },
+    {
+      "id": "z4",
+      "label": "Hard",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z5",
+      "label": "Maximum",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "highIntensityFraction": 0.5652173913043478,
+  "phases": [
+    {
+      "phase": "pre-op",
+      "index": 0,
+      "start": 1776258000000,
+      "end": 1776258060000,
+      "durationSec": 60,
+      "hr": {
+        "count": 57,
+        "mean": 88,
+        "median": 88,
+        "min": 88,
+        "max": 88,
+        "sd": 0,
+        "p95": 88
+      },
+      "hrv": {
+        "n": 88,
+        "pairs": 87,
+        "meanRr": 679.7890795454545,
+        "sdnn": 14.384394412897048,
+        "rmssd": 14.613278549114955,
+        "pnn50": 0,
+        "meanHr": 88.26267118047764
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "dissection",
+      "index": 1,
+      "start": 1776258060000,
+      "end": 1776258150000,
+      "durationSec": 90,
+      "hr": {
+        "count": 90,
+        "mean": 127.5,
+        "median": 127.5,
+        "min": 125,
+        "max": 130,
+        "sd": 1.7173928502958171,
+        "p95": 130
+      },
+      "hrv": {
+        "n": 188,
+        "pairs": 187,
+        "meanRr": 469.76756914893633,
+        "sdnn": 9.411474391674208,
+        "rmssd": 7.949320788932071,
+        "pnn50": 0,
+        "meanHr": 127.72273766939719
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "critical",
+      "index": 2,
+      "start": 1776258150000,
+      "end": 1776258360000,
+      "durationSec": 210,
+      "hr": {
+        "count": 202,
+        "mean": 119.25247524752476,
+        "median": 131,
+        "min": 104,
+        "max": 133,
+        "sd": 13.996467884636232,
+        "p95": 133
+      },
+      "hrv": {
+        "n": 416,
+        "pairs": 415,
+        "meanRr": 505.0639182692303,
+        "sdnn": 60.78431599691308,
+        "rmssd": 14.156555794452471,
+        "pnn50": 0.4819277108433735,
+        "meanHr": 118.79684497283033
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "closure",
+      "index": 3,
+      "start": 1776258360000,
+      "end": 1776258360000,
+      "durationSec": 0,
+      "hr": null,
+      "hrv": null,
+      "meanHrDelta": null
+    }
+  ],
+  "episodes": [],
+  "markerCounts": {
+    "takeover": 1,
+    "note": 1
+  },
+  "workload": null,
+  "performance": null,
+  "perceivedStress": null,
+  "quality": {
+    "coverage": 0.9798611111111111,
+    "gapCount": 2,
+    "longestGapSec": 11,
+    "rrArtifactRatio": 0,
+    "sampleRateHz": 1.0829199149539335
+  }
+}

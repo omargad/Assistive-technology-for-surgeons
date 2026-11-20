@@ -1,0 +1,7 @@
+session_id,participant_code,t_iso,t_offset_s,type,kind,logged_by,note
+a8d7abf9-84b9-4774-9a62-0cdb6a06bed5,SIM-001,2026-01-05T08:00:00.000Z,0,phase,pre-op,self,
+a8d7abf9-84b9-4774-9a62-0cdb6a06bed5,SIM-001,2026-01-05T08:02:07.282Z,127.282,phase,incision,self,
+a8d7abf9-84b9-4774-9a62-0cdb6a06bed5,SIM-001,2026-01-05T08:04:21.010Z,261.01,phase,dissection,self,
+a8d7abf9-84b9-4774-9a62-0cdb6a06bed5,SIM-001,2026-01-05T08:15:13.206Z,913.206,phase,critical,self,
+a8d7abf9-84b9-4774-9a62-0cdb6a06bed5,SIM-001,2026-01-05T08:18:15.232Z,1095.232,phase,closure,self,
+a8d7abf9-84b9-4774-9a62-0cdb6a06bed5,SIM-001,2026-01-05T08:23:38.895Z,1418.895,phase,post-op,self,

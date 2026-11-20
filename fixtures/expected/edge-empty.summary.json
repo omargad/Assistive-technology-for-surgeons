@@ -1,0 +1,78 @@
+{
+  "sessionId": "edge-empty-0001",
+  "participantCode": "EDGE-03",
+  "procedureName": "Aborted case",
+  "approach": "robotic",
+  "role": "assistant",
+  "urgency": "emergency",
+  "complexity": 5,
+  "trainingLevel": "fellow",
+  "startedAt": 1767222000000,
+  "endedAt": 1767222000000,
+  "durationSec": 0,
+  "hr": null,
+  "hrv": null,
+  "rrArtifacts": null,
+  "stressIndex": null,
+  "baseline": {
+    "startedAt": 1767222000000,
+    "endedAt": 1767222000000,
+    "restingHr": 58,
+    "source": "profile"
+  },
+  "meanHrDelta": null,
+  "peakHrDelta": null,
+  "maxHr": 190,
+  "zones": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "highIntensityFraction": null,
+  "phases": [],
+  "episodes": [],
+  "markerCounts": {},
+  "workload": {
+    "instrument": "nasa-tlx",
+    "raw": 31.666666666666668,
+    "weighted": null,
+    "dimensions": {
+      "mental": 55,
+      "physical": 10,
+      "temporal": 40,
+      "performance": 20,
+      "effort": 50,
+      "frustration": 15
+    }
+  },
+  "performance": null,
+  "perceivedStress": null,
+  "quality": {
+    "coverage": 0,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": null,
+    "sampleRateHz": 0
+  }
+}

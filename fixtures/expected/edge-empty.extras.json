@@ -1,0 +1,124 @@
+{
+  "sessionEnd": 1767222000000,
+  "derivePhases": [],
+  "hrStats": null,
+  "percentiles": [
+    {
+      "p": 0,
+      "value": null
+    },
+    {
+      "p": 5,
+      "value": null
+    },
+    {
+      "p": 33.3,
+      "value": null
+    },
+    {
+      "p": 50,
+      "value": null
+    },
+    {
+      "p": 95,
+      "value": null
+    },
+    {
+      "p": 99.9,
+      "value": null
+    },
+    {
+      "p": 100,
+      "value": null
+    }
+  ],
+  "detectGaps2000": [],
+  "dataQuality2000": {
+    "coverage": 0,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": null,
+    "sampleRateHz": 0
+  },
+  "timeInZonesMaxHr185Gap3000": [
+    {
+      "id": "z1",
+      "label": "Very light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z2",
+      "label": "Light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z3",
+      "label": "Moderate",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z4",
+      "label": "Hard",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z5",
+      "label": "Maximum",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "timeInZonesBaseline65": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "episodeThreshold": 90,
+  "episodesNoMerge": [],
+  "episodesLongMerge": [],
+  "episodesNoContext": [],
+  "computeBaselineFirst5Min": null,
+  "cleanRrCustom": {
+    "valid": [],
+    "report": {
+      "total": 0,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "computeHrvCustom": {
+    "hrv": null,
+    "artifacts": {
+      "total": 0,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "baevskyBin25": null,
+  "baevskyBin100": null
+}

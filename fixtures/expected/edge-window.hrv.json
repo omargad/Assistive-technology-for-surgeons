@@ -1,0 +1,187 @@
+{
+  "computeHrv": {
+    "hrv": {
+      "n": 751,
+      "pairs": 750,
+      "meanRr": 519.5886631158453,
+      "sdnn": 82.76010366105773,
+      "rmssd": 14.87223686959475,
+      "pnn50": 0.4,
+      "meanHr": 115.47596061891491
+    },
+    "artifacts": {
+      "total": 751,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "computeHrvMin20": {
+    "hrv": {
+      "n": 751,
+      "pairs": 750,
+      "meanRr": 519.5886631158453,
+      "sdnn": 82.76010366105773,
+      "rmssd": 14.87223686959475,
+      "pnn50": 0.4,
+      "meanHr": 115.47596061891491
+    },
+    "artifacts": {
+      "total": 751,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "cleanRrValid": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true],
+  "cleanRrReport": {
+    "total": 751,
+    "removed": 0,
+    "ratio": 0
+  },
+  "hrvTimeDomainValid": {
+    "n": 751,
+    "pairs": 750,
+    "meanRr": 519.5886631158453,
+    "sdnn": 82.76010366105773,
+    "rmssd": 14.87223686959475,
+    "pnn50": 0.4,
+    "meanHr": 115.47596061891491
+  },
+  "baevskyStressIndex": 177.77667377281566,
+  "rollingHrv": [
+    {
+      "t": 1776258046000,
+      "rmssd": 14.38511772032424,
+      "sdnn": 14.03526498679695,
+      "meanHr": 88.29619990380061,
+      "n": 88
+    },
+    {
+      "t": 1776258076000,
+      "rmssd": 24.65939594547752,
+      "sdnn": 97.8770608714501,
+      "meanHr": 97.58189220778911,
+      "n": 97
+    },
+    {
+      "t": 1776258106000,
+      "rmssd": 21.346628156980987,
+      "sdnn": 84.71728699330873,
+      "meanHr": 117.38829111995202,
+      "n": 117
+    },
+    {
+      "t": 1776258136000,
+      "rmssd": 7.957839126236163,
+      "sdnn": 9.450671157893797,
+      "meanHr": 127.71859336595033,
+      "n": 128
+    },
+    {
+      "t": 1776258166000,
+      "rmssd": 12.479107347817276,
+      "sdnn": 42.99696165843186,
+      "meanHr": 122.1432781366969,
+      "n": 122
+    },
+    {
+      "t": 1776258196000,
+      "rmssd": 14.360848084511654,
+      "sdnn": 49.84046339849594,
+      "meanHr": 110.44538204764538,
+      "n": 110
+    },
+    {
+      "t": 1776258226000,
+      "rmssd": 12.002536178706311,
+      "sdnn": 13.232570045489696,
+      "meanHr": 104.37106517977992,
+      "n": 105
+    },
+    {
+      "t": 1776258256000,
+      "rmssd": 19.063978718891278,
+      "sdnn": 38.31383762578553,
+      "meanHr": 106.46779764544641,
+      "n": 107
+    },
+    {
+      "t": 1776258286000,
+      "rmssd": 18.259419964647794,
+      "sdnn": 60.89746564179175,
+      "meanHr": 120.34091176325224,
+      "n": 120
+    },
+    {
+      "t": 1776258316000,
+      "rmssd": 10.106387872253245,
+      "sdnn": 13.227294043067527,
+      "meanHr": 131.99433084349025,
+      "n": 132
+    },
+    {
+      "t": 1776258346000,
+      "rmssd": 8.976919362266834,
+      "sdnn": 11.443661670105739,
+      "meanHr": 131.9735656947913,
+      "n": 132
+    },
+    {
+      "t": 1776258376000,
+      "rmssd": 11.018246338417281,
+      "sdnn": 14.428204991136296,
+      "meanHr": 131.95947964245119,
+      "n": 132
+    }
+  ],
+  "rollingHrvCustom": [
+    {
+      "t": 1776258106000,
+      "rmssd": 18.67024438018116,
+      "sdnn": 105.58142280044753,
+      "meanHr": 102.8425875134818,
+      "n": 205
+    },
+    {
+      "t": 1776258151000,
+      "rmssd": 16.554385357742806,
+      "sdnn": 83.25260361980048,
+      "meanHr": 117.6437322101922,
+      "n": 235
+    },
+    {
+      "t": 1776258196000,
+      "rmssd": 11.35896729776655,
+      "sdnn": 50.37663416576047,
+      "meanHr": 119.1089410077437,
+      "n": 238
+    },
+    {
+      "t": 1776258241000,
+      "rmssd": 12.872427616632944,
+      "sdnn": 49.255918769736546,
+      "meanHr": 110.31787071134922,
+      "n": 221
+    },
+    {
+      "t": 1776258286000,
+      "rmssd": 15.639506839365865,
+      "sdnn": 59.215020656243325,
+      "meanHr": 112.3206762962705,
+      "n": 225
+    },
+    {
+      "t": 1776258331000,
+      "rmssd": 14.331912305193983,
+      "sdnn": 56.08606707741575,
+      "meanHr": 122.7191795226068,
+      "n": 245
+    },
+    {
+      "t": 1776258376000,
+      "rmssd": 10.559178390451068,
+      "sdnn": 13.814573028442116,
+      "meanHr": 131.97690294217756,
+      "n": 264
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+# Fixtures are compared byte-for-byte by the parity tests (the expected CSVs use
+# RFC 4180 CRLF line endings, the JSON files use LF). Disable end-of-line
+# conversion so a checkout or commit on Windows (core.autocrlf=true) cannot
+# rewrite them.
+* -text

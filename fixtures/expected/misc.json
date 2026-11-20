@@ -1,0 +1,1463 @@
+{
+  "stats": [
+    {
+      "xs": [],
+      "mean": null,
+      "median": null,
+      "sampleSd": null,
+      "percentiles": [
+        {
+          "p": 0,
+          "value": null
+        },
+        {
+          "p": 10,
+          "value": null
+        },
+        {
+          "p": 25,
+          "value": null
+        },
+        {
+          "p": 50,
+          "value": null
+        },
+        {
+          "p": 75,
+          "value": null
+        },
+        {
+          "p": 90,
+          "value": null
+        },
+        {
+          "p": 95,
+          "value": null
+        },
+        {
+          "p": 99.5,
+          "value": null
+        },
+        {
+          "p": 100,
+          "value": null
+        }
+      ],
+      "movingAverage3": []
+    },
+    {
+      "xs": [5],
+      "mean": 5,
+      "median": 5,
+      "sampleSd": 0,
+      "percentiles": [
+        {
+          "p": 0,
+          "value": 5
+        },
+        {
+          "p": 10,
+          "value": 5
+        },
+        {
+          "p": 25,
+          "value": 5
+        },
+        {
+          "p": 50,
+          "value": 5
+        },
+        {
+          "p": 75,
+          "value": 5
+        },
+        {
+          "p": 90,
+          "value": 5
+        },
+        {
+          "p": 95,
+          "value": 5
+        },
+        {
+          "p": 99.5,
+          "value": 5
+        },
+        {
+          "p": 100,
+          "value": 5
+        }
+      ],
+      "movingAverage3": [5]
+    },
+    {
+      "xs": [3,1],
+      "mean": 2,
+      "median": 2,
+      "sampleSd": 1.4142135623730951,
+      "percentiles": [
+        {
+          "p": 0,
+          "value": 1
+        },
+        {
+          "p": 10,
+          "value": 1.2
+        },
+        {
+          "p": 25,
+          "value": 1.5
+        },
+        {
+          "p": 50,
+          "value": 2
+        },
+        {
+          "p": 75,
+          "value": 2.5
+        },
+        {
+          "p": 90,
+          "value": 2.8
+        },
+        {
+          "p": 95,
+          "value": 2.9
+        },
+        {
+          "p": 99.5,
+          "value": 2.99
+        },
+        {
+          "p": 100,
+          "value": 3
+        }
+      ],
+      "movingAverage3": [3,2]
+    },
+    {
+      "xs": [4,1,3,2],
+      "mean": 2.5,
+      "median": 2.5,
+      "sampleSd": 1.2909944487358056,
+      "percentiles": [
+        {
+          "p": 0,
+          "value": 1
+        },
+        {
+          "p": 10,
+          "value": 1.3
+        },
+        {
+          "p": 25,
+          "value": 1.75
+        },
+        {
+          "p": 50,
+          "value": 2.5
+        },
+        {
+          "p": 75,
+          "value": 3.25
+        },
+        {
+          "p": 90,
+          "value": 3.7
+        },
+        {
+          "p": 95,
+          "value": 3.8499999999999996
+        },
+        {
+          "p": 99.5,
+          "value": 3.985
+        },
+        {
+          "p": 100,
+          "value": 4
+        }
+      ],
+      "movingAverage3": [4,2.5,2.6666666666666665,2]
+    },
+    {
+      "xs": [72,75,71,90,88,88,64],
+      "mean": 78.28571428571429,
+      "median": 75,
+      "sampleSd": 10.274795792200864,
+      "percentiles": [
+        {
+          "p": 0,
+          "value": 64
+        },
+        {
+          "p": 10,
+          "value": 68.2
+        },
+        {
+          "p": 25,
+          "value": 71.5
+        },
+        {
+          "p": 50,
+          "value": 75
+        },
+        {
+          "p": 75,
+          "value": 88
+        },
+        {
+          "p": 90,
+          "value": 88.8
+        },
+        {
+          "p": 95,
+          "value": 89.4
+        },
+        {
+          "p": 99.5,
+          "value": 89.94
+        },
+        {
+          "p": 100,
+          "value": 90
+        }
+      ],
+      "movingAverage3": [72,73.5,72.66666666666667,78.66666666666667,83,88.66666666666667,80]
+    },
+    {
+      "xs": [0.1,0.2,0.3],
+      "mean": 0.20000000000000004,
+      "median": 0.2,
+      "sampleSd": 0.09999999999999999,
+      "percentiles": [
+        {
+          "p": 0,
+          "value": 0.1
+        },
+        {
+          "p": 10,
+          "value": 0.12000000000000001
+        },
+        {
+          "p": 25,
+          "value": 0.15000000000000002
+        },
+        {
+          "p": 50,
+          "value": 0.2
+        },
+        {
+          "p": 75,
+          "value": 0.25
+        },
+        {
+          "p": 90,
+          "value": 0.28
+        },
+        {
+          "p": 95,
+          "value": 0.29
+        },
+        {
+          "p": 99.5,
+          "value": 0.299
+        },
+        {
+          "p": 100,
+          "value": 0.3
+        }
+      ],
+      "movingAverage3": [0.1,0.15000000000000002,0.20000000000000004]
+    },
+    {
+      "xs": [1e-7,2.5e-7,1e+21],
+      "mean": 333333333333333300000,
+      "median": 2.5e-7,
+      "sampleSd": 577350269189625800000,
+      "percentiles": [
+        {
+          "p": 0,
+          "value": 1e-7
+        },
+        {
+          "p": 10,
+          "value": 1.3e-7
+        },
+        {
+          "p": 25,
+          "value": 1.75e-7
+        },
+        {
+          "p": 50,
+          "value": 2.5e-7
+        },
+        {
+          "p": 75,
+          "value": 500000000000000000000
+        },
+        {
+          "p": 90,
+          "value": 800000000000000000000
+        },
+        {
+          "p": 95,
+          "value": 899999999999999900000
+        },
+        {
+          "p": 99.5,
+          "value": 990000000000000000000
+        },
+        {
+          "p": 100,
+          "value": 1e+21
+        }
+      ],
+      "movingAverage3": [1e-7,1.75e-7,333333333333333300000]
+    }
+  ],
+  "linearTrend": [
+    {
+      "points": [],
+      "fit": null
+    },
+    {
+      "points": [
+        {
+          "x": 1,
+          "y": 2
+        }
+      ],
+      "fit": null
+    },
+    {
+      "points": [
+        {
+          "x": 1,
+          "y": 2
+        },
+        {
+          "x": 1,
+          "y": 5
+        }
+      ],
+      "fit": null
+    },
+    {
+      "points": [
+        {
+          "x": 1,
+          "y": 3
+        },
+        {
+          "x": 2,
+          "y": 3
+        },
+        {
+          "x": 3,
+          "y": 3
+        }
+      ],
+      "fit": {
+        "slope": 0,
+        "intercept": 3,
+        "r2": 0,
+        "n": 3
+      }
+    },
+    {
+      "points": [
+        {
+          "x": 1,
+          "y": 10
+        },
+        {
+          "x": 2,
+          "y": 8.5
+        },
+        {
+          "x": 3,
+          "y": 9
+        },
+        {
+          "x": 4,
+          "y": 6
+        },
+        {
+          "x": 5,
+          "y": 5.5
+        }
+      ],
+      "fit": {
+        "slope": -1.15,
+        "intercept": 11.25,
+        "r2": 0.8643790849673203,
+        "n": 5
+      }
+    },
+    {
+      "points": [
+        {
+          "x": 0.5,
+          "y": -1
+        },
+        {
+          "x": 2,
+          "y": 4
+        },
+        {
+          "x": 7,
+          "y": 3
+        }
+      ],
+      "fit": {
+        "slope": 0.41007194244604317,
+        "intercept": 0.7014388489208634,
+        "r2": 0.2782631038026721,
+        "n": 3
+      }
+    }
+  ],
+  "estimateMaxHr": [
+    {
+      "birthYear": 2026,
+      "atYear": 2026,
+      "maxHr": 208
+    },
+    {
+      "birthYear": 2025,
+      "atYear": 2026,
+      "maxHr": 207
+    },
+    {
+      "birthYear": 2024,
+      "atYear": 2026,
+      "maxHr": 207
+    },
+    {
+      "birthYear": 2023,
+      "atYear": 2026,
+      "maxHr": 206
+    },
+    {
+      "birthYear": 2022,
+      "atYear": 2026,
+      "maxHr": 205
+    },
+    {
+      "birthYear": 2021,
+      "atYear": 2026,
+      "maxHr": 205
+    },
+    {
+      "birthYear": 2020,
+      "atYear": 2026,
+      "maxHr": 204
+    },
+    {
+      "birthYear": 2019,
+      "atYear": 2026,
+      "maxHr": 203
+    },
+    {
+      "birthYear": 2018,
+      "atYear": 2026,
+      "maxHr": 202
+    },
+    {
+      "birthYear": 2017,
+      "atYear": 2026,
+      "maxHr": 202
+    },
+    {
+      "birthYear": 2016,
+      "atYear": 2026,
+      "maxHr": 201
+    },
+    {
+      "birthYear": 2015,
+      "atYear": 2026,
+      "maxHr": 200
+    },
+    {
+      "birthYear": 2014,
+      "atYear": 2026,
+      "maxHr": 200
+    },
+    {
+      "birthYear": 2013,
+      "atYear": 2026,
+      "maxHr": 199
+    },
+    {
+      "birthYear": 2012,
+      "atYear": 2026,
+      "maxHr": 198
+    },
+    {
+      "birthYear": 2011,
+      "atYear": 2026,
+      "maxHr": 198
+    },
+    {
+      "birthYear": 2010,
+      "atYear": 2026,
+      "maxHr": 197
+    },
+    {
+      "birthYear": 2009,
+      "atYear": 2026,
+      "maxHr": 196
+    },
+    {
+      "birthYear": 2008,
+      "atYear": 2026,
+      "maxHr": 195
+    },
+    {
+      "birthYear": 2007,
+      "atYear": 2026,
+      "maxHr": 195
+    },
+    {
+      "birthYear": 2006,
+      "atYear": 2026,
+      "maxHr": 194
+    },
+    {
+      "birthYear": 2005,
+      "atYear": 2026,
+      "maxHr": 193
+    },
+    {
+      "birthYear": 2004,
+      "atYear": 2026,
+      "maxHr": 193
+    },
+    {
+      "birthYear": 2003,
+      "atYear": 2026,
+      "maxHr": 192
+    },
+    {
+      "birthYear": 2002,
+      "atYear": 2026,
+      "maxHr": 191
+    },
+    {
+      "birthYear": 2001,
+      "atYear": 2026,
+      "maxHr": 191
+    },
+    {
+      "birthYear": 2000,
+      "atYear": 2026,
+      "maxHr": 190
+    },
+    {
+      "birthYear": 1999,
+      "atYear": 2026,
+      "maxHr": 189
+    },
+    {
+      "birthYear": 1998,
+      "atYear": 2026,
+      "maxHr": 188
+    },
+    {
+      "birthYear": 1997,
+      "atYear": 2026,
+      "maxHr": 188
+    },
+    {
+      "birthYear": 1996,
+      "atYear": 2026,
+      "maxHr": 187
+    },
+    {
+      "birthYear": 1995,
+      "atYear": 2026,
+      "maxHr": 186
+    },
+    {
+      "birthYear": 1994,
+      "atYear": 2026,
+      "maxHr": 186
+    },
+    {
+      "birthYear": 1993,
+      "atYear": 2026,
+      "maxHr": 185
+    },
+    {
+      "birthYear": 1992,
+      "atYear": 2026,
+      "maxHr": 184
+    },
+    {
+      "birthYear": 1991,
+      "atYear": 2026,
+      "maxHr": 184
+    },
+    {
+      "birthYear": 1990,
+      "atYear": 2026,
+      "maxHr": 183
+    },
+    {
+      "birthYear": 1989,
+      "atYear": 2026,
+      "maxHr": 182
+    },
+    {
+      "birthYear": 1988,
+      "atYear": 2026,
+      "maxHr": 181
+    },
+    {
+      "birthYear": 1987,
+      "atYear": 2026,
+      "maxHr": 181
+    },
+    {
+      "birthYear": 1986,
+      "atYear": 2026,
+      "maxHr": 180
+    },
+    {
+      "birthYear": 1985,
+      "atYear": 2026,
+      "maxHr": 179
+    },
+    {
+      "birthYear": 1984,
+      "atYear": 2026,
+      "maxHr": 179
+    },
+    {
+      "birthYear": 1983,
+      "atYear": 2026,
+      "maxHr": 178
+    },
+    {
+      "birthYear": 1982,
+      "atYear": 2026,
+      "maxHr": 177
+    },
+    {
+      "birthYear": 1981,
+      "atYear": 2026,
+      "maxHr": 177
+    },
+    {
+      "birthYear": 1980,
+      "atYear": 2026,
+      "maxHr": 176
+    },
+    {
+      "birthYear": 1979,
+      "atYear": 2026,
+      "maxHr": 175
+    },
+    {
+      "birthYear": 1978,
+      "atYear": 2026,
+      "maxHr": 174
+    },
+    {
+      "birthYear": 1977,
+      "atYear": 2026,
+      "maxHr": 174
+    },
+    {
+      "birthYear": 1976,
+      "atYear": 2026,
+      "maxHr": 173
+    },
+    {
+      "birthYear": 1975,
+      "atYear": 2026,
+      "maxHr": 172
+    },
+    {
+      "birthYear": 1974,
+      "atYear": 2026,
+      "maxHr": 172
+    },
+    {
+      "birthYear": 1973,
+      "atYear": 2026,
+      "maxHr": 171
+    },
+    {
+      "birthYear": 1972,
+      "atYear": 2026,
+      "maxHr": 170
+    },
+    {
+      "birthYear": 1971,
+      "atYear": 2026,
+      "maxHr": 170
+    },
+    {
+      "birthYear": 1970,
+      "atYear": 2026,
+      "maxHr": 169
+    },
+    {
+      "birthYear": 1969,
+      "atYear": 2026,
+      "maxHr": 168
+    },
+    {
+      "birthYear": 1968,
+      "atYear": 2026,
+      "maxHr": 167
+    },
+    {
+      "birthYear": 1967,
+      "atYear": 2026,
+      "maxHr": 167
+    },
+    {
+      "birthYear": 1966,
+      "atYear": 2026,
+      "maxHr": 166
+    },
+    {
+      "birthYear": 1965,
+      "atYear": 2026,
+      "maxHr": 165
+    },
+    {
+      "birthYear": 1964,
+      "atYear": 2026,
+      "maxHr": 165
+    },
+    {
+      "birthYear": 1963,
+      "atYear": 2026,
+      "maxHr": 164
+    },
+    {
+      "birthYear": 1962,
+      "atYear": 2026,
+      "maxHr": 163
+    },
+    {
+      "birthYear": 1961,
+      "atYear": 2026,
+      "maxHr": 163
+    },
+    {
+      "birthYear": 1960,
+      "atYear": 2026,
+      "maxHr": 162
+    },
+    {
+      "birthYear": 1959,
+      "atYear": 2026,
+      "maxHr": 161
+    },
+    {
+      "birthYear": 1958,
+      "atYear": 2026,
+      "maxHr": 160
+    },
+    {
+      "birthYear": 1957,
+      "atYear": 2026,
+      "maxHr": 160
+    },
+    {
+      "birthYear": 1956,
+      "atYear": 2026,
+      "maxHr": 159
+    },
+    {
+      "birthYear": 1955,
+      "atYear": 2026,
+      "maxHr": 158
+    },
+    {
+      "birthYear": 1954,
+      "atYear": 2026,
+      "maxHr": 158
+    },
+    {
+      "birthYear": 1953,
+      "atYear": 2026,
+      "maxHr": 157
+    },
+    {
+      "birthYear": 1952,
+      "atYear": 2026,
+      "maxHr": 156
+    },
+    {
+      "birthYear": 1951,
+      "atYear": 2026,
+      "maxHr": 156
+    },
+    {
+      "birthYear": 1950,
+      "atYear": 2026,
+      "maxHr": 155
+    },
+    {
+      "birthYear": 1949,
+      "atYear": 2026,
+      "maxHr": 154
+    },
+    {
+      "birthYear": 1948,
+      "atYear": 2026,
+      "maxHr": 153
+    },
+    {
+      "birthYear": 1947,
+      "atYear": 2026,
+      "maxHr": 153
+    },
+    {
+      "birthYear": 1946,
+      "atYear": 2026,
+      "maxHr": 152
+    },
+    {
+      "birthYear": 1945,
+      "atYear": 2026,
+      "maxHr": 151
+    },
+    {
+      "birthYear": 1944,
+      "atYear": 2026,
+      "maxHr": 151
+    },
+    {
+      "birthYear": 1943,
+      "atYear": 2026,
+      "maxHr": 150
+    },
+    {
+      "birthYear": 1942,
+      "atYear": 2026,
+      "maxHr": 149
+    },
+    {
+      "birthYear": 1941,
+      "atYear": 2026,
+      "maxHr": 149
+    },
+    {
+      "birthYear": 1940,
+      "atYear": 2026,
+      "maxHr": 148
+    },
+    {
+      "birthYear": 1939,
+      "atYear": 2026,
+      "maxHr": 147
+    },
+    {
+      "birthYear": 1938,
+      "atYear": 2026,
+      "maxHr": 146
+    },
+    {
+      "birthYear": 1937,
+      "atYear": 2026,
+      "maxHr": 146
+    },
+    {
+      "birthYear": 1936,
+      "atYear": 2026,
+      "maxHr": 145
+    }
+  ],
+  "zonesFromMaxHr": [
+    {
+      "maxHr": 150,
+      "zones": [
+        {
+          "id": "z1",
+          "label": "Very light",
+          "minBpm": 0,
+          "maxBpm": 90
+        },
+        {
+          "id": "z2",
+          "label": "Light",
+          "minBpm": 90,
+          "maxBpm": 105
+        },
+        {
+          "id": "z3",
+          "label": "Moderate",
+          "minBpm": 105,
+          "maxBpm": 120
+        },
+        {
+          "id": "z4",
+          "label": "Hard",
+          "minBpm": 120,
+          "maxBpm": 135
+        },
+        {
+          "id": "z5",
+          "label": "Maximum",
+          "minBpm": 135,
+          "maxBpm": "Infinity"
+        }
+      ]
+    },
+    {
+      "maxHr": 176,
+      "zones": [
+        {
+          "id": "z1",
+          "label": "Very light",
+          "minBpm": 0,
+          "maxBpm": 105.6
+        },
+        {
+          "id": "z2",
+          "label": "Light",
+          "minBpm": 105.6,
+          "maxBpm": 123.2
+        },
+        {
+          "id": "z3",
+          "label": "Moderate",
+          "minBpm": 123.2,
+          "maxBpm": 140.8
+        },
+        {
+          "id": "z4",
+          "label": "Hard",
+          "minBpm": 140.8,
+          "maxBpm": 158.4
+        },
+        {
+          "id": "z5",
+          "label": "Maximum",
+          "minBpm": 158.4,
+          "maxBpm": "Infinity"
+        }
+      ]
+    },
+    {
+      "maxHr": 183,
+      "zones": [
+        {
+          "id": "z1",
+          "label": "Very light",
+          "minBpm": 0,
+          "maxBpm": 109.8
+        },
+        {
+          "id": "z2",
+          "label": "Light",
+          "minBpm": 109.8,
+          "maxBpm": 128.1
+        },
+        {
+          "id": "z3",
+          "label": "Moderate",
+          "minBpm": 128.1,
+          "maxBpm": 146.4
+        },
+        {
+          "id": "z4",
+          "label": "Hard",
+          "minBpm": 146.4,
+          "maxBpm": 164.7
+        },
+        {
+          "id": "z5",
+          "label": "Maximum",
+          "minBpm": 164.7,
+          "maxBpm": "Infinity"
+        }
+      ]
+    },
+    {
+      "maxHr": 190.5,
+      "zones": [
+        {
+          "id": "z1",
+          "label": "Very light",
+          "minBpm": 0,
+          "maxBpm": 114.3
+        },
+        {
+          "id": "z2",
+          "label": "Light",
+          "minBpm": 114.3,
+          "maxBpm": 133.35
+        },
+        {
+          "id": "z3",
+          "label": "Moderate",
+          "minBpm": 133.35,
+          "maxBpm": 152.4
+        },
+        {
+          "id": "z4",
+          "label": "Hard",
+          "minBpm": 152.4,
+          "maxBpm": 171.45
+        },
+        {
+          "id": "z5",
+          "label": "Maximum",
+          "minBpm": 171.45,
+          "maxBpm": "Infinity"
+        }
+      ]
+    },
+    {
+      "maxHr": 203,
+      "zones": [
+        {
+          "id": "z1",
+          "label": "Very light",
+          "minBpm": 0,
+          "maxBpm": 121.8
+        },
+        {
+          "id": "z2",
+          "label": "Light",
+          "minBpm": 121.8,
+          "maxBpm": 142.1
+        },
+        {
+          "id": "z3",
+          "label": "Moderate",
+          "minBpm": 142.1,
+          "maxBpm": 162.4
+        },
+        {
+          "id": "z4",
+          "label": "Hard",
+          "minBpm": 162.4,
+          "maxBpm": 182.7
+        },
+        {
+          "id": "z5",
+          "label": "Maximum",
+          "minBpm": 182.7,
+          "maxBpm": "Infinity"
+        }
+      ]
+    }
+  ],
+  "zonesFromBaseline": [
+    {
+      "restingHr": 58,
+      "zones": [
+        {
+          "id": "rest",
+          "label": "At rest",
+          "minBpm": 0,
+          "maxBpm": 68
+        },
+        {
+          "id": "elevated",
+          "label": "Elevated",
+          "minBpm": 68,
+          "maxBpm": 78
+        },
+        {
+          "id": "high",
+          "label": "High",
+          "minBpm": 78,
+          "maxBpm": 88
+        },
+        {
+          "id": "very-high",
+          "label": "Very high",
+          "minBpm": 88,
+          "maxBpm": "Infinity"
+        }
+      ]
+    },
+    {
+      "restingHr": 67.99,
+      "zones": [
+        {
+          "id": "rest",
+          "label": "At rest",
+          "minBpm": 0,
+          "maxBpm": 77.99
+        },
+        {
+          "id": "elevated",
+          "label": "Elevated",
+          "minBpm": 77.99,
+          "maxBpm": 87.99
+        },
+        {
+          "id": "high",
+          "label": "High",
+          "minBpm": 87.99,
+          "maxBpm": 97.99
+        },
+        {
+          "id": "very-high",
+          "label": "Very high",
+          "minBpm": 97.99,
+          "maxBpm": "Infinity"
+        }
+      ]
+    },
+    {
+      "restingHr": 72.5,
+      "zones": [
+        {
+          "id": "rest",
+          "label": "At rest",
+          "minBpm": 0,
+          "maxBpm": 82.5
+        },
+        {
+          "id": "elevated",
+          "label": "Elevated",
+          "minBpm": 82.5,
+          "maxBpm": 92.5
+        },
+        {
+          "id": "high",
+          "label": "High",
+          "minBpm": 92.5,
+          "maxBpm": 102.5
+        },
+        {
+          "id": "very-high",
+          "label": "Very high",
+          "minBpm": 102.5,
+          "maxBpm": "Infinity"
+        }
+      ]
+    }
+  ],
+  "scoreWorkload": [
+    {
+      "input": {
+        "instrument": "surg-tlx",
+        "ratings": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "surg-tlx",
+        "raw": 55.833333333333336,
+        "weighted": null,
+        "dimensions": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        }
+      }
+    },
+    {
+      "input": {
+        "instrument": "surg-tlx",
+        "ratings": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        },
+        "weights": {
+          "mental": 4,
+          "physical": 1,
+          "temporal": 2,
+          "complexity": 3,
+          "stress": 5,
+          "distraction": 0
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "surg-tlx",
+        "raw": 55.833333333333336,
+        "weighted": 68.66666666666667,
+        "dimensions": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        }
+      }
+    },
+    {
+      "input": {
+        "instrument": "surg-tlx",
+        "ratings": {
+          "mental": 120,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": -10
+        },
+        "weights": {
+          "mental": 5,
+          "physical": 5,
+          "temporal": 5,
+          "complexity": 0,
+          "stress": 0,
+          "distraction": 0
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "surg-tlx",
+        "raw": 56.666666666666664,
+        "weighted": 65,
+        "dimensions": {
+          "mental": 100,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 0
+        }
+      }
+    },
+    {
+      "input": {
+        "instrument": "surg-tlx",
+        "ratings": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        },
+        "weights": {
+          "mental": 2.5,
+          "physical": 2.5,
+          "temporal": 2.5,
+          "complexity": 2.5,
+          "stress": 2.5,
+          "distraction": 2.5
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "surg-tlx",
+        "raw": 55.833333333333336,
+        "weighted": null,
+        "dimensions": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        }
+      }
+    },
+    {
+      "input": {
+        "instrument": "surg-tlx",
+        "ratings": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        },
+        "weights": {
+          "mental": 6,
+          "physical": 1,
+          "temporal": 2,
+          "complexity": 3,
+          "stress": 3,
+          "distraction": 0
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "surg-tlx",
+        "raw": 55.833333333333336,
+        "weighted": null,
+        "dimensions": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        }
+      }
+    },
+    {
+      "input": {
+        "instrument": "surg-tlx",
+        "ratings": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        },
+        "weights": {
+          "mental": 4,
+          "physical": 1,
+          "temporal": 2,
+          "complexity": 3,
+          "stress": 4,
+          "distraction": 0
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "surg-tlx",
+        "raw": 55.833333333333336,
+        "weighted": null,
+        "dimensions": {
+          "mental": 70,
+          "physical": 35,
+          "temporal": 60,
+          "complexity": 65,
+          "stress": 80,
+          "distraction": 25
+        }
+      }
+    },
+    {
+      "input": {
+        "instrument": "nasa-tlx",
+        "ratings": {
+          "mental": 55,
+          "physical": 10,
+          "temporal": 40,
+          "performance": 20,
+          "effort": 50,
+          "frustration": 15
+        },
+        "weights": {
+          "mental": 5,
+          "physical": 0,
+          "temporal": 3,
+          "performance": 2,
+          "effort": 4,
+          "frustration": 1
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "nasa-tlx",
+        "raw": 31.666666666666668,
+        "weighted": 43.333333333333336,
+        "dimensions": {
+          "mental": 55,
+          "physical": 10,
+          "temporal": 40,
+          "performance": 20,
+          "effort": 50,
+          "frustration": 15
+        }
+      }
+    },
+    {
+      "input": {
+        "instrument": "nasa-tlx",
+        "ratings": {
+          "mental": 55,
+          "physical": 10,
+          "temporal": 40,
+          "performance": 20,
+          "effort": 50,
+          "frustration": 15
+        },
+        "weights": {
+          "mental": 5,
+          "physical": 0,
+          "temporal": 3,
+          "performance": 2,
+          "effort": 4
+        },
+        "completedAt": 1767600000000
+      },
+      "output": {
+        "instrument": "nasa-tlx",
+        "raw": 31.666666666666668,
+        "weighted": null,
+        "dimensions": {
+          "mental": 55,
+          "physical": 10,
+          "temporal": 40,
+          "performance": 20,
+          "effort": 50,
+          "frustration": 15
+        }
+      }
+    }
+  ],
+  "hrvTimeDomain": [
+    {
+      "xs": [],
+      "hrv": null
+    },
+    {
+      "xs": [800],
+      "hrv": null
+    },
+    {
+      "xs": [800,800],
+      "hrv": {
+        "n": 2,
+        "pairs": 1,
+        "meanRr": 800,
+        "sdnn": 0,
+        "rmssd": 0,
+        "pnn50": 0,
+        "meanHr": 75
+      }
+    },
+    {
+      "xs": [800,810,790,850],
+      "hrv": {
+        "n": 4,
+        "pairs": 3,
+        "meanRr": 812.5,
+        "sdnn": 26.299556396765833,
+        "rmssd": 36.968455021364726,
+        "pnn50": 33.333333333333336,
+        "meanHr": 73.84615384615384
+      }
+    },
+    {
+      "xs": [1000,900,1100,1000,940,1010],
+      "hrv": {
+        "n": 6,
+        "pairs": 5,
+        "meanRr": 991.6666666666666,
+        "sdnn": 68.23977334858805,
+        "rmssd": 117.04699910719626,
+        "pnn50": 100,
+        "meanHr": 60.504201680672274
+      }
+    }
+  ]
+}

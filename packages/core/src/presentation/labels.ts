@@ -6,8 +6,10 @@
  * member to a union in `types.ts` makes this file fail to type-check until a
  * label is added.
  *
- * Strings are plain ASCII/Latin text (no emoji) so they render with the
- * default system fonts on iOS, Android and every browser.
+ * Strings use only characters present in every default system font on iOS,
+ * Android, Windows, macOS and Linux (ASCII, plus the em dash used as the
+ * "no data" placeholder). No emoji, and no `Intl`/locale-dependent formatting,
+ * so output is identical on Hermes, browsers and Node.
  */
 import type {
   Baseline,
@@ -173,7 +175,7 @@ export const WORKLOAD_INSTRUMENT_LABELS: Labels<WorkloadInstrument> = frozen({
   'nasa-tlx': 'NASA-TLX',
 });
 
-/** SURG-TLX dimension names (Wilson et al., 2011, Surg Endosc 25:2935). */
+/** SURG-TLX dimension names (Wilson et al., 2011, World J Surg 35(9):1961–1969). */
 export const SURG_TLX_DIMENSION_LABELS: Labels<SurgTlxDimension> = frozen({
   mental: 'Mental Demands',
   physical: 'Physical Demands',

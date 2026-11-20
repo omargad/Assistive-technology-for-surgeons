@@ -1,0 +1,257 @@
+{
+  "sessionId": "45c8a69b-c1e5-45d2-b07e-12004f389652",
+  "participantCode": "SIM-001",
+  "procedureName": "Laparoscopic cholecystectomy",
+  "specialty": "General surgery",
+  "approach": "laparoscopic",
+  "role": "primary",
+  "urgency": "elective",
+  "complexity": 2,
+  "trainingLevel": "consultant",
+  "startedAt": 1767600000000,
+  "endedAt": 1767602100000,
+  "durationSec": 2100,
+  "hr": {
+    "count": 2100,
+    "mean": 76.31285714285714,
+    "median": 76,
+    "min": 65,
+    "max": 94,
+    "sd": 5.182677787646867,
+    "p95": 85.04999999999995
+  },
+  "hrv": {
+    "n": 2627,
+    "pairs": 2605,
+    "meanRr": 786.2320974495638,
+    "sdnn": 57.211271466794926,
+    "rmssd": 29.908510532542998,
+    "pnn50": 8.36852207293666,
+    "meanHr": 76.31334334305647
+  },
+  "rrArtifacts": {
+    "total": 2656,
+    "removed": 29,
+    "ratio": 0.010918674698795181
+  },
+  "stressIndex": 66.38844985051254,
+  "baseline": null,
+  "meanHrDelta": null,
+  "peakHrDelta": null,
+  "maxHr": 170,
+  "zones": [
+    {
+      "id": "z1",
+      "label": "Very light",
+      "seconds": 2100,
+      "fraction": 1
+    },
+    {
+      "id": "z2",
+      "label": "Light",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z3",
+      "label": "Moderate",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z4",
+      "label": "Hard",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "z5",
+      "label": "Maximum",
+      "seconds": 0,
+      "fraction": 0
+    }
+  ],
+  "highIntensityFraction": 0,
+  "phases": [
+    {
+      "phase": "pre-op",
+      "index": 0,
+      "start": 1767600000000,
+      "end": 1767600184458,
+      "durationSec": 184.458,
+      "hr": {
+        "count": 185,
+        "mean": 72.44864864864864,
+        "median": 72,
+        "min": 67,
+        "max": 80,
+        "sd": 3.495153602833939,
+        "p95": 78
+      },
+      "hrv": {
+        "n": 217,
+        "pairs": 213,
+        "meanRr": 828.8900737327191,
+        "sdnn": 46.62698664076676,
+        "rmssd": 33.913965702999484,
+        "pnn50": 15.023474178403756,
+        "meanHr": 72.38595551012399
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "incision",
+      "index": 1,
+      "start": 1767600184458,
+      "end": 1767600351700,
+      "durationSec": 167.242,
+      "hr": {
+        "count": 167,
+        "mean": 75.2814371257485,
+        "median": 75,
+        "min": 68,
+        "max": 84,
+        "sd": 3.56841267324355,
+        "p95": 81
+      },
+      "hrv": {
+        "n": 210,
+        "pairs": 209,
+        "meanRr": 796.6890238095235,
+        "sdnn": 43.4366587530741,
+        "rmssd": 30.397803173032294,
+        "pnn50": 7.655502392344498,
+        "meanHr": 75.31169403225657
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "dissection",
+      "index": 2,
+      "start": 1767600351700,
+      "end": 1767601261177,
+      "durationSec": 909.477,
+      "hr": {
+        "count": 910,
+        "mean": 77.61648351648351,
+        "median": 77,
+        "min": 65,
+        "max": 94,
+        "sd": 5.698430944874339,
+        "p95": 88
+      },
+      "hrv": {
+        "n": 1152,
+        "pairs": 1139,
+        "meanRr": 773.0442031249991,
+        "sdnn": 60.516350200922766,
+        "rmssd": 29.51688912569332,
+        "pnn50": 8.516242317822652,
+        "meanHr": 77.6152253098238
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "critical",
+      "index": 3,
+      "start": 1767601261177,
+      "end": 1767601546979,
+      "durationSec": 285.802,
+      "hr": {
+        "count": 285,
+        "mean": 80.07719298245614,
+        "median": 80,
+        "min": 71,
+        "max": 87,
+        "sd": 3.5466219567605393,
+        "p95": 85
+      },
+      "hrv": {
+        "n": 379,
+        "pairs": 377,
+        "meanRr": 748.3715408970975,
+        "sdnn": 38.51694744363798,
+        "rmssd": 27.012557328136044,
+        "pnn50": 4.774535809018568,
+        "meanHr": 80.1740802811342
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "closure",
+      "index": 4,
+      "start": 1767601546979,
+      "end": 1767602010103,
+      "durationSec": 463.124,
+      "hr": {
+        "count": 464,
+        "mean": 73.49137931034483,
+        "median": 73,
+        "min": 67,
+        "max": 86,
+        "sd": 3.666427430351406,
+        "p95": 80
+      },
+      "hrv": {
+        "n": 560,
+        "pairs": 555,
+        "meanRr": 816.9015446428579,
+        "sdnn": 45.52764519297397,
+        "rmssd": 30.969706167115586,
+        "pnn50": 8.288288288288289,
+        "meanHr": 73.44826361692273
+      },
+      "meanHrDelta": null
+    },
+    {
+      "phase": "post-op",
+      "index": 5,
+      "start": 1767602010103,
+      "end": 1767602100000,
+      "durationSec": 89.897,
+      "hr": {
+        "count": 89,
+        "mean": 75.6067415730337,
+        "median": 76,
+        "min": 71,
+        "max": 81,
+        "sd": 2.239206320065266,
+        "p95": 79
+      },
+      "hrv": {
+        "n": 109,
+        "pairs": 107,
+        "meanRr": 794.6172293577981,
+        "sdnn": 30.543381993253423,
+        "rmssd": 28.964129617592054,
+        "pnn50": 8.411214953271028,
+        "meanHr": 75.5080531647815
+      },
+      "meanHrDelta": null
+    }
+  ],
+  "episodes": [],
+  "markerCounts": {},
+  "workload": {
+    "instrument": "surg-tlx",
+    "raw": 37.5,
+    "weighted": 42.333333333333336,
+    "dimensions": {
+      "mental": 45,
+      "physical": 35,
+      "temporal": 40,
+      "complexity": 40,
+      "stress": 45,
+      "distraction": 20
+    }
+  },
+  "performance": 8,
+  "perceivedStress": 1,
+  "quality": {
+    "coverage": 0.9995238095238095,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": 0.010918674698795181,
+    "sampleRateHz": 1
+  }
+}

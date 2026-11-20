@@ -1,0 +1,36 @@
+{
+  "computeHrv": {
+    "hrv": null,
+    "artifacts": {
+      "total": 12,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "computeHrvMin20": {
+    "hrv": null,
+    "artifacts": {
+      "total": 12,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "cleanRrValid": [true,true,true,true,true,true,true,true,true,true,true,true],
+  "cleanRrReport": {
+    "total": 12,
+    "removed": 0,
+    "ratio": 0
+  },
+  "hrvTimeDomainValid": {
+    "n": 12,
+    "pairs": 11,
+    "meanRr": 820,
+    "sdnn": 17.056057308448835,
+    "rmssd": 26.967994498529684,
+    "pnn50": 0,
+    "meanHr": 73.17073170731707
+  },
+  "baevskyStressIndex": null,
+  "rollingHrv": [],
+  "rollingHrvCustom": []
+}
