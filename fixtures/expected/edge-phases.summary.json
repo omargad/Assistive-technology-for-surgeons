@@ -203,7 +203,8 @@
     "complication": 2,
     "interruption": 1,
     "equipment": 1,
-    "teaching": 1
+    "teaching": 1,
+    "note": 1
   },
   "workload": {
     "instrument": "surg-tlx",

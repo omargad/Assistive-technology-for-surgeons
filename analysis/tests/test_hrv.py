@@ -137,3 +137,31 @@ def test_baevsky_hand_computed() -> None:
 
 def test_valid_rr_ms() -> None:
     assert valid_rr_ms(rr_series([800, 250, 810])) == [800, 810]
+
+
+def test_rolling_hrv_cleans_whole_series_once() -> None:
+    # The ectopic 1100 ms beat is the first beat of window 2; judged with neighbours outside the window it is invalid.
+    rr = rr_series([1100 if i == 60 else 800 for i in range(181)])
+    out = rolling_hrv(rr, window_ms=60000, step_ms=60000)
+    assert [w["n"] for w in out] == [60, 59, 60][: len(out)]
+
+
+def test_rolling_hrv_unsorted_matches_sorted_and_caps_windows() -> None:
+    rr = rr_series([780 + (i % 7) * 5 + (400 if i % 41 == 3 else 0) for i in range(300)])
+    shuffled = rr[150:] + rr[:150]  # array order no longer follows t; splice at t = 150 s
+    a = rolling_hrv(rr, window_ms=60000, step_ms=10000)
+    b = rolling_hrv(shuffled, window_ms=60000, step_ms=10000)
+    assert [w["t"] for w in b] == [w["t"] for w in a]
+    # Windows clear of the splice are unchanged (the first/last 5 beats also get new cleaning neighbours across
+    # the splice, but with this series their validity flags do not change).
+    far = [k for k, w in enumerate(a) if w["t"] <= 144000 or w["t"] - 60000 >= 156000]
+    assert far and all(a[k] == b[k] for k in far)
+    with pytest.raises(ValueError):
+        rolling_hrv([{"t": 1.7e12, "ms": 800}], start=0)
+    with pytest.raises(ValueError):
+        rolling_hrv(rr, window_ms=0)
+
+
+def test_clean_rr_nan_max_deviation_never_rejects() -> None:
+    rr = rr_series([800 + (i % 2) * 10 for i in range(12)])
+    assert clean_rr(rr, max_deviation=float("nan"))["report"]["removed"] == 0

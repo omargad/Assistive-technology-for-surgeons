@@ -437,3 +437,38 @@ describe('summariesToCsv', () => {
     expect(Object.keys(summaryRow ?? {})).toEqual([...SUMMARY_CSV_COLUMNS]);
   });
 });
+
+describe('spreadsheet formula injection (OWASP CSV injection)', () => {
+  it('toCsv leaves strings verbatim by default (round-trips with parseCsv)', () => {
+    const text = toCsv([{ a: '=1+1', b: -3 }]);
+    expect(parseCsv(text)).toEqual([
+      ['a', 'b'],
+      ['=1+1', '-3'],
+    ]);
+  });
+
+  it('formulaGuard prefixes an apostrophe to strings starting with = + - @ TAB CR, never to numbers', () => {
+    const rows = [{ a: '=HYPERLINK("http://x","click")', b: '+1', c: '-x', d: '@SUM(A1)', e: '\tx', f: '\rx', g: 'ok', h: -2.5 }];
+    expect(parseCsv(toCsv(rows, undefined, { formulaGuard: true }))[1]).toEqual([
+      `'=HYPERLINK("http://x","click")`,
+      "'+1",
+      "'-x",
+      "'@SUM(A1)",
+      "'\tx",
+      "'\rx",
+      'ok',
+      '-2.5',
+    ]);
+  });
+
+  it('the exporters guard free text (event notes, procedure names) but keep negative offsets numeric', () => {
+    const s = session();
+    s.events = [{ id: 'm', t: T0 - 1000, type: 'marker', marker: 'note', note: '=HYPERLINK("http://x","click")' }];
+    const rows = parseCsv(eventsToCsv(s));
+    expect(rows[1]![3]).toBe('-1');
+    expect(rows[1]![7]).toBe(`'=HYPERLINK("http://x","click")`);
+    const sum = summarizeSession({ ...s, procedure: { name: '@cmd' } });
+    const header = parseCsv(summariesToCsv([sum]))[0]!;
+    expect(parseCsv(summariesToCsv([sum]))[1]![header.indexOf('procedure_name')]).toBe("'@cmd");
+  });
+});

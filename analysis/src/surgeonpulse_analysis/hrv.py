@@ -28,7 +28,11 @@ __all__ = [
     "rolling_hrv",
     "baevsky_stress_index",
     "valid_rr_ms",
+    "MAX_ROLLING_HRV_WINDOWS",
 ]
+
+#: Upper limit on the number of windows :func:`rolling_hrv` produces (SPEC ``rollingHrv``).
+MAX_ROLLING_HRV_WINDOWS = 1_000_000
 
 RR = Mapping[str, Any]
 
@@ -109,6 +113,31 @@ def _fill(valid_ms: Sequence[float], diffs: Sequence[float]) -> dict[str, float]
     }
 
 
+def _hrv_from_validity(
+    rr: Sequence[RR], valid: Sequence[bool], indices: Sequence[int], gap_ms: float, min_intervals: int
+) -> tuple[dict[str, float] | None, int]:
+    """Steps 2–5 of ``computeHrv`` for precomputed validity flags, over ``rr[i] for i in indices``.
+
+    Consecutive entries of ``indices`` form the candidate pairs; a pair counts when both are valid and
+    in the same run (``t[j] − t[i] <= gap_ms + ms[j]``). Returns ``(hrv or None, n_valid)``.
+    """
+    valid_ms: list[float] = []
+    diffs: list[float] = []
+    prev: int | None = None
+    for i in indices:
+        if valid[i]:
+            cur = rr[i]
+            valid_ms.append(cur["ms"])
+            if prev is not None and valid[prev]:
+                before = rr[prev]
+                if not (cur["t"] - before["t"] > gap_ms + cur["ms"]):  # same run
+                    diffs.append(cur["ms"] - before["ms"])
+        prev = i
+    if len(valid_ms) < min_intervals or len(valid_ms) == 0 or len(diffs) == 0:
+        return None, len(valid_ms)
+    return _fill(valid_ms, diffs), len(valid_ms)
+
+
 def compute_hrv(
     rr: Sequence[RR],
     *,
@@ -134,19 +163,7 @@ def compute_hrv(
     Returns ``{"hrv": HrvTimeDomain | None, "artifacts": ArtifactReport}``.
     """
     cleaned = clean_rr(rr, min_ms=min_ms, max_ms=max_ms, max_deviation=max_deviation, window=window)
-    valid = cleaned["valid"]
-    valid_ms = [r["ms"] for r, v in zip(rr, valid) if v]
-    diffs: list[float] = []
-    for i in range(len(rr) - 1):
-        a, b = rr[i], rr[i + 1]
-        if not (valid[i] and valid[i + 1]):
-            continue
-        if b["t"] - a["t"] > gap_ms + b["ms"]:  # new run starts at i+1
-            continue
-        diffs.append(b["ms"] - a["ms"])
-    hrv = None
-    if len(valid_ms) >= min_intervals and len(valid_ms) > 0 and len(diffs) > 0:
-        hrv = _fill(valid_ms, diffs)
+    hrv, _ = _hrv_from_validity(rr, cleaned["valid"], range(len(rr)), gap_ms, min_intervals)
     return {"hrv": hrv, "artifacts": cleaned["report"]}
 
 
@@ -173,19 +190,37 @@ def rolling_hrv(
     """Sliding-window HRV for charts (SPEC ``rollingHrv``).
 
     Windows end at ``start + window_ms + k·step_ms`` for k = 0, 1, … while the
-    window end is ``<= end`` (``start``/``end`` default to the first/last RR
-    ``t``). Each window covers RR with ``windowEnd − window_ms <= t < windowEnd``
-    and applies :func:`compute_hrv` (``min_intervals`` defaults to 20 here).
-    Each point is ``{"t": windowEnd, "rmssd", "sdnn", "meanHr", "n"}`` where the
-    HRV values are ``None`` when ``hrv`` is ``None`` and ``n`` is the number of
-    valid (artefact-free) intervals in the window.
+    window end is ``<= end`` (complete, equal-length windows only, because SDNN
+    depends on recording length — Task Force 1996). ``start``/``end`` default
+    to the first/last RR ``t``. Each window covers RR with
+    ``windowEnd − window_ms <= t < windowEnd``, kept in array (beat) order.
+
+    :func:`clean_rr` runs **once over the whole series**; each window then applies
+    steps 2–5 of :func:`compute_hrv` with those validity flags (``min_intervals``
+    defaults to 20 here). Each point is ``{"t": windowEnd, "rmssd", "sdnn", "meanHr", "n"}``
+    where the HRV values are ``None`` when ``hrv`` is ``None`` and ``n`` is the number of
+    valid intervals in the window (reported even then).
+
+    Raises ``ValueError`` for non-positive window/step or more than
+    :data:`MAX_ROLLING_HRV_WINDOWS` windows.
     """
-    if len(rr) == 0 or window_ms <= 0 or step_ms <= 0:
+    if not (math.isfinite(window_ms) and window_ms > 0 and math.isfinite(step_ms) and step_ms > 0):
+        raise ValueError("rolling_hrv: window_ms and step_ms must be positive finite numbers")
+    if len(rr) == 0:
         return []
-    t0 = rr[0]["t"] if start is None else start
-    t1 = rr[-1]["t"] if end is None else end
-    ts = [r["t"] for r in rr]
-    is_sorted = all(a <= b for a, b in zip(ts, ts[1:]))
+    ts_all = [r["t"] for r in rr if is_finite_number(r["t"])]
+    if not ts_all:
+        return []
+    t0 = min(ts_all) if start is None else start
+    t1 = max(ts_all) if end is None else end
+    if t0 + window_ms > t1:
+        return []
+    if (t1 - t0 - window_ms) / step_ms + 1 > MAX_ROLLING_HRV_WINDOWS:
+        raise ValueError(f"rolling_hrv: more than {MAX_ROLLING_HRV_WINDOWS} windows requested")
+    valid = clean_rr(rr, min_ms=min_ms, max_ms=max_ms, max_deviation=max_deviation, window=window)["valid"]
+    # Positions ordered by t (stable): binary search per window, whatever the input order.
+    order = sorted((i for i in range(len(rr)) if is_finite_number(rr[i]["t"])), key=lambda i: rr[i]["t"])
+    ts = [rr[i]["t"] for i in order]
     out: list[dict[str, Any]] = []
     k = 0
     while True:
@@ -193,28 +228,15 @@ def rolling_hrv(
         if we > t1:
             break
         ws = we - window_ms
-        if is_sorted:
-            chunk = rr[bisect.bisect_left(ts, ws) : bisect.bisect_left(ts, we)]
-        else:
-            chunk = [r for r in rr if ws <= r["t"] < we]
-        res = compute_hrv(
-            chunk,
-            gap_ms=gap_ms,
-            min_intervals=min_intervals,
-            min_ms=min_ms,
-            max_ms=max_ms,
-            max_deviation=max_deviation,
-            window=window,
-        )
-        hrv = res["hrv"]
-        art = res["artifacts"]
+        idx = sorted(order[bisect.bisect_left(ts, ws) : bisect.bisect_left(ts, we)])
+        hrv, n_valid = _hrv_from_validity(rr, valid, idx, gap_ms, min_intervals)
         out.append(
             {
                 "t": we,
                 "rmssd": hrv["rmssd"] if hrv else None,
                 "sdnn": hrv["sdnn"] if hrv else None,
                 "meanHr": hrv["meanHr"] if hrv else None,
-                "n": art["total"] - art["removed"],
+                "n": n_valid,
             }
         )
         k += 1

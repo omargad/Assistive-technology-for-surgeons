@@ -384,3 +384,47 @@ describe('summarizeSession', () => {
     expect(collectNonFinite(summarizeSession(deepFreeze(makeSession())))).toEqual([]);
   });
 });
+
+describe('review fixes', () => {
+  const samples: HeartRateSample[] = Array.from({ length: 120 }, (_, i) => ({ t: i * 1000, bpm: 70 + (i % 40) }));
+
+  it('treats a resting/max HR that is not a plausible bpm (e.g. 0) as missing', () => {
+    const s = makeSession({ endedAt: 120000, samples, participantSnapshot: { restingHr: 0, maxHr: 0, birthYear: 1980 } });
+    const out = summarizeSession(s, { atYear: 2026 });
+    expect(out.baseline).toBeNull();
+    expect(out.maxHr).toBe(176); // falls through to Tanaka: 208 − 0.7·46 = 175.8 → 176
+    const manual = makeSession({
+      endedAt: 120000,
+      samples,
+      baseline: { startedAt: 0, endedAt: 0, restingHr: 0, source: 'manual' },
+      participantSnapshot: { restingHr: 64 },
+    });
+    expect(summarizeSession(manual).baseline).toEqual({ startedAt: 0, endedAt: 0, restingHr: 64, source: 'profile' });
+  });
+
+  it('highIntensityFraction is null when maxHr is known but there is no dwell time', () => {
+    const one = makeSession({ endedAt: 1000, samples: [{ t: 0, bpm: 150 }], participantSnapshot: { maxHr: 190 } });
+    expect(summarizeSession(one).highIntensityFraction).toBeNull();
+    expect(summarizeSession(makeSession({ samples, endedAt: 120000 }), { maxHr: 100 }).highIntensityFraction).toBeCloseTo(
+      1,
+      12,
+    );
+  });
+
+  it('sampleRateHz counts only samples inside the session window', () => {
+    const wide = makeSession({
+      startedAt: 20000,
+      endedAt: 80000,
+      samples: Array.from({ length: 101 }, (_, i) => ({ t: i * 1000, bpm: 70 })),
+    });
+    expect(dataQuality(wide).sampleRateHz).toBe(1);
+  });
+
+  it('a summary equals the one computed from separately cleaned RR (single cleaning pass is exact)', () => {
+    const rr: RRInterval[] = Array.from({ length: 300 }, (_, i) => ({ t: i * 800, ms: 800 + (i % 7) * 9 + (i === 50 ? 500 : 0) }));
+    const s = makeSession({ endedAt: 240000, samples, rr });
+    const out = summarizeSession(s);
+    expect(out.quality).toEqual(dataQuality(s));
+    expect(out.rrArtifacts!.removed).toBeGreaterThan(0);
+  });
+});

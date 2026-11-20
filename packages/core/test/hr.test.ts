@@ -148,3 +148,20 @@ describe('resampleHr', () => {
     expect(() => resampleHr(hr([[0, 60]]), Number.NaN)).toThrow(RangeError);
   });
 });
+
+describe('review fixes', () => {
+  it('resampleHr refuses an absurd number of buckets', () => {
+    expect(() => resampleHr([{ t: 1.7e12, bpm: 70 }], 1000, { start: 0 })).toThrow(RangeError);
+  });
+  it('resampleHr ignores the deprecated maxGapMs option', () => {
+    const xs: HeartRateSample[] = [
+      { t: 0, bpm: 60 },
+      { t: 60000, bpm: 100 },
+    ];
+    expect(resampleHr(xs, 10000, { maxGapMs: 1000 })).toEqual(resampleHr(xs, 10000));
+  });
+  it('detectGaps treats a NaN maxGapMs as the 5000 ms default', () => {
+    const xs: HeartRateSample[] = [0, 1000, 8000].map((t) => ({ t, bpm: 70 }));
+    expect(detectGaps(xs, Number.NaN)).toEqual(detectGaps(xs));
+  });
+});

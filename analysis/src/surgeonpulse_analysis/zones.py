@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from typing import Any, Mapping, Sequence
 
-from .stats import is_valid_bpm, js_round, median
+from .stats import is_valid_bpm, js_round, median, resolve_max_gap_ms
 
 __all__ = [
     "estimate_max_hr",
@@ -65,8 +65,10 @@ def zone_dwells(samples: Sequence[Mapping[str, Any]], max_gap_ms: float = 5000) 
     """``(bpm, dwell_ms)`` per valid sample, sorted by time (SPEC ``timeInZones`` dwell rule).
 
     Sample *i* dwells ``min(t[i+1] − t[i], max_gap_ms)``; the last sample dwells
-    ``min(median of the other dwells, max_gap_ms)``, or 0 when it is the only one.
+    the median of the other (capped) dwells, capped again, or 0 when it is the only one.
+    A NaN ``max_gap_ms`` means the 5000 ms default.
     """
+    max_gap_ms = resolve_max_gap_ms(max_gap_ms)
     valid = sorted((s for s in samples if is_valid_bpm(s.get("bpm"))), key=lambda s: s["t"])
     n = len(valid)
     if n == 0:

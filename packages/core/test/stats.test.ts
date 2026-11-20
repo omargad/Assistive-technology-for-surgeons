@@ -203,3 +203,44 @@ describe('stableSortBy', () => {
     ]);
   });
 });
+
+describe('overflow never yields NaN or Infinity (SPEC ground rule)', () => {
+  const MAX = Number.MAX_VALUE;
+  it('normal inputs take the ordinary path (bit-identical results)', () => {
+    expect(mean([0.1, 0.2, 0.3])).toBe((0.1 + 0.2 + 0.3) / 3);
+    expect(sampleSd([1, 2, 3, 4])).toBe(Math.sqrt(5 / 3));
+  });
+  it('sampleSd rescales when squares overflow, and is null when the SD is not representable', () => {
+    const sd = sampleSd([0, 1e200]);
+    expect(sd).not.toBeNull();
+    expect(sd! / (1e200 / Math.SQRT2)).toBeCloseTo(1, 12);
+    expect(sampleSd([-MAX, MAX])).toBeNull();
+  });
+  it('linearTrend rescales instead of returning r² = NaN', () => {
+    const fit = linearTrend([
+      { x: 0, y: -MAX },
+      { x: 1, y: MAX },
+      { x: 2, y: 0 },
+    ]);
+    expect(fit).not.toBeNull();
+    expect(Number.isFinite(fit!.slope) && Number.isFinite(fit!.intercept)).toBe(true);
+    expect(fit!.r2).toBeCloseTo(0.25, 12);
+    const big = linearTrend([
+      { x: 0, y: 0 },
+      { x: 1, y: 1e300 },
+      { x: 2, y: 2e300 },
+    ]);
+    expect(big!.r2).toBeCloseTo(1, 12);
+    expect(big!.slope / 1e300).toBeCloseTo(1, 12);
+  });
+  it('pearsonCorrelation stays within [-1, 1] for huge values', () => {
+    expect(pearsonCorrelation([
+      { x: 0, y: -MAX },
+      { x: 1, y: 0 },
+      { x: 2, y: MAX },
+    ])).toBeCloseTo(1, 12);
+  });
+  it('movingAverage recovers after an overflowing window', () => {
+    expect(movingAverage([MAX, MAX, MAX, 1, 1], 2)).toEqual([MAX, MAX, MAX, MAX / 2 + 0.5, 1]);
+  });
+});

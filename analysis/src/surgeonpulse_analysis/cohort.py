@@ -192,7 +192,7 @@ def summarize_bundle(source: Any, **summary_options: Any) -> list[dict[str, Any]
 def summaries_to_csv(source: Any, **summary_options: Any) -> str:
     """Wide per-session CSV text (RFC 4180, CRLF) — the Python twin of ``summariesToCsv``."""
     rows = [summary_row(s) for s in summarize_bundle(source, **summary_options)]
-    return to_csv(rows, SUMMARY_CSV_COLUMNS)
+    return to_csv(rows, SUMMARY_CSV_COLUMNS, formula_guard=True)
 
 
 def summaries_frame(source: Any, **summary_options: Any) -> pd.DataFrame:

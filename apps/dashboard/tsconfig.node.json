@@ -18,7 +18,9 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
 
-    /* Linting (unused locals/parameters are checked by oxlint; see tsconfig.app.json). */
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },

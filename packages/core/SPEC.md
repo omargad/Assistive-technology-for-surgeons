@@ -14,6 +14,14 @@ implementations are checked against shared fixtures in `/fixtures`.
   except in `createId()` and in the documented defaults of the simulator. Clocks and seeds are always
   injectable.
 - **Never return `NaN` or `Infinity` in outputs.** When there isn't enough data, return `null`, as documented.
+  This also holds for finite inputs near `Number.MAX_VALUE` (see stats.ts) and for bad option values: a `maxGapMs`
+  option that is `NaN` (e.g. `Number('')` from an empty settings field) means its default, 5000 ms.
+- **Valid heart rate.** Wherever this spec says "valid bpm" or "valid sample", it means `isValidBpm`: a finite `bpm`
+  within **[25, 250]** (inclusive). This applies to `hrStats`, `timeInZones`, `dataQuality`, `detectStressEpisodes`,
+  `resampleHr`, and to the resting / maximum heart rates used by `summarizeSession`.
+- **Rounding.** Every "rounded" value rounds halves **up** (towards +∞), i.e. JavaScript `Math.round`
+  (`estimateMaxHr` at age 25 gives `round(190.5) = 191`; an RR of raw 1000 gives `976.5625 → 976.563` ms). Ports to
+  languages whose `round` is half-to-even (Python) must use `floor(x + 0.5)`.
 - Types come from `src/types.ts`. That file is the contract, so don't edit it. If you think a change is
   needed, report it instead.
 - Relative imports have no file extension (`import { x } from './rr'`), because the code is resolved by Metro, Vite and tsx.
@@ -25,9 +33,10 @@ Module layout (`src/`):
 | --- | --- | --- |
 | `types.ts` | contract | Domain model (do not edit) |
 | `index.ts` | contract | Public barrel: re-exports every module below |
-| `analytics/stats.ts` | analytics | `mean`, `median`, `sampleSd`, `percentile`, `linearTrend`, `movingAverage` |
-| `analytics/hr.ts` | analytics | `hrStats`, `sliceByTime`, `resampleHr`, `detectGaps` |
-| `analytics/rr.ts` | analytics | `cleanRr`, `hrvTimeDomain`, `computeHrv`, `rollingHrv`, `baevskyStressIndex` |
+| `analytics/stats.ts` | analytics | `mean`, `median`, `sampleSd`, `percentile`, `linearTrend`, `pearsonCorrelation`, `movingAverage`, `stableSortBy` |
+| `analytics/internal.ts` | analytics | Internal helpers shared by the analytics modules; **not** re-exported from `index.ts`, not public API |
+| `analytics/hr.ts` | analytics | `hrStats`, `sliceByTime`, `resampleHr`, `detectGaps`, `isValidBpm`, `MAX_RESAMPLE_BUCKETS` |
+| `analytics/rr.ts` | analytics | `cleanRr`, `hrvTimeDomain`, `computeHrv`, `rollingHrv`, `baevskyStressIndex`, `MAX_ROLLING_HRV_WINDOWS` |
 | `analytics/zones.ts` | analytics | `estimateMaxHr`, `zonesFromMaxHr`, `zonesFromBaseline`, `timeInZones` |
 | `analytics/phases.ts` | analytics | `derivePhases`, `phaseAt`, `sessionEnd` |
 | `analytics/episodes.ts` | analytics | `detectStressEpisodes`, `defaultEpisodeThreshold` |
@@ -38,8 +47,8 @@ Module layout (`src/`):
 | `ble/heartRate.ts` | io | GATT UUIDs, `parseHeartRateMeasurement`, `parseBodySensorLocation`, `parseBatteryLevel`, `base64ToBytes`, `bytesToBase64` |
 | `io/schema.ts` | io | zod schemas, `parseSession`, `safeParseSession`, `migrateSession`, `SessionParseError` |
 | `io/bundle.ts` | io | `createExportBundle`, `parseImport` |
-| `io/csv.ts` | io | `toCsv`, `parseCsv`, `samplesToCsv`, `rrToCsv`, `eventsToCsv`, `summariesToCsv` |
-| `io/deidentify.ts` | io | `deidentifySession`, `deidentifyBundle`, `isValidParticipantCode` |
+| `io/csv.ts` | io | `toCsv`, `parseCsv`, `samplesToCsv`, `rrToCsv`, `eventsToCsv`, `summariesToCsv`, `SUMMARY_CSV_COLUMNS` |
+| `io/deidentify.ts` | io | `deidentifySession`, `deidentifyBundle`, `isValidParticipantCode`, `sensorModelName`, `DEIDENTIFY_KEPT_TAGS`, `UNSPECIFIED_PROCEDURE_NAME` |
 | `catalog/procedures.ts` | io | `PROCEDURE_CATALOG`, `findProcedure` |
 | `presentation/labels.ts` | io | `PHASE_LABELS`, `PHASE_COLORS`, `MARKER_LABELS`, `MARKER_ICONS`, `TRAINING_LEVEL_LABELS`, `APPROACH_LABELS`, `ROLE_LABELS`, `formatDuration`, `formatClock` |
 | `util/id.ts` | io | `createId` |
@@ -60,7 +69,15 @@ percentile(xs: readonly number[], p: number): number | null  // p in [0,100]; li
 linearTrend(points: readonly {x:number;y:number}[]): {slope:number;intercept:number;r2:number;n:number} | null
                                                         // OLS; null if n<2 or var(x)=0; r2=0 when var(y)=0
 movingAverage(xs: readonly number[], window: number): number[]  // trailing window, partial at start (length = xs.length)
+pearsonCorrelation(points: readonly {x:number;y:number}[]): number | null   // null if n<2 or either variance is 0; clamped to [−1, 1]
 ```
+Non-finite inputs are ignored. **Overflow:** each function first computes its result the ordinary way (so ordinary
+inputs give the same bits as NumPy and the Python port). Only if that result is not finite (a sum, square or
+difference overflowed, e.g. `mean([MAX, MAX])`) is it recomputed on values rescaled by their largest magnitude, so
+`mean([MAX, MAX]) = MAX`, `median([MAX, MAX]) = MAX`, `percentile([−MAX, MAX], 50) = 0`. A result that cannot be
+represented returns `null` (e.g. `sampleSd([−MAX, MAX]) = MAX·√2`); `movingAverage`, whose window means are always
+representable, never overflows. `movingAverage` keeps a compensated (Neumaier) running sum so values of very
+different magnitude do not absorb each other.
 
 ## analytics/hr.ts
 
@@ -74,16 +91,20 @@ Every statistic is computed over sample values (not time-weighted). `p95` uses `
 sliceByTime<T extends {t:number}>(xs: readonly T[], start: EpochMs, end: EpochMs): T[]   // start ≤ t < end
 detectGaps(samples: readonly HeartRateSample[], maxGapMs = 5000): {start:EpochMs; end:EpochMs; durationMs:number}[]
 ```
-A gap is any pair of consecutive samples where `next.t − prev.t > maxGapMs`. The gap runs from `prev.t` to `next.t`.
+A gap is any pair of consecutive samples (array order, all samples) where `next.t − prev.t > maxGapMs`. The gap runs
+from `prev.t` to `next.t`.
 
 ```ts
-resampleHr(samples, intervalMs: number, opts?: {start?: EpochMs; end?: EpochMs; maxGapMs?: number /*5000*/}):
+resampleHr(samples, intervalMs: number, opts?: {start?: EpochMs; end?: EpochMs; /** @deprecated ignored */ maxGapMs?: number}):
   {t: EpochMs; bpm: number | null}[]
 ```
 Bucket `k` covers `[start + k·intervalMs, start + (k+1)·intervalMs)`. Its value is the mean bpm of the valid samples
-in the bucket, or `null` when the bucket is empty. Buckets are emitted from `start` (default: first sample t) up to
-`end` (default: last sample t, inclusive of that sample's bucket). Each bucket's `t` is its start time. Used for charting.
-An empty input gives `[]`.
+in the bucket, or `null` when the bucket is empty (so a data gap breaks a chart line by itself). Buckets are emitted
+from `start` (default: first sample t) up to `end` (default: last sample t, inclusive of that sample's bucket). Each
+bucket's `t` is its start time. Used for charting. An empty input, or `end < start`, gives `[]`. `maxGapMs` is
+**deprecated and ignored**: a bucket's value depends only on the samples inside it. Throws `RangeError` when
+`intervalMs` is not a positive finite number, or when more than `MAX_RESAMPLE_BUCKETS` (1 000 000) buckets would be
+produced (e.g. `intervalMs: 1` over hours, or `start: 0`).
 
 ## analytics/rr.ts
 
@@ -96,7 +117,8 @@ An interval is invalid if:
 2. `|ms − localMedian| / localMedian > maxDeviation`. `localMedian` is the median of the intervals in a centred window
    of `window` beats (clamped at the array ends: for index i, use indices max(0,i−⌊w/2⌋) … min(n−1,i+⌊w/2⌋),
    **excluding i itself**). The median uses only intervals that passed rule 1. If fewer than 3 such neighbours exist,
-   rule 2 is skipped for that beat.
+   rule 2 is skipped for that beat. The comparison is literally `>`: a beat is rejected only when it is true, so a
+   `NaN` `maxDeviation` never rejects a beat. Rule 2 is also skipped when `localMedian ≤ 0`.
 
 `valid[i]` matches `rr[i]`. `report.removed = count(!valid)`.
 
@@ -124,9 +146,21 @@ This is the robust pipeline used everywhere else:
 rollingHrv(rr: readonly RRInterval[], opts?: ComputeHrvOptions & { windowMs?: number /*60000*/; stepMs?: number /*30000*/; start?: EpochMs; end?: EpochMs }):
   { t: EpochMs; rmssd: number | null; sdnn: number | null; meanHr: number | null; n: number }[]
 ```
-Windows end at `start + windowMs + k·stepMs` (start defaults to the first rr t; end defaults to the last rr t).
-Each window covers RR with `windowEnd − windowMs ≤ t < windowEnd`, and `t` = windowEnd. Each window applies
-`computeHrv` with `minIntervals` defaulting to **20** here. Values are null when hrv is null. Empty input gives `[]`.
+Windows end at `start + windowMs + k·stepMs` (start defaults to the first (smallest) rr t; end defaults to the last
+(largest) rr t). Each window covers RR with `windowEnd − windowMs ≤ t < windowEnd`, and `t` = windowEnd.
+- **Complete windows only:** windows are emitted for k = 0, 1, … while `windowEnd ≤ end`. SDNN grows with recording
+  length, so only equal-length windows are comparable (Task Force of ESC/NASPE, 1996). It follows that RR with
+  t ≥ the last window end (including an RR exactly at the default `end`) are in no window, and a recording shorter
+  than `windowMs` gives `[]`.
+- **Cleaning:** `cleanRr` runs **once over the whole series** (with the clean options), as whole-recording artefact
+  correction does; a beat at a window edge is judged with its real neighbours, even those outside the window. Each
+  window then applies steps 2–5 of `computeHrv` to its intervals, in array (beat) order, using those validity flags,
+  with `minIntervals` defaulting to **20** here.
+- `rmssd`/`sdnn`/`meanHr` are null when that HRV is null. `n` is the number of **valid** (artefact-free) intervals in
+  the window, reported even when the HRV is null (so a chart can say why a point is missing).
+- Input that is not sorted by t is handled with one stable index sort (O(N log N)) and a binary search per window,
+  never by filtering the whole array per window. Empty input gives `[]`. Throws `RangeError` when `windowMs`/`stepMs`
+  is not a positive finite number, or when more than `MAX_ROLLING_HRV_WINDOWS` (1 000 000) windows would be produced.
 
 ```ts
 baevskyStressIndex(intervalsMs: readonly number[], binMs = 50): number | null
@@ -154,9 +188,11 @@ Four zones relative to the resting baseline: `rest` [0, rest+10) "At rest"; `ele
 ```ts
 timeInZones(samples: readonly HeartRateSample[], zones: readonly ZoneDefinition[], maxGapMs = 5000): ZoneTime[]
 ```
-Time-weighted. Sample i (valid bpm, sorted) has dwell `min(t[i+1] − t[i], maxGapMs)`. The last sample's dwell is
-`min(median of the other dwells, maxGapMs)`, or 0 if it's the only sample. Each dwell goes to the zone with
-`minBpm ≤ bpm < maxBpm`. Output follows the order of `zones`, includes zero-time zones, and sets `fraction = seconds / Σseconds`.
+Time-weighted. Sample i (valid bpm, i.e. finite and within [25, 250], sorted stably by t) has dwell
+`min(t[i+1] − t[i], maxGapMs)`. The last sample's dwell is `min(median of the other dwells, maxGapMs)`, where the
+other dwells are the **already capped** ones, or 0 if it's the only sample. Each dwell goes to the first zone with
+`minBpm ≤ bpm < maxBpm`. Output follows the order of `zones`, includes zero-time zones, and sets
+`fraction = seconds / Σseconds` (0 when Σ is 0). A `NaN` `maxGapMs` means the default 5000.
 
 ## analytics/phases.ts
 
@@ -171,6 +207,8 @@ derivePhases(session: SurgicalSession): PhaseSegment[]
 Take the `type:'phase'` events sorted by t (stable order). Clamp each t to `[startedAt, sessionEnd]`.
 A segment runs from its event t to the next phase event's t (or to `sessionEnd`). If consecutive events have the same
 phase, keep the first. Drop zero-length segments, except when a final segment ends exactly at sessionEnd with zero length.
+Then **merge adjacent segments with the same phase** (which can only meet across a dropped zero-length segment):
+`A, B (zero length), A` gives one `A` segment, so a phase is never split in per-phase statistics or CSV columns.
 `index` counts 0,1,2… over the segments emitted. Time before the first phase event is **not** a segment.
 
 ```ts
@@ -210,25 +248,32 @@ detectStressEpisodes(samples, opts: { thresholdBpm: number; minDurationMs?: numb
 dataQuality(session: SurgicalSession, maxGapMs = 5000): DataQuality
 ```
 `duration = sessionEnd − startedAt` (in ms; if ≤ 0, coverage is 0). Covered time is the sum of
-`min(t[i+1]−t[i], maxGapMs)` between consecutive valid samples, clipped to the session window.
-`coverage = min(1, covered/duration)`. `gapCount` and `longestGapSec` come from `detectGaps(samples, maxGapMs)`.
-`sampleRateHz = (validCount − 1) / (covered/1000)` when covered > 0, else 0. `rrArtifactRatio` comes from `cleanRr`,
-or is `null` without RR data.
+`min(t[i+1]−t[i], maxGapMs)` between consecutive valid samples (sorted by t), each piece `[t[i], t[i] + dwell]`
+clipped to the session window `[startedAt, sessionEnd]`. `coverage = min(1, covered/duration)`. `gapCount` and
+`longestGapSec` come from `detectGaps(samples, maxGapMs)`. `sampleRateHz = max(0, inWindow − 1) / (covered/1000)` when
+covered > 0, else 0, where `inWindow` counts the valid samples with `startedAt ≤ t ≤ sessionEnd` (the same window the
+covered time is clipped to, so samples recorded before the start or after the end do not inflate the rate).
+`rrArtifactRatio` comes from `cleanRr`, or is `null` without RR data. A `NaN` `maxGapMs` means the default 5000.
 
 ```ts
 interface SummaryOptions { maxHr?: number; atYear?: number; episodeThresholdBpm?: number; maxGapMs?: number }
 summarizeSession(session: SurgicalSession, opts?: SummaryOptions): SessionSummary
 ```
+- `maxGapMs = opts.maxGapMs`, defaulting to 5000 (also when `NaN`).
 - `endedAt = sessionEnd(session)`. `durationSec = (endedAt − startedAt)/1000`.
 - `hr = hrStats(samples)`. `{hrv, artifacts} = computeHrv(rr)`. `rrArtifacts` is null when rr is empty.
-  `stressIndex = baevskyStressIndex(valid rr ms)`.
-- `baseline` = `session.baseline`. Otherwise, when `participantSnapshot.restingHr` exists, build
-  `{source:'profile', restingHr, startedAt: startedAt, endedAt: startedAt}`. Otherwise null.
-- `maxHr` = `opts.maxHr` ?? `participantSnapshot.maxHr` ?? `estimateMaxHr(birthYear, atYear ?? UTC year of startedAt)`
-  when birthYear is known, else null.
+  `stressIndex = baevskyStressIndex(valid rr ms)`. (Implementations should clean RR once and reuse the flags for
+  HRV, the stress index and `quality.rrArtifactRatio`; the results are identical.)
+- A resting or maximum heart rate is **used only when it is a valid bpm** (finite, within [25, 250]); anything else,
+  such as a `0` meaning "not entered", counts as missing.
+- `baseline` = `session.baseline` (when its `restingHr` is valid). Otherwise, when `participantSnapshot.restingHr` is
+  valid, build `{source:'profile', restingHr, startedAt: startedAt, endedAt: startedAt}`. Otherwise null.
+- `maxHr` = the first valid value of `opts.maxHr`, `participantSnapshot.maxHr`,
+  `estimateMaxHr(birthYear, atYear ?? UTC year of startedAt)` (when birthYear is known), else null.
 - `zones`: use `zonesFromBaseline` when a baseline exists, else `zonesFromMaxHr` when maxHr is known, else `[]`.
-- `highIntensityFraction`: the time-weighted (same dwell rule as `timeInZones`) fraction with bpm ≥ 0.7·maxHr,
-  or null without maxHr.
+- `highIntensityFraction`: the time-weighted (same dwell rule as `timeInZones`) fraction with bpm ≥ 0.7·maxHr.
+  It is null without maxHr **or when the total dwell time is 0** (no or a single valid sample): 0/0 is "not enough
+  data", not "no time at high intensity". (`ZoneTime.fraction` keeps its own rule: 0 when the total is 0.)
 - `phases`: `derivePhases`. Each phase gets hr/hrv computed on the slice `[start,end)`. HRV uses `computeHrv` with
   `minIntervals: 20`, and `meanHrDelta` = phase hr.mean − baseline.restingHr.
 - `episodes`: threshold = `opts.episodeThresholdBpm ?? defaultEpisodeThreshold(baseline, hr)`. Empty when that's null.
@@ -254,16 +299,20 @@ type GroupKey = 'participant' | 'procedure' | 'specialty' | 'approach' | 'role' 
 aggregateMetric(summaries: readonly SessionSummary[], key: MetricKey, groupBy: GroupKey):
   { group: string; n: number; mean: number; sd: number; median: number; min: number; max: number }[]
 ```
-Groups with no non-null values are dropped. A missing group field becomes `'Unspecified'`. `month` is the UTC
-`YYYY-MM` of startedAt. Results are sorted by group name, except that `month` sorts chronologically.
+Groups with no non-null values are dropped. A missing (or blank) group field becomes `'Unspecified'`. `month` is the
+UTC `YYYY-MM` of startedAt. `none` puts every session in a single group named `'All'`. Results are sorted by group
+name (UTF-16 code-unit order, never locale-dependent), except that `month` sorts chronologically. `sd` is the sample
+SD (0 for n = 1).
 
 ```ts
 metricSeries(summaries, key: MetricKey): { sessionId: string; t: EpochMs; value: number }[]  // chronological, nulls dropped
-generateInsights(summaries: readonly SessionSummary[]): Insight[]
+generateInsights(summaries: readonly SessionSummary[], context?: { sessions?: readonly SurgicalSession[] }): Insight[]
 ```
-Deterministic, evidence-based feedback written in plain, non-judgemental language. Needs at least 1 summary. Rules:
-1. **Peak phase.** For each session, find the phase with the highest mean HR. If one phase is the peak in ≥ 50 % of
-   sessions (with ≥ 3 sessions), report it as `info`.
+Deterministic, evidence-based feedback written in plain, non-judgemental language. Needs at least 1 summary
+(`[]` otherwise). Summaries are first put in chronological order (stable for equal `startedAt`). Rules, in this order:
+1. **Peak phase.** For each session with at least one phase that has HR data, find the phase with the highest mean HR
+   (ties → the earlier phase in `PHASE_ORDER`). If one phase is the peak in ≥ 50 % of **those** sessions (with ≥ 3
+   such sessions), report it as `info`. Sessions without phase HR data are not in the denominator.
 2. **Trend.** With ≥ 5 sessions, fit `linearTrend` of `meanHrDelta` (else `meanHr`) against session order.
    A slope ≤ −0.5 bpm/session gives `positive` ("settling with experience"). A slope ≥ +0.5 gives `attention`.
 3. **Recovery / HRV.** With ≥ 5 sessions that have RMSSD, compare the mean of the last 3 to the mean of the earlier ones.
@@ -272,7 +321,9 @@ Deterministic, evidence-based feedback written in plain, non-judgemental languag
    If |r| ≥ 0.5, give `info`.
 5. **Data quality.** If the latest session has coverage < 0.8, give `attention` with a sensor-fit tip.
 6. **Episodes after markers.** If ≥ 50 % of the episodes (with ≥ 3 episodes total) have a related `complication`
-   or `interruption` event, give `info`.
+   or `interruption` event, give `info`. A summary stores only the ids of an episode's related events, not their
+   kinds, so this rule needs `context.sessions` (matched to summaries by id; summaries without a matching session are
+   skipped). Without `context.sessions` the rule is not evaluated.
 
 Each insight `id` is a stable slug of the rule (e.g. `peak-phase`). `evidence` lists the session ids involved.
 
@@ -286,8 +337,9 @@ scoreWorkload(resp: WorkloadResponse): WorkloadScore
 ```
 SURG-TLX (Wilson et al., 2011): Mental Demands, Physical Demands, Temporal Demands, Task Complexity,
 Situational Stress, Distractions. `raw` = mean of the 6 ratings, each clamped to [0,100]. `weighted` =
-Σ(rating·weight)/15, and only applies when weights exist, every weight is an integer in 0–5, and they sum to 15.
-Otherwise it's null. `dimensions` holds the clamped ratings.
+Σ(rating·weight)/15 using the **clamped** ratings, and only applies when weights exist, every weight is an integer
+in 0–5, and they sum to 15. Otherwise it's null. `dimensions` holds the clamped ratings (a missing or `NaN` rating
+counts as 0).
 
 ## ble/heartRate.ts
 
@@ -306,7 +358,10 @@ Per Bluetooth GATT Heart Rate Measurement (0x2A37), little-endian:
 - bits1–2: sensor contact (bit2 = supported, bit1 = detected; `contact` is only defined when supported);
 - bit3: Energy Expended present (uint16, kJ);
 - bit4: RR-Interval present, followed by one or more uint16 values in units of 1/1024 s until the payload ends.
-Convert RR to ms as `raw · 1000 / 1024`, rounded to 3 decimals. A trailing odd byte is ignored.
+Convert RR to ms as `raw · 1000 / 1024`, rounded to 3 decimals (halves up). Complete uint16 values are read until
+the payload ends: a trailing odd byte is ignored, and an RR flag followed by 0 or 1 bytes gives `rrMs: []` (not an
+error, so the heart rate in that notification is not lost). `RangeError` is only for payloads shorter than the
+mandatory fields (flags, HR value, energy expended when flagged) or for non-byte values.
 
 ```ts
 parseBodySensorLocation(data): 'other'|'chest'|'wrist'|'finger'|'hand'|'ear-lobe'|'foot'|'unknown'
@@ -319,8 +374,11 @@ base64ToBytes(b64: string): Uint8Array; bytesToBase64(bytes: ArrayLike<number>):
 Zod (v4) schemas that mirror `types.ts` exactly: `HeartRateSampleSchema`, `RRIntervalSchema`, `SessionEventSchema`,
 `ProcedureInfoSchema`, `ParticipantProfileSchema`, `PostOpReportSchema`, `BaselineSchema`, `SurgicalSessionSchema`,
 `ExportBundleSchema`. Numeric ranges: bpm 0–300, rr 0–5000 ms, ratings 0–100, performance and perceivedStress 0–10,
-complexity 1–5. Unknown keys are **stripped**, not rejected. The zod types must be assignable to the TS types (add a
-compile-time check).
+complexity 1–5. Time windows must not run backwards: `SurgicalSession.endedAt` (when present) ≥ `startedAt`, and
+`Baseline.endedAt` ≥ `startedAt` (issue path `endedAt` / `baseline.endedAt`). Unknown keys are **stripped**, not
+rejected. The zod types must be assignable to the TS types (add a compile-time check). Resting / maximum HR keep the
+bpm range (0 is accepted on import); `summarizeSession` treats implausible values as missing instead of rejecting the
+whole session.
 
 ```ts
 class SessionParseError extends Error { issues: string[] }    // human-readable "path: message" lines
@@ -338,16 +396,27 @@ parseImport(text: string): { bundle: ExportBundle; warnings: string[] }
 `parseImport` accepts a JSON `ExportBundle`, a single session object, or an array of sessions (wrapped in a bundle
 with `deidentified:false`). Invalid sessions are skipped with a warning naming the index and the issues. A
 participant is synthesised (`{code}`) for each session code that has no profile. Bundles that fail to parse throw
-`SessionParseError`.
+`SessionParseError`, and so does a **single** session object that is invalid (there is nothing else to import).
+`createExportBundle` never mutates its input. With `deidentify` the sessions are new objects; without it the bundle's
+`sessions` array is new but holds the caller's session objects (no deep copy), which must be treated as immutable.
 
 ## io/csv.ts
 
 ```ts
-toCsv(rows: readonly Record<string, unknown>[], columns?: readonly string[]): string
+interface CsvOptions { formulaGuard?: boolean /*false*/ }
+toCsv(rows: readonly Record<string, unknown>[], columns?: readonly string[], options?: CsvOptions): string
 ```
-RFC 4180 with `\r\n` line endings and a header row. Quote a field if it contains `,`, `"`, CR or LF, doubling any
-embedded quotes. `null`/`undefined` become an empty field. Numbers use `String(n)`, and non-finite numbers become empty.
-Columns default to the union of keys in first-seen order.
+RFC 4180 with `\r\n` line endings and a header row; **every** record, including the last, ends with `\r\n`. Quote a
+field if it contains `,`, `"`, CR or LF, doubling any embedded quotes. `null`/`undefined` become an empty field.
+Numbers use `String(n)`, and non-finite numbers become empty. Booleans become `true`/`false`, `Date`s their
+`toISOString()`, other objects JSON. Columns default to the union of keys in first-seen order; no columns gives `""`.
+No byte-order mark is written.
+
+**Formula guard** (OWASP "CSV injection"): with `formulaGuard`, a **string** value whose first character is `=`, `+`,
+`-`, `@`, TAB or CR is written with a leading `'`, so spreadsheets show it as text instead of running it (e.g. a note
+`=HYPERLINK(…)`). Numbers are never altered (negative `t_offset_s` stays numeric); header names are never altered.
+Plain `toCsv` (guard off) and `parseCsv` round-trip exactly. **All four exporters below enable the guard.** (An ISO
+timestamp outside years 0000–9999, which starts with `+`/`-`, is also prefixed; no spreadsheet can store such a date.)
 
 ```ts
 parseCsv(text: string): string[][]           // RFC 4180 inverse; handles quotes, CRLF/LF, trailing newline
@@ -356,13 +425,18 @@ rrToCsv(s: SurgicalSession): string          // session_id,participant_code,t_is
 eventsToCsv(s: SurgicalSession): string      // session_id,participant_code,t_iso,t_offset_s,type,kind,logged_by,note
 summariesToCsv(summaries: readonly SessionSummary[]): string
 ```
-`t_offset_s` = (t − startedAt)/1000. `phase` = phaseAt. `valid` is `1`/`0` from cleanRr. `summariesToCsv` writes one
-wide row per session for SPSS/R/Stata, with fixed columns: identifiers, procedure fields, duration_min, hr_mean,
+`t_iso` (and `started_at`/`ended_at` below) is `Date.prototype.toISOString()`: UTC, milliseconds, `Z`
+(`2026-01-05T08:00:00.000Z`). `t_offset_s` = (t − startedAt)/1000. `phase` = phaseAt (empty outside the segments).
+`contact` is `1`/`0` (empty when the sensor does not report it) and `valid` is `1`/`0` from cleanRr. `summariesToCsv`
+writes one wide row per session for SPSS/R/Stata, with the fixed columns of `SUMMARY_CSV_COLUMNS`: the identifiers
+`session_id, participant_code, training_level, started_at, ended_at`, the procedure fields
+`procedure_name, specialty, approach, role, urgency, complexity`, then duration_min, hr_mean,
 hr_median, hr_min, hr_max, hr_sd, hr_p95, rmssd, sdnn, pnn50, mean_rr, stress_index, rr_artifact_pct,
 baseline_hr, mean_hr_delta, peak_hr_delta, high_intensity_pct, episode_count, episode_minutes, workload_instrument,
 workload_raw, workload_weighted, performance, perceived_stress, coverage_pct. Then for each phase in PHASE_ORDER:
 `<phase>_duration_s`, `<phase>_hr_mean`, `<phase>_hr_delta`, `<phase>_rmssd`. Phase names use `_` (e.g. `pre_op_hr_mean`).
-Phases that occur several times are duration-weighted.
+Phases that occur several times are duration-weighted (`_duration_s` is their total; a single occurrence is copied
+exactly). Percentages (`*_pct`) are fractions × 100. Missing values are empty fields.
 
 ## io/deidentify.ts
 
@@ -372,10 +446,24 @@ deidentifySession(s: SurgicalSession, opts?): SurgicalSession
 deidentifyBundle(b: ExportBundle, opts?): ExportBundle
 isValidParticipantCode(code: string): boolean                // /^[A-Za-z0-9][A-Za-z0-9_-]{1,31}$/ and not an email-like string
 ```
-With `dropNotes`, remove `postOp.notes` and every `event.note`, and replace `procedure.name` with the catalogue name
-when `catalogId` resolves (free text in the name might contain patient details). `timeShiftMs` adds the offset to
-**every** timestamp, consistently. `deidentifyBundle` applies the same options to every session and participant,
-keeps `consent.version`, sets `givenAt` to the shifted value, and sets `deidentified: true`.
+With `dropNotes`, remove all free text: `postOp.notes`, every `event.note`, and every tag except the machine tags in
+`DEIDENTIFY_KEPT_TAGS` (`simulated`, `demo`, which must survive so synthetic data is never mistaken for real data; the
+`tags` key is removed when none remain). `procedure.name` becomes the catalogue name when `catalogId` resolves, or
+when the typed name equals a catalogue name (trimmed, case-insensitive; its `catalogId` is then set); otherwise it
+becomes `UNSPECIFIED_PROCEDURE_NAME` (`'Unspecified procedure'`), because free text in the name might contain
+patient details. An unresolvable `catalogId` is removed.
+With `dropSensorId`, remove `sensor.id` and reduce `sensor.name` to the device model with `sensorModelName`: trailing
+whitespace-separated tokens made of hex digits and `:`/`-`/`_` (≥ 4 characters, containing a digit or `:`, optionally
+in brackets or after `#`) are removed, as is a `:`/`#`-joined hex suffix containing a digit
+(`'Polar H10 A1B2C3D4'` → `'Polar H10'`, `'HRM-Dual:123456'` → `'HRM-Dual'`); a name that is only a serial is removed.
+`timeShiftMs` adds the offset to **every** timestamp, consistently. The output shares no objects with the input.
+Participant codes are not changed but must already be pseudonyms: `deidentifySession`/`deidentifyBundle` throw
+`RangeError` when a session's or participant's code fails `isValidParticipantCode` (e.g. an e-mail address), since
+de-identification cannot repair a direct identifier. `deidentifyBundle` applies the same options to every session and
+participant, keeps `consent.version`, sets `givenAt` to the shifted value, shifts `exportedAt`, and sets
+`deidentified: true`. That flag means "`deidentifySession` was applied to every session" (types.ts), whatever the
+options: with the defaults (`timeShiftMs: 0`, `tzOffsetMin` kept) calendar dates and local times remain, so a study
+that must hide operating dates chooses a secret shift and sets `dropTzOffset`.
 
 ## catalog/procedures.ts
 

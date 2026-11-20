@@ -295,3 +295,56 @@ describe('baevskyStressIndex', () => {
     expect(() => baevskyStressIndex([800], 0)).toThrow(RangeError);
   });
 });
+
+describe('review fixes', () => {
+  const beats = (n: number, f: (i: number) => number): RRInterval[] =>
+    Array.from({ length: n }, (_, i) => ({ t: 1000 * Math.floor((i * 800) / 1000), ms: f(i) }));
+
+  it('rollingHrv on unsorted input equals the sorted result (index permutation, no per-window filter)', () => {
+    const rr = beats(600, (i) => 780 + 30 * Math.sin(i / 3) + (i % 50 === 7 ? 400 : 0));
+    const expected = rollingHrv(rr, { windowMs: 60000, stepMs: 10000 });
+    // Swap two beats delivered in the same second: t order is unchanged by the swap's position, beat order is not.
+    const swapped = rr.slice();
+    const a = swapped[100]!;
+    swapped[100] = swapped[400]!;
+    swapped[400] = a;
+    const unsorted = rollingHrv(swapped, { windowMs: 60000, stepMs: 10000 });
+    expect(unsorted.map((p) => p.t)).toEqual(expected.map((p) => p.t));
+    // Every window not touching the two moved beats is identical.
+    const t100 = rr[100]!.t;
+    const t400 = rr[400]!.t;
+    expected.forEach((p, k) => {
+      const covers = (t: number) => p.t - 60000 <= t && t < p.t;
+      if (!covers(t100) && !covers(t400)) expect(unsorted[k]).toEqual(p);
+    });
+  });
+
+  it('rollingHrv cleans the whole series once: an edge beat is judged with its neighbours outside the window', () => {
+    // 1 beat per second at 800 ms, one ectopic 1100 ms beat exactly at a window start.
+    const rr: RRInterval[] = Array.from({ length: 181 }, (_, i) => ({ t: i * 1000, ms: i === 60 ? 1100 : 800 }));
+    const [, second] = rollingHrv(rr, { windowMs: 60000, stepMs: 60000 });
+    // Window 2 covers t ∈ [60 s, 120 s): 60 beats, the ectopic one (first in the window) is invalid.
+    expect(second!.n).toBe(59);
+  });
+
+  it('rollingHrv reports n even when HRV is null, and refuses absurd window counts', () => {
+    const rr: RRInterval[] = Array.from({ length: 30 }, (_, i) => ({ t: i * 4000, ms: 800 }));
+    const out = rollingHrv(rr, { windowMs: 60000, stepMs: 30000 });
+    expect(out[0]).toEqual({ t: 60000, rmssd: null, sdnn: null, meanHr: null, n: 15 });
+    expect(() => rollingHrv([{ t: 1.7e12, ms: 800 }], { start: 0 })).toThrow(RangeError);
+  });
+
+  it('cleanRr gives the same flags as a reference median filter (allocation-free median)', () => {
+    const rr = beats(400, (i) => 700 + ((i * 7919) % 211) + (i % 37 === 0 ? 500 : 0));
+    const { valid } = cleanRr(rr);
+    const ref = rr.map((r, i) => {
+      if (!(r.ms >= 300 && r.ms <= 2000)) return false;
+      const nb = rr.slice(Math.max(0, i - 5), Math.min(rr.length, i + 6)).filter((_, j) => j + Math.max(0, i - 5) !== i);
+      const xs = nb.map((x) => x.ms).filter((x) => x >= 300 && x <= 2000).sort((p, q) => p - q);
+      if (xs.length < 3) return true;
+      const m = xs.length % 2 ? xs[(xs.length - 1) / 2]! : (xs[xs.length / 2 - 1]! + xs[xs.length / 2]!) / 2;
+      return !(Math.abs(r.ms - m) / m > 0.2);
+    });
+    expect(valid).toEqual(ref);
+  });
+});

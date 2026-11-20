@@ -33,8 +33,9 @@ def derive_phases(session: Mapping[str, Any]) -> list[dict[str, Any]]:
     A consecutive event repeating the previous phase is ignored (the first is
     kept). Each segment runs from its event to the next kept event (or to
     ``sessionEnd``). Zero-length segments are dropped, except a final segment
-    ending exactly at ``sessionEnd``. Time before the first phase event is not
-    a segment. Returns ``[{"phase", "index", "start", "end"}, ...]``.
+    ending exactly at ``sessionEnd``; then adjacent segments with the same phase
+    are merged (A, B of zero length, A → one A). Time before the first phase
+    event is not a segment. Returns ``[{"phase", "index", "start", "end"}, ...]``.
     """
     start = session["startedAt"]
     end = session_end(session)
@@ -50,6 +51,9 @@ def derive_phases(session: Mapping[str, Any]) -> list[dict[str, Any]]:
         is_last = i == len(kept) - 1
         seg_end = end if is_last else kept[i + 1][1]
         if seg_end - t <= 0 and not (is_last and seg_end == end):
+            continue
+        if segments and segments[-1]["phase"] == phase:
+            segments[-1]["end"] = seg_end  # contiguous: only zero-length segments were dropped in between
             continue
         segments.append({"phase": phase, "index": len(segments), "start": t, "end": seg_end})
     return segments

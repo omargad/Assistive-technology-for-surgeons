@@ -172,3 +172,24 @@ def test_summarize_copies_procedure_and_post_op() -> None:
     }  # fmt: skip
     assert out["workload"]["weighted"] == pytest.approx(1030 / 15)
     assert (out["performance"], out["perceivedStress"]) == (7, 4)
+
+
+def test_summary_invalid_resting_and_max_hr_count_as_missing() -> None:
+    samples = [{"t": i * 1000, "bpm": 70 + (i % 40)} for i in range(120)]
+    s = make_session(
+        startedAt=0, endedAt=120000, samples=samples, participantSnapshot={"restingHr": 0, "maxHr": 0, "birthYear": 1980}
+    )
+    out = summarize_session(s, at_year=2026)
+    assert out["baseline"] is None
+    assert out["maxHr"] == 176
+
+
+def test_data_quality_rate_counts_in_window_samples_only() -> None:
+    s = make_session(startedAt=20000, endedAt=80000, samples=[{"t": i * 1000, "bpm": 70} for i in range(101)])
+    assert data_quality(s)["sampleRateHz"] == 1
+
+
+def test_summary_nan_max_gap_is_finite() -> None:
+    samples = [{"t": i * 1000, "bpm": 70 + (i % 40)} for i in range(120)]
+    s = make_session(startedAt=0, endedAt=120000, samples=samples, participantSnapshot={"maxHr": 190})
+    assert not find_non_finite(summarize_session(s, max_gap_ms=float("nan")))

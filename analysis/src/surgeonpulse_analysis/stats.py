@@ -34,11 +34,19 @@ __all__ = [
     "slice_by_time",
     "detect_gaps",
     "sorted_by_t",
+    "resolve_max_gap_ms",
 ]
 
 #: Physiologically plausible heart-rate range (bpm); samples outside are ignored (SPEC ``hrStats``).
 HR_VALID_MIN_BPM = 25
 HR_VALID_MAX_BPM = 250
+
+
+def resolve_max_gap_ms(max_gap_ms: Any) -> float:
+    """SPEC: a missing or NaN ``maxGapMs`` option means the 5000 ms default (any other number is used as given)."""
+    if max_gap_ms is None or (isinstance(max_gap_ms, float) and math.isnan(max_gap_ms)):
+        return 5000
+    return max_gap_ms
 
 
 def is_finite_number(x: Any) -> bool:
@@ -213,6 +221,7 @@ def detect_gaps(samples: Sequence[Mapping[str, Any]], max_gap_ms: float = 5000) 
 
     Each gap runs from ``prev.t`` to ``next.t``: ``{"start", "end", "durationMs"}``.
     """
+    max_gap_ms = resolve_max_gap_ms(max_gap_ms)
     gaps: list[dict[str, float]] = []
     for prev, nxt in zip(samples, samples[1:]):
         dt = nxt["t"] - prev["t"]

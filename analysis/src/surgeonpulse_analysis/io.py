@@ -140,7 +140,11 @@ def _is_missing(v: Any) -> bool:
     return False
 
 
-def _cell(v: Any) -> str:
+#: First characters that make a spreadsheet evaluate a cell as a formula (OWASP CSV injection).
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _cell(v: Any, formula_guard: bool = False) -> str:
     if _is_missing(v):
         return ""
     if isinstance(v, (bool, np.bool_)):
@@ -154,18 +158,27 @@ def _cell(v: Any) -> str:
     if isinstance(v, (int, float, np.integer, np.floating)):
         return js_number_str(v)
     s = str(v)
+    if formula_guard and s.startswith(_FORMULA_START):
+        s = "'" + s
     if any(c in s for c in ',"\r\n'):
         s = '"' + s.replace('"', '""') + '"'
     return s
 
 
-def to_csv(rows: Iterable[Mapping[str, Any]], columns: Sequence[str] | None = None) -> str:
+def to_csv(
+    rows: Iterable[Mapping[str, Any]], columns: Sequence[str] | None = None, *, formula_guard: bool = False
+) -> str:
     """RFC 4180 CSV with ``\\r\\n`` line endings and a header row (SPEC ``toCsv``).
 
     Fields containing ``,``, ``"``, CR or LF are quoted (embedded quotes doubled);
     ``None``/NaN become empty fields; numbers are formatted like JavaScript
     ``String(n)``; booleans as ``1``/``0``; timestamps as ISO-8601 UTC.
     Columns default to the union of keys in first-seen order.
+
+    ``formula_guard`` (SPEC ``CsvOptions.formulaGuard``) prefixes ``'`` to text
+    values starting with ``= + - @``, TAB or CR so spreadsheets show them as text;
+    numbers are never altered. The app's exporters (and :func:`frames_to_csv`)
+    turn it on.
     """
     rows = list(rows)
     if columns is None:
@@ -176,7 +189,7 @@ def to_csv(rows: Iterable[Mapping[str, Any]], columns: Sequence[str] | None = No
         columns = list(seen)
     lines = [",".join(_cell(c) for c in columns)]
     for r in rows:
-        lines.append(",".join(_cell(r.get(c)) for c in columns))
+        lines.append(",".join(_cell(r.get(c), formula_guard) for c in columns))
     return "\r\n".join(lines) + "\r\n"
 
 
@@ -368,6 +381,12 @@ def _check_session(raw: Any) -> list[str]:
     if tags is not None and c.array(tags, "tags"):
         for i, tag in enumerate(tags):
             c.string(tag, f"tags[{i}]")
+    # Time windows must not run backwards (SPEC io/schema: endedAt >= startedAt), checked once the fields are valid.
+    if not c.issues:
+        if raw.get("endedAt") is not None and raw["endedAt"] < raw["startedAt"]:
+            c.add("endedAt", "endedAt must not be before startedAt")
+        if b is not None and b["endedAt"] < b["startedAt"]:
+            c.add("baseline.endedAt", "endedAt must not be before startedAt")
     return c.issues
 
 
@@ -711,17 +730,18 @@ def frames_to_csv(frames: Mapping[str, pd.DataFrame]) -> dict[str, str]:
 
     ``samples``/``rr``/``events`` use exactly the columns of the TypeScript
     ``samplesToCsv``/``rrToCsv``/``eventsToCsv`` (so files are interchangeable
-    with app exports); ``sessions``/``participants`` write every column.
+    with app exports); ``sessions``/``participants`` write every column. Text
+    cells are formula-guarded like the app's exports.
     """
     out: dict[str, str] = {}
     layouts = {"samples": SAMPLES_CSV_COLUMNS, "rr": RR_CSV_COLUMNS, "events": EVENTS_CSV_COLUMNS}
     for name, df in frames.items():
         if name in layouts:
             sub = df.assign(t_iso=[iso_utc(v) for v in df["t_ms"].tolist()]) if len(df) else df.assign(t_iso=[])
-            out[name] = to_csv(_records(sub, layouts[name]), layouts[name])
+            out[name] = to_csv(_records(sub, layouts[name]), layouts[name], formula_guard=True)
         else:
             cols = [c for c in df.columns if not (c.endswith("_ms") and c[:-3] in df.columns)]
-            out[name] = to_csv(_records(df, cols), cols)
+            out[name] = to_csv(_records(df, cols), cols, formula_guard=True)
     return out
 
 

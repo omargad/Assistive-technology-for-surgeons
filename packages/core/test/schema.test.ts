@@ -316,3 +316,19 @@ describe('component schemas', () => {
     expect(ExportBundleSchema.safeParse({ ...bundle, version: 2 }).success).toBe(false);
   });
 });
+
+describe('time windows must not run backwards', () => {
+  it('rejects a session whose endedAt is before startedAt', () => {
+    const s = fullSession();
+    expect(issuesOf({ ...s, endedAt: s.startedAt - 1000 })).toEqual(['endedAt: endedAt must not be before startedAt']);
+    expect(safeParseSession({ ...s, endedAt: s.startedAt }).ok).toBe(true);
+    const { endedAt: _drop, ...recording } = s;
+    expect(safeParseSession({ ...recording, status: 'recording' }).ok).toBe(true);
+  });
+  it('rejects a baseline whose endedAt is before startedAt', () => {
+    const s = fullSession();
+    const baseline = { startedAt: T0, endedAt: T0 - 1, restingHr: 60, source: 'manual' as const };
+    expect(BaselineSchema.safeParse(baseline).success).toBe(false);
+    expect(issuesOf({ ...s, baseline })).toEqual(['baseline.endedAt: endedAt must not be before startedAt']);
+  });
+});

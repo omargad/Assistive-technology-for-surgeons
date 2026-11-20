@@ -62,7 +62,9 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": true,
-          "modes": ["central"],
+          "modes": [
+            "central"
+          ],
           "neverForLocation": true,
           "bluetoothAlwaysPermission": "SurgeonPulse connects to your Bluetooth heart-rate sensor to record your heart rate during procedures."
         }
@@ -76,7 +78,8 @@
         }
       ],
       "react-native-health-connect",
-      "./plugins/withOptionalBluetooth"
+      "./plugins/withOptionalBluetooth",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

@@ -129,3 +129,35 @@ describe('phaseAt', () => {
     expect(phaseAt([], 0)).toBeUndefined();
   });
 });
+
+describe('derivePhases: adjacent same-phase segments are merged', () => {
+  it('A, B (zero length), A gives one A segment', () => {
+    const s = makeSession({
+      endedAt: 600000,
+      events: [phase('a', 0, 'dissection'), phase('b', 1000, 'critical'), phase('c', 1000, 'dissection')],
+    });
+    expect(derivePhases(s)).toEqual([{ phase: 'dissection', index: 0, start: 0, end: 600000 }]);
+  });
+  it('a merged segment absorbs a zero-length final segment of the same phase', () => {
+    const s = makeSession({
+      endedAt: 5000,
+      events: [phase('a', 0, 'pre-op'), phase('b', 5000, 'incision'), phase('c', 5000, 'pre-op')],
+    });
+    expect(derivePhases(s)).toEqual([{ phase: 'pre-op', index: 0, start: 0, end: 5000 }]);
+  });
+  it('indices stay consecutive after a merge', () => {
+    const s = makeSession({
+      endedAt: 9000,
+      events: [
+        phase('a', 0, 'pre-op'),
+        phase('b', 1000, 'incision'),
+        phase('c', 1000, 'pre-op'),
+        phase('d', 3000, 'critical'),
+      ],
+    });
+    expect(derivePhases(s)).toEqual([
+      { phase: 'pre-op', index: 0, start: 0, end: 3000 },
+      { phase: 'critical', index: 1, start: 3000, end: 9000 },
+    ]);
+  });
+});

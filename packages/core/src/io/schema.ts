@@ -265,7 +265,11 @@ type Check<T extends true> = T;
 type Assignable<From, To> = [From] extends [To] ? true : false;
 type Mutual<A, B> = Assignable<A, B> extends true ? Assignable<B, A> : false;
 
-type _SchemaContractChecks = [
+/**
+ * @internal Exported only so that consumers compiling core from source with `noUnusedLocals` do not trip on it.
+ * It has no runtime value; it exists to fail compilation when the zod schemas and types.ts drift apart.
+ */
+export type SchemaContractChecks = [
   Check<Mutual<z.infer<typeof SensorInfoSchema>, SensorInfo>>,
   Check<Mutual<z.infer<typeof AppInfoSchema>, AppInfo>>,
   Check<Mutual<z.infer<typeof HeartRateSampleSchema>, HeartRateSample>>,

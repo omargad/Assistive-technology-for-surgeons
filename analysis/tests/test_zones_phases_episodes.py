@@ -172,3 +172,22 @@ def test_detect_stress_episodes_runs_merge_and_duration() -> None:
     assert [(e["start"], e["end"]) for e in no_merge] == [(0, 69_000), (327_000, 400_000)]
     assert all("phase" not in e for e in no_merge)  # no segments → key omitted
     assert detect_stress_episodes([], 100) == []
+
+
+def test_derive_phases_merges_adjacent_same_phase() -> None:
+    s = make_session(
+        startedAt=0,
+        endedAt=600000,
+        events=[
+            {"id": "a", "t": 0, "type": "phase", "phase": "dissection"},
+            {"id": "b", "t": 1000, "type": "phase", "phase": "critical"},
+            {"id": "c", "t": 1000, "type": "phase", "phase": "dissection"},
+        ],
+    )
+    assert derive_phases(s) == [{"phase": "dissection", "index": 0, "start": 0, "end": 600000}]
+
+
+def test_time_in_zones_nan_max_gap_uses_default() -> None:
+    samples = [{"t": i * 1000, "bpm": 80 + i} for i in range(10)]
+    zones = zones_from_max_hr(190)
+    assert time_in_zones(samples, zones, float("nan")) == time_in_zones(samples, zones)

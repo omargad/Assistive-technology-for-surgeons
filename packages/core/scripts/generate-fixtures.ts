@@ -221,6 +221,11 @@ function buildEdgePhases(): SurgicalSession {
     ev('mk-2', startedAt + 215_000, { type: 'marker', marker: 'interruption', loggedBy: 'team' }),
     ev('mk-3', startedAt + 260_000, { type: 'marker', marker: 'equipment' }),
     ev('ph-5', startedAt + 330_000, { type: 'phase', phase: 'closure' }),
+    // closure, post-op (zero length), closure → one merged closure segment (SPEC derivePhases merge rule).
+    ev('ph-5a', startedAt + 400_000, { type: 'phase', phase: 'post-op' }),
+    ev('ph-5b', startedAt + 400_000, { type: 'phase', phase: 'closure' }),
+    // A note a spreadsheet would run as a formula: CSV exports must write it with a leading apostrophe.
+    ev('mk-6', startedAt + 470_000, { type: 'marker', marker: 'note', note: '=HYPERLINK("http://example.org","x")' }),
     ev('mk-4', startedAt + 430_000, { type: 'marker', marker: 'teaching' }),
     ev('mk-5', startedAt + 520_000, { type: 'marker', marker: 'complication', loggedBy: 'retrospective' }),
     ev('ph-6', endedAt, { type: 'phase', phase: 'post-op' }), // at sessionEnd → zero-length final segment
@@ -434,13 +439,14 @@ const SESSION_FIXTURES: SessionFixture[] = [
     name: 'edge-phases',
     description:
       'Hand-built: phase event before start (clamped), duplicate consecutive phase, zero-length middle segment, ' +
-      'final phase at sessionEnd, invalid bpm, 12 s and 4 s gaps, merging/dropped episodes, RR dropout and out-of-range RR.',
+      'A/B(zero-length)/A phases merged into one segment, final phase at sessionEnd, invalid bpm, 12 s and 4 s gaps, ' +
+      'merging/dropped episodes, RR dropout and out-of-range RR, a formula-like note (CSV formula guard).',
     build: buildEdgePhases,
   },
   {
     name: 'edge-window',
     description:
-      'Hand-built: samples/RR/events before startedAt and after endedAt (window clipping), unaligned sample times, ' +
+      'Hand-built: samples/RR/events before startedAt and after endedAt (window clipping; sampleRateHz counts in-window samples only), unaligned sample times, ' +
       'snapshot maxHr without baseline (median-based episode threshold, %HRmax zones).',
     build: buildEdgeWindow,
   },
@@ -624,6 +630,7 @@ function main(): void {
       { ...empty, id: 'bad-bpm', samples: [{ t: 1, bpm: 400 }] },
       { ...sparse, id: 'no-code', participantCode: undefined },
       { ...empty, id: 'unsorted', samples: [{ t: (empty.startedAt as number) + 2000, bpm: 70 }, { t: (empty.startedAt as number) + 1000, bpm: 71 }] },
+      { ...sparse, id: 'backwards', status: 'completed', endedAt: (sparse.startedAt as number) - 1000 }, // endedAt < startedAt
     ],
     'import-bundle': {
       format: 'surgeonpulse-export',

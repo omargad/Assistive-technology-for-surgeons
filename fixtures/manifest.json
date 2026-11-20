@@ -236,7 +236,7 @@
     },
     {
       "name": "edge-phases",
-      "description": "Hand-built: phase event before start (clamped), duplicate consecutive phase, zero-length middle segment, final phase at sessionEnd, invalid bpm, 12 s and 4 s gaps, merging/dropped episodes, RR dropout and out-of-range RR.",
+      "description": "Hand-built: phase event before start (clamped), duplicate consecutive phase, zero-length middle segment, A/B(zero-length)/A phases merged into one segment, final phase at sessionEnd, invalid bpm, 12 s and 4 s gaps, merging/dropped episodes, RR dropout and out-of-range RR, a formula-like note (CSV formula guard).",
       "session": "sessions/edge-phases.json",
       "simulate": null,
       "modifications": [],
@@ -252,7 +252,7 @@
     },
     {
       "name": "edge-window",
-      "description": "Hand-built: samples/RR/events before startedAt and after endedAt (window clipping), unaligned sample times, snapshot maxHr without baseline (median-based episode threshold, %HRmax zones).",
+      "description": "Hand-built: samples/RR/events before startedAt and after endedAt (window clipping; sampleRateHz counts in-window samples only), unaligned sample times, snapshot maxHr without baseline (median-based episode threshold, %HRmax zones).",
       "session": "sessions/edge-window.json",
       "simulate": null,
       "modifications": [],

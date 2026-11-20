@@ -218,7 +218,7 @@
       "peakT": 1772444220000,
       "meanBpm": 99,
       "phase": "closure",
-      "relatedEventIds": ["ph-5","mk-4"]
+      "relatedEventIds": ["ph-5","ph-5a","ph-5b","mk-4"]
     }
   ],
   "episodesLongMerge": [
@@ -250,7 +250,7 @@
       "peakT": 1772444220000,
       "meanBpm": 99,
       "phase": "closure",
-      "relatedEventIds": ["ph-5","mk-4"]
+      "relatedEventIds": ["ph-5","ph-5a","ph-5b","mk-4"]
     }
   ],
   "episodesNoContext": [

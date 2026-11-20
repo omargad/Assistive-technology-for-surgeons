@@ -22,10 +22,9 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
 
-    /* Linting.
-       noUnusedLocals/noUnusedParameters are left to oxlint (`npm run lint`): the
-       workspace package @surgeonpulse/core is compiled from source as part of this
-       program, and its compile-time assertion types would trip those flags. */
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },

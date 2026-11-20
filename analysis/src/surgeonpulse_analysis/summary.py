@@ -15,7 +15,7 @@ from typing import Any, Mapping
 from .episodes import default_episode_threshold, detect_stress_episodes
 from .hrv import baevsky_stress_index, clean_rr, compute_hrv
 from .phases import MARKER_KINDS, derive_phases, session_end
-from .stats import detect_gaps, hr_stats, is_valid_bpm, slice_by_time
+from .stats import detect_gaps, hr_stats, is_valid_bpm, resolve_max_gap_ms, slice_by_time
 from .tlx import score_workload
 from .zones import estimate_max_hr, time_in_zones, zone_dwells, zones_from_baseline, zones_from_max_hr
 
@@ -56,14 +56,17 @@ def data_quality(session: Mapping[str, Any], max_gap_ms: float = DEFAULT_MAX_GAP
       ``min(t[i+1] − t[i], max_gap_ms)`` between consecutive valid samples,
       each piece clipped to ``[startedAt, sessionEnd]``; 0 when duration <= 0.
     * ``gapCount``/``longestGapSec`` from ``detect_gaps(samples, max_gap_ms)``.
-    * ``sampleRateHz = (validCount − 1)/(covered/1000)`` when covered > 0, else 0.
+    * ``sampleRateHz = max(0, inWindow − 1)/(covered/1000)`` when covered > 0, else 0,
+      where ``inWindow`` counts valid samples with ``startedAt <= t <= sessionEnd``.
     * ``rrArtifactRatio`` from :func:`clean_rr`, ``None`` without RR data.
     """
+    max_gap_ms = resolve_max_gap_ms(max_gap_ms)
     start = session["startedAt"]
     end = session_end(session)
     duration = end - start
     samples = session.get("samples") or []
     valid = sorted((s for s in samples if is_valid_bpm(s.get("bpm"))), key=lambda s: s["t"])
+    in_window = sum(1 for s in valid if start <= s["t"] <= end)
     covered: float = 0
     for a, b in zip(valid, valid[1:]):
         lo = max(a["t"], start)
@@ -77,15 +80,17 @@ def data_quality(session: Mapping[str, Any], max_gap_ms: float = DEFAULT_MAX_GAP
         "gapCount": len(gaps),
         "longestGapSec": max((g["durationMs"] for g in gaps), default=0) / 1000,
         "rrArtifactRatio": clean_rr(rr)["report"]["ratio"] if rr else None,
-        "sampleRateHz": (len(valid) - 1) / (covered / 1000) if covered > 0 else 0,
+        "sampleRateHz": max(0, in_window - 1) / (covered / 1000) if covered > 0 else 0,
     }
 
 
 def _resolve_baseline(session: Mapping[str, Any]) -> dict[str, Any] | None:
-    if session.get("baseline") is not None:
-        return dict(session["baseline"])
+    """Session baseline, else a profile baseline; a restingHr that is not a valid bpm counts as missing."""
+    base = session.get("baseline")
+    if base is not None and is_valid_bpm(base.get("restingHr")):
+        return dict(base)
     snap = session.get("participantSnapshot") or {}
-    if snap.get("restingHr") is not None:
+    if is_valid_bpm(snap.get("restingHr")):
         return {
             "source": "profile",
             "restingHr": snap["restingHr"],
@@ -96,14 +101,16 @@ def _resolve_baseline(session: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def _resolve_max_hr(session: Mapping[str, Any], max_hr: float | None, at_year: int | None) -> float | None:
-    if max_hr is not None:
+    """Option → snapshot ``maxHr`` → Tanaka estimate; each used only when it is a valid bpm (25–250)."""
+    if is_valid_bpm(max_hr):
         return max_hr
     snap = session.get("participantSnapshot") or {}
-    if snap.get("maxHr") is not None:
+    if is_valid_bpm(snap.get("maxHr")):
         return snap["maxHr"]
     if snap.get("birthYear") is not None:
         year = at_year if at_year is not None else utc_year(session["startedAt"])
-        return estimate_max_hr(snap["birthYear"], year)
+        est = estimate_max_hr(snap["birthYear"], year)
+        return est if is_valid_bpm(est) else None
     return None
 
 
@@ -121,16 +128,18 @@ def summarize_session(
     ``atYear``, ``episodeThresholdBpm``, ``maxGapMs``).
 
     * ``baseline``: the session baseline, else a ``source: "profile"`` baseline
-      from ``participantSnapshot.restingHr``, else ``None``.
+      from ``participantSnapshot.restingHr``, else ``None`` (a restingHr that is
+      not a valid bpm, e.g. 0, counts as missing).
     * ``maxHr``: option → snapshot ``maxHr`` → Tanaka estimate from
-      ``birthYear`` (at ``at_year`` or the UTC year of ``startedAt``) → ``None``.
+      ``birthYear`` (at ``at_year`` or the UTC year of ``startedAt``) → ``None``;
+      each candidate is used only when it is a valid bpm (25–250).
     * ``zones``: baseline zones if a baseline exists, else %HRmax zones, else ``[]``.
     * ``highIntensityFraction``: time-weighted fraction with ``bpm >= 0.7·maxHr``
       (``None`` without maxHr, or when there is no dwell time at all).
     * ``phases``: per-segment HR stats, HRV (``min_intervals=20``) and HR delta.
     * ``episodes``: threshold = option or :func:`default_episode_threshold`.
     """
-    gap = DEFAULT_MAX_GAP_MS if max_gap_ms is None else max_gap_ms
+    gap = resolve_max_gap_ms(max_gap_ms)
     samples = session.get("samples") or []
     rr = session.get("rr") or []
     events = session.get("events") or []

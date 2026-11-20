@@ -319,33 +319,48 @@ function plainPearson(xs: readonly number[], ys: readonly number[]): number | nu
  * `window` is floored and at least 1 (`Infinity` gives a cumulative mean). Non-finite inputs are treated as
  * missing and skipped inside each window; a window that holds no finite value repeats the previous output
  * (positions before the first finite value take the first available average). An input with no finite value
- * at all yields zeros, so the output never contains `NaN`. If the running sum overflows, that window's mean is
- * recomputed from its values (rescaled when needed), so huge finite inputs never produce `Infinity`.
+ * at all yields zeros, so the output never contains `NaN`. The running window sum is compensated (Neumaier), so
+ * values of very different magnitude do not absorb each other, and if it overflows that window's mean is recomputed
+ * from its values (rescaled when needed), so huge finite inputs never produce `Infinity`.
  */
 export function movingAverage(xs: readonly number[], window: number): number[] {
   const n = xs.length;
   if (n === 0) return [];
   const w = Number.isNaN(window) ? 1 : Math.max(1, Math.floor(window));
   const raw: (number | null)[] = new Array<number | null>(n);
+  // Neumaier-compensated running sum: adding and later subtracting values of very different magnitude would
+  // otherwise lose the small ones (1e20 + 1 − 1e20 = 0 in plain floating point).
   let sum = 0;
+  let comp = 0;
+  const add = (x: number): void => {
+    const t = sum + x;
+    comp += Math.abs(sum) >= Math.abs(x) ? sum - t + x : x - t + sum;
+    sum = t;
+  };
   let count = 0;
   for (let i = 0; i < n; i++) {
     const x = xs[i]!;
     if (Number.isFinite(x)) {
-      sum += x;
+      add(x);
       count++;
     }
     const drop = i - w;
     if (drop >= 0) {
       const old = xs[drop]!;
       if (Number.isFinite(old)) {
-        sum -= old;
+        add(-old);
         count--;
       }
     }
-    // Recompute exactly when the window empties so rounding residue from subtraction never leaks forward.
-    if (count === 0) sum = 0;
-    if (count > 0 && !Number.isFinite(sum)) {
+    if (count === 0) {
+      // Reset exactly when the window empties so rounding residue never leaks forward.
+      sum = 0;
+      comp = 0;
+      raw[i] = null;
+      continue;
+    }
+    let total = sum + comp;
+    if (!Number.isFinite(sum) || !Number.isFinite(comp) || !Number.isFinite(total)) {
       // Overflow: rebuild the window sum from scratch (it may have recovered), else average rescaled values.
       const win: number[] = [];
       for (let j = Math.max(0, i - w + 1); j <= i; j++) {
@@ -353,11 +368,13 @@ export function movingAverage(xs: readonly number[], window: number): number[] {
         if (Number.isFinite(v)) win.push(v);
       }
       sum = 0;
-      for (const v of win) sum += v;
-      raw[i] = Number.isFinite(sum) ? sum / count : scaledMean(win);
+      comp = 0;
+      for (const v of win) add(v);
+      total = sum + comp;
+      raw[i] = Number.isFinite(sum) && Number.isFinite(comp) && Number.isFinite(total) ? total / count : scaledMean(win);
       continue;
     }
-    raw[i] = count > 0 ? sum / count : null;
+    raw[i] = total / count;
   }
   let fill: number | null = null;
   for (const v of raw) {

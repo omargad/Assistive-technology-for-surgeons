@@ -201,3 +201,18 @@ def test_sessions_to_frames_empty() -> None:
     frames = sessions_to_frames({"sessions": [], "participants": []})
     assert all(len(df) == 0 for df in frames.values())
     assert list(frames["samples"].columns) == ["session_id", "participant_code", "t", "t_ms", "t_offset_s", "bpm", "contact", "phase"]
+
+
+def test_to_csv_formula_guard() -> None:
+    rows = [{"a": "=1+1", "b": -3, "c": "@x", "d": "ok"}]
+    assert parse_csv(to_csv(rows))[1] == ["=1+1", "-3", "@x", "ok"]
+    assert parse_csv(to_csv(rows, formula_guard=True))[1] == ["'=1+1", "-3", "'@x", "ok"]
+
+
+def test_parse_session_rejects_backwards_windows() -> None:
+    with pytest.raises(SessionParseError) as exc:
+        parse_session(make_session(startedAt=10_000, endedAt=9_000))
+    assert exc.value.issues == ["endedAt: endedAt must not be before startedAt"]
+    base = {"startedAt": 5, "endedAt": 4, "restingHr": 60, "source": "manual"}
+    with pytest.raises(SessionParseError):
+        parse_session(make_session(baseline=base))
