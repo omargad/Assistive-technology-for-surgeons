@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "SurgeonPulse",
+    "slug": "surgeonpulse",
+    "scheme": "surgeonpulse",
+    "version": "0.1.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "description": "Intra-operative heart-rate and workload capture with performance feedback for surgeons (research use).",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.surgeonpulse.mobile",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "SurgeonPulse connects to your Bluetooth heart-rate sensor to record your heart rate during procedures.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "org.surgeonpulse.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_HEART_RATE_VARIABILITY"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26
+          },
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
+        }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": ["central"],
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "SurgeonPulse connects to your Bluetooth heart-rate sensor to record your heart rate during procedures."
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "SurgeonPulse reads heart rate and heart-rate variability recorded by your Apple Watch during a procedure so it can be included in your session.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
+      "react-native-health-connect"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "consentVersion": "PICF-1.0",
+      "researchServerUrl": ""
+    }
+  }
+}

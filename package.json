@@ -1,0 +1,21 @@
+{
+  "name": "surgeonpulse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-platform assistive technology for surgeons: intra-operative heart-rate capture, performance feedback and research analytics.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "dashboard": "npm run dev -w @surgeonpulse/dashboard",
+    "server": "npm run start -w @surgeonpulse/server",
+    "mobile": "npm run start -w @surgeonpulse/mobile"
+  }
+}
