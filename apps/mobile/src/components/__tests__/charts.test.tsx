@@ -166,9 +166,10 @@ describe('TrendChart', () => {
   it('renders points with a trend line and caption', async () => {
     await render(<TrendChart points={points} label="Mean HR change" unit="bpm" testID="trend" />);
     expect(screen.getByTestId('trend-plot').props.accessibilityLabel).toMatch(
-      /Mean HR change across 6 sessions, from 12 bpm to 6 bpm; trend falling by about 1\.2 bpm per session \(unlikely to be chance, p < 0\.05\)/,
+      /Mean HR change across 6 sessions, from 12 bpm to 6 bpm; trend falling by about 1\.2 bpm per session \(unlikely to be chance\)\./,
     );
-    expect(screen.getByText(/per session \(R² 0\.\d\d, n = 6; p < 0\.05\)/)).toBeOnTheScreen();
+    expect(screen.getByText('Trend −1.2 bpm per session over 6 sessions. This is unlikely to be chance.')).toBeOnTheScreen();
+    expect(screen.queryByText(/R²|p < 0\.05/)).toBeNull(); // UX-14: no statistics jargon on screen
   });
 
   // RV-1: three noisy points used to be announced as "trend rising by X per session".
@@ -178,7 +179,7 @@ describe('TrendChart', () => {
     const label = screen.getByTestId('noisy-plot').props.accessibilityLabel as string;
     expect(label).toMatch(/no clear trend/);
     expect(label).not.toMatch(/rising/);
-    expect(screen.getByText(/not statistically clear, could be chance/)).toBeOnTheScreen();
+    expect(screen.getByText(/^No clear trend over 4 sessions \(\+\d\.\d bpm per session\)\. The changes could be ordinary variation\.$/)).toBeOnTheScreen();
   });
 
   it('renders an empty state', async () => {

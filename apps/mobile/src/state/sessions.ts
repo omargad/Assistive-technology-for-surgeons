@@ -122,6 +122,10 @@ export function createSessionsStore(deps: SessionsDeps) {
 
       async saveProfile(profile) {
         await repo.saveProfile(profile);
+        // The web repository debounces its localStorage writes. Onboarding sets
+        // `onboardingComplete` straight after this, so write the profile and consent now:
+        // otherwise a tab closed in between could leave the app onboarded with no profile.
+        (repo as { flushPersistence?: () => void }).flushPersistence?.();
         set({ profile });
       },
 

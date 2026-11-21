@@ -59,7 +59,7 @@ export function describeTrend(points: readonly TrendPoint[], label: string, unit
     const flat = Math.abs(trend.slope) < 10 ** -decimals / 2;
     if (trend.significant && !flat) {
       const dir = trend.slope > 0 ? 'rising' : 'falling';
-      s += `; trend ${dir} by about ${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session (unlikely to be chance, p < 0.05)`;
+      s += `; trend ${dir} by about ${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session (unlikely to be chance)`;
     } else {
       s += '; no clear trend (the changes could be ordinary variation between sessions)';
     }
@@ -83,11 +83,16 @@ export function TrendChart({
   const c = theme.colors;
   const trend = useMemo(() => (points.length >= 2 ? trendOf(points) : null), [points]);
 
+  // Participant-facing wording: plain language, no R² or p-values (UX-14). The statistical test
+  // itself is unchanged (see `trendOf`); researchers see the full statistics in the dashboard.
+  const slopeText = trend
+    ? `${trend.slope >= 0 ? '+' : '−'}${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session`
+    : '';
   const caption =
     trend && points.length >= 3
-      ? `Trend ${trend.slope >= 0 ? '+' : '−'}${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session (R² ${trend.r2.toFixed(2)}, n = ${trend.n}; ${
-          trend.significant ? 'p < 0.05' : 'not statistically clear, could be chance'
-        }).`
+      ? trend.significant
+        ? `Trend ${slopeText} over ${trend.n} sessions. This is unlikely to be chance.`
+        : `No clear trend over ${trend.n} sessions (${slopeText}). The changes could be ordinary variation.`
       : points.length > 0
         ? 'A trend line appears after three sessions.'
         : '';

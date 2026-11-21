@@ -47,6 +47,17 @@ describe('sessions store', () => {
     expect(await repo.getProfile()).toEqual({ code: 'SP-014' }); // profile is kept
   });
 
+  // UX-16: onboarding flips onboardingComplete right after saving the profile, so the web
+  // repository's debounced write must not leave the profile only in memory.
+  it('writes the profile through to storage immediately when the repository batches writes', async () => {
+    const flushPersistence = jest.fn();
+    const repo = { ...createMemoryRepository(), flushPersistence };
+    const store = createSessionsStore({ repository: repo });
+    await store.getState().saveProfile({ code: 'SP-014' });
+    expect(flushPersistence).toHaveBeenCalledTimes(1);
+    expect(store.getState().profile).toEqual({ code: 'SP-014' });
+  });
+
   // ROB-1: a session with a non-pseudonymous code would later break export and upload.
   it('skips imported sessions whose participant code is not a study code', async () => {
     const repo = createMemoryRepository();
