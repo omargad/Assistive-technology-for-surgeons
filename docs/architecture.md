@@ -19,7 +19,7 @@ Related documents: [data model](data-model.md) · [metrics](metrics.md) · [deve
 | **One shared core** | All analytics, parsing, validation, CSV, de-identification, labels and the simulator live in `@surgeonpulse/core`. The app, dashboard and server import it; none re-implements analytics. The Python toolkit is the one deliberate second implementation, kept honest by [parity fixtures](development.md#fixtures-and-parity). |
 | **Portable core** | Core is plain ES2022 plus `zod`, with no Node, browser or React Native APIs, so the same code runs on Hermes (iOS/Android), in browsers and in Node. Functions are pure and deterministic: clocks and seeds are injected, and outputs never contain `NaN` or `Infinity`. |
 | **Platform modules by file suffix** | Where platforms differ (Bluetooth, health stores, storage, files), the app has one module per platform selected by Metro's file-suffix resolution (`.ios.ts`, `.android.ts`, `.native.ts`, `.web.ts`). Native-only libraries never reach the web bundle. |
-| **Privacy by design** | No patient data is collected. Participants are pseudonymous study codes. Free text is discouraged and removed on export. The app de-identifies JSON exports, per-session CSVs and uploads before they leave the device (the summaries CSV is the exception; see [data model](data-model.md#where-it-is-applied)), and the server de-identifies every uploaded session **again**. |
+| **Privacy by design** | No patient data is collected. Participants are pseudonymous study codes. Free text is discouraged and removed on export. The app de-identifies JSON exports, per-session CSVs, the summaries CSV and uploads before they leave the device (see [data model](data-model.md#where-it-is-applied)), and the server de-identifies every uploaded session **again**. |
 | **Research tool, not a medical device** | No alarms, no clinical thresholds, no patient monitoring. Feedback is framed as reflection on the surgeon's own data. |
 
 ## Components
@@ -149,15 +149,28 @@ Points worth knowing:
 
 - **Data safety.** The full session lives in memory while recording. A flush timer appends new samples and RR
   intervals to storage every 5 s (`flushIntervalMs`), tracked by a cursor, and all writes go through one serial queue
-  so they reach storage in order. A crash therefore loses at most about 5 s of signal. Incoming timestamps are clamped
-  to be non-decreasing, which protects against wall-clock adjustments.
+  so they reach storage in order. A crash therefore loses at most about 5 s of signal. The same flush also runs as soon
+  as the app leaves the foreground (React Native `AppState`; on the web the repository is written straight away too),
+  and the signal watchdog re-checks when the app returns. Incoming timestamps are clamped to be non-decreasing, which
+  protects against wall-clock adjustments, and values the session format would reject (above 300 bpm, RR above
+  5000 ms; [`services/util/signals.ts`](../apps/mobile/src/services/util/signals.ts)) are dropped before they reach the
+  session or the baseline buffer.
+- **Completing a case.** `submitDebrief` first retries the final flush and refuses (the stage stays `debrief`, with a
+  "save the debrief again" message) until storage holds every captured sample and RR interval. Only then is the
+  session marked `completed` and summarised, so the cached summary always matches the stored signals.
+- **The case in progress is owned by the recording store.** `activeSessionOf(state)` names the session while the stage
+  is not `idle` or `done`; the sessions store refuses to delete it (or "delete all"), and the event editor and the
+  session page's Edit/Delete actions are disabled until the case has ended.
 - **Interrupted cases.** The session's status stays `recording` until the debrief is submitted. On the next launch,
   `findInterrupted()` lists such sessions and the app offers to resume (`recoverInterrupted`, which continues the same
   session after reconnecting a sensor) or to finish (`finishInterrupted`, which sets `endedAt` to the last data point
   and opens the debrief).
 - **Timed sessions.** With the Apple Health or Health Connect source there is no live heart rate. The live screen
   shows elapsed time and the event buttons. After the case, `importFromHealth` reads heart rate for the session window,
-  merges it without duplicates and recomputes the summary.
+  merges it without duplicates and recomputes the summary. The import is offered and accepted only when
+  `canImportHealthInto(session)` holds: the session was recorded with a health store as its source, or has no samples
+  and no RR at all. A strap's own recording is never interleaved with a second device's data. New data removes the
+  session's `uploaded` tag and re-uploads it when automatic upload is on.
 - **Keep-awake and haptics.** The screen is kept awake during baseline and recording when the setting is on. Haptic
   feedback confirms taps. Both are wrapped so that a failure never interrupts recording.
 
@@ -238,8 +251,10 @@ sequenceDiagram
 Server-side withdrawal is a single call: `POST /api/v1/me/withdraw` with the participant's enrolment token, or
 `DELETE /api/v1/admin/participants/:code` by the researcher. Either deletes all of that participant's sessions, revokes
 every token, clears the profile and retires the code. See the [server README](../apps/server/README.md#privacy-and-security).
-The app's **Withdraw consent** action is currently local only: it records the withdrawal date and turns off automatic
-upload, but does not call the server, so the research team actions the server-side deletion.
+The app's **Withdraw consent** action records the withdrawal date, turns off automatic upload and blocks every further
+upload (the upload client refuses with kind `withdrawn`, and the server answers `409 consent withdrawn` to a bundle
+whose profile records withdrawn consent). When a study server is configured it also offers to call
+`POST /api/v1/me/withdraw` (`withdrawFromStudy`) and then forgets the token.
 
 ## Cross-platform design
 
@@ -307,16 +322,26 @@ recorded in `schema_version (version INTEGER NOT NULL)`. Migration 1 creates:
 | `profile` | `id INTEGER PRIMARY KEY CHECK (id = 1)`, `json TEXT NOT NULL` | |
 
 - Every write runs in an exclusive transaction behind a serial queue, because overlapping exclusive transactions would
-  fail with "database is locked".
+  fail with "database is locked". Each transaction starts with `PRAGMA secure_delete = ON` (expo-sqlite opens a new
+  connection per exclusive transaction, and the pragma is per connection), so deleted sessions are overwritten in the
+  file rather than left recoverable; `migrate()` sets it on the main connection too.
 - Signals are inserted with multi-row prepared `INSERT`s of 200 rows (4 parameters each, below SQLite's historic limit
   of 999 bound parameters).
 - `getSession` reassembles the session (`samples` ordered by `t, rowid`, `rr` by `seq`) and validates it with core's
-  `parseSession`.
+  `parseSession`. Stored values outside 0–300 bpm and 0–5000 ms (possible in sessions written by older versions) are
+  skipped, so such a session still opens.
 - `saveSession` (imports, demo data, health-store merges) replaces the signals and clears the cached summary.
-- Deleting a session deletes its signals.
-- Settings are a separate JSON document under the key `surgeonpulse.settings.v1` in `expo-sqlite/kv-store`.
+- Deleting a session deletes its signals. `deleteProfile()` removes the participant profile ("Delete all data").
+- `importBundle` skips sessions whose id is already on the device (or is the case being recorded), keeping the local
+  copy, and sessions whose participant code is not a study code, each with a warning.
+- Settings are a separate JSON document under the key `surgeonpulse.settings.v1` in `expo-sqlite/kv-store`. The
+  research enrolment token is **not** in that document: it is kept with `expo-secure-store`
+  (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, so it is not carried in backups) through `services/secrets.native.ts`. A
+  token found in an older settings document is moved there on load.
 
-The app adds no encryption of its own. It relies on the operating system's device encryption and app sandboxing.
+The app adds no encryption of its own for sessions. It relies on the operating system's device encryption and app
+sandboxing. Android app backup is off (`android.allowBackup: false`); iOS device and iCloud backups include the
+database.
 
 ### Mobile app on the web: localStorage
 
@@ -343,11 +368,17 @@ to `localStorage` under the key `surgeonpulse.sessions.v1`:
   smaller than plain JSON for a 1 Hz recording.
 - Writes are debounced by 1 s and forced on `pagehide`, `beforeunload` and when the page becomes hidden.
 - The budget is about 4,000,000 characters (below the usual 5 MB browser quota). When the payload is larger, the signal
-  arrays of the **oldest finished sessions are left out** first; their metadata and cached summaries are kept. If the
-  browser still refuses (quota error), only metadata is written. Long-term web use therefore needs regular exports.
-- Records that fail `safeParseSession` on load are skipped. Every storage access is wrapped in `try`/`catch`, because
-  private browsing modes and blocked storage can throw.
-- Settings use `localStorage` key `surgeonpulse.settings.v1`, with an in-memory fallback.
+  arrays of the **oldest finished sessions are left out** first; their metadata and cached summaries are kept. A quota
+  error drops one more session's signals per retry (oldest finished first, an in-progress recording last), and only
+  metadata is written when nothing else fits. Sessions saved without signals, and failed writes, are reported through
+  `onPersistStatus` ([`services/storage/warnings.ts`](../apps/mobile/src/services/storage/warnings.ts)), and **History**
+  shows a "Browser storage is full" banner asking the user to export before closing the page (the data is still in
+  memory until then). Long-term web use therefore needs regular exports; moving to IndexedDB is planned.
+- Records that fail `safeParseSession` on load are skipped, and stored signal values outside 0–300 bpm and 0–5000 ms
+  are dropped on read. Every storage access is wrapped in `try`/`catch`, because private browsing modes and blocked
+  storage can throw.
+- Settings use `localStorage` key `surgeonpulse.settings.v1`, with an in-memory fallback. The enrolment token has its
+  own key (`surgeonpulse.researchToken.v1`, `services/secrets.ts`); browsers have no secure store.
 
 ### Dashboard
 
@@ -359,8 +390,10 @@ this device", `surgeonpulse.dashboard.serverToken`.
 
 One SQLite file, `DATA_DIR/surgeonpulse.sqlite`, opened with the built-in `node:sqlite` (`DatabaseSync`). The data
 directory is created with mode 0700 and the file with 0600 on POSIX systems. Pragmas: `foreign_keys = ON`,
-`busy_timeout = 5000`, `secure_delete = ON` (deleted research data is overwritten) and `journal_mode = WAL`. Migrations
-are recorded in `schema_version (version, applied_at)`. Source: [`apps/server/src/db.ts`](../apps/server/src/db.ts).
+`busy_timeout = 5000`, `secure_delete = ON` (deleted research data is overwritten) and `journal_mode = WAL`. After each
+erasure (withdrawal, `DELETE /sessions/:id`) the server runs `PRAGMA wal_checkpoint(TRUNCATE)`, because
+`secure_delete` does not reach the WAL. Migrations are recorded in `schema_version (version, applied_at)`; migration 2
+adds `server_secrets` (the key for date-shifted exports). Source: [`apps/server/src/db.ts`](../apps/server/src/db.ts).
 
 | Table | Columns |
 | --- | --- |
@@ -368,15 +401,18 @@ are recorded in `schema_version (version, applied_at)`. Source: [`apps/server/sr
 | `enrolments` | `id TEXT PRIMARY KEY`, `participant_code TEXT NOT NULL REFERENCES participants(code) ON DELETE CASCADE`, `token_hash TEXT NOT NULL UNIQUE`, `label TEXT`, `created_at INTEGER NOT NULL`, `last_used_at INTEGER`, `revoked_at INTEGER` |
 | `sessions` | `id TEXT PRIMARY KEY`, `participant_code TEXT NOT NULL REFERENCES participants(code) ON DELETE CASCADE`, `started_at INTEGER NOT NULL`, `ended_at INTEGER`, `procedure_name TEXT NOT NULL`, `specialty TEXT`, `body TEXT NOT NULL` (de-identified session JSON), `sha256 TEXT NOT NULL`, `summary TEXT NOT NULL`, `received_at INTEGER NOT NULL`, `updated_at INTEGER NOT NULL` |
 | `audit` | `id INTEGER PRIMARY KEY AUTOINCREMENT`, `at INTEGER NOT NULL`, `actor TEXT NOT NULL`, `action TEXT NOT NULL`, `target TEXT`, `detail TEXT` |
+| `server_secrets` | `name TEXT PRIMARY KEY`, `value TEXT NOT NULL`, `created_at INTEGER NOT NULL` |
 
 Indexes: `enrolments_participant (participant_code)`, `sessions_participant_started (participant_code, started_at)`
 and `sessions_started (started_at)`.
 
 The `summary` column is computed when a session is first stored or its content changes. The researcher summary CSV
-(`GET /api/v1/export/summaries.csv`) and the session list return these stored summaries. After a change to the
-analytics, stored summaries keep their old values: re-uploading an identical session is reported as `unchanged` and
-does not refresh them, and there is currently no endpoint that recomputes them. The JSON export, read by the dashboard
-or the Python toolkit, is always summarised afresh from the raw data.
+(`GET /api/v1/export/summaries.csv`) and the session list return these stored summaries. Each summary records core's
+`analyticsVersion`; at start-up the server recomputes every stored summary from an older version
+([`services/recompute.ts`](../apps/server/src/services/recompute.ts), with an audit row), and a re-upload reported as
+`unchanged` also refreshes an outdated summary. The app likewise recomputes cached summaries from an older version in
+the background. The JSON export, read by the dashboard or the Python toolkit, is always summarised afresh from the raw
+data.
 
 ## Security model
 
@@ -389,16 +425,18 @@ A summary. The [server README](../apps/server/README.md#privacy-and-security) is
 | Researcher authentication | `ADMIN_TOKEN` (required, at least 32 characters, no spaces), compared in constant time over SHA-256 digests. |
 | Participant authentication | Per-device enrolment tokens: `spk_` + 32 random bytes in base64url, shown once, stored only as SHA-256. Revoked tokens and tokens of withdrawn participants stop working at once. A token can only upload sessions for its own participant code. |
 | Uniform failures | Every authentication failure returns the same `401 {"error":"unauthorized"}`. |
-| Rate limits | Per client IP, in memory: 30 uploads per minute and 10 authentication failures per minute, then `429` with `Retry-After`. |
+| Rate limits | Per client IP, in memory: 30 uploads per minute and 10 authentication failures per minute, then `429` with `Retry-After`. Behind a reverse proxy, `TRUST_PROXY` says which proxies' `X-Forwarded-For` to believe. Phones behind one hospital NAT share the buckets. |
 | Transport | The app accepts only `https://` server addresses, except `localhost`, `*.local`, `10.0.2.2` (the Android emulator's host) and loopback or private IPv4 addresses, for development. The server is meant to sit behind a TLS reverse proxy. |
 | Browser access | CORS is off unless `CORS_ORIGINS` lists exact origins (`*` is refused). Security headers on every response, including `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `X-Frame-Options: DENY` and `Cache-Control: no-store`. |
 | Logging | Request bodies are never logged; `Authorization` and `Cookie` headers are redacted. |
 | Audit | Every change and every export is recorded (actor, action, target), never health data or secrets. |
-| Withdrawal (server) | Deletes sessions, revokes tokens, clears the profile and retires the code. SQLite `secure_delete` overwrites deleted data. Backups taken earlier still contain it. The app's own withdrawal is local only. |
-| Tokens on clients | The app keeps the enrolment token in its settings store only, never in logs or exports. The dashboard keeps the admin token in memory unless the user opts in to remembering it. |
+| Withdrawal (server) | Deletes sessions, revokes tokens, clears the profile and retires the code. SQLite `secure_delete` overwrites deleted data and the WAL is checkpointed and truncated. Backups taken earlier still contain it. Withdrawing in the app blocks every further upload and offers `POST /api/v1/me/withdraw`; the server refuses (409) a bundle whose profile records withdrawn consent. |
+| Synthetic data | The app never uploads simulator or demo sessions, and the server rejects them unless `ACCEPT_SIMULATED=true`. |
+| Shareable exports | `?shiftDates=true` moves each participant's timestamps by a secret, consistent ±1–52 weeks. |
+| Tokens on clients | The app keeps the enrolment token in `expo-secure-store` on iOS/Android and under its own `localStorage` key on the web, never in the settings document, logs or exports. The dashboard keeps the admin token in memory unless the user opts in to remembering it. |
 
-Known gaps in the current code (for example, withdrawal in the app is local only, and live simulator sessions are not
-blocked from upload) are listed in [privacy and ethics](privacy-ethics.md#known-gaps-and-limitations).
+Known gaps in the current code (for example, no Android foreground service, and the web build's storage limits) are
+listed in [privacy and ethics](privacy-ethics.md#known-gaps-and-limitations).
 
 **Not covered by the software** (needs organisational controls): device loss or theft (rely on device passcodes and
 OS encryption), physical and network security of the server host, backup encryption and retention, key management for

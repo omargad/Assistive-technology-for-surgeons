@@ -4,13 +4,14 @@
  * scoreWorkload, optional pairwise weighting, and submission of a PostOpReport.
  */
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert, type AlertButton } from 'react-native';
 import { router } from 'expo-router';
 
 import { SURG_TLX_DIMENSIONS, tlxPairs } from '@surgeonpulse/core';
 import type { PostOpReport } from '@surgeonpulse/core';
 
 import DebriefScreen from '@/app/record/debrief';
-import { buildPostOpReport, weightsFromChoices } from '@/components/debriefReport';
+import { EMPTY_RATINGS, buildPostOpReport, completeRatings, missingRatings, weightsFromChoices } from '@/components/debriefReport';
 import { makeLiveSession } from '@/components/__testutils__/mockStores';
 import { useRecording } from '@/state/recording';
 import { useSessions } from '@/state/sessions';
@@ -26,6 +27,25 @@ jest.mock('@/services/health', () => ({
 
 const NOW = Date.UTC(2026, 2, 2, 10, 0);
 const increment = { nativeEvent: { actionName: 'increment' } };
+const decrement = { nativeEvent: { actionName: 'decrement' } };
+
+/** Answers every SURG-TLX item: the first step answers at the midpoint (50), then `steps` more steps of 5. */
+async function rateAll(steps: Partial<Record<string, number>> = {}) {
+  for (const dim of SURG_TLX_DIMENSIONS) {
+    const n = steps[dim.id] ?? 0;
+    await fireEvent(screen.getByRole('adjustable', { name: dim.label }), 'accessibilityAction', increment);
+    for (let i = 0; i < Math.abs(n); i++) {
+      await fireEvent(screen.getByRole('adjustable', { name: dim.label }), 'accessibilityAction', n > 0 ? increment : decrement);
+    }
+  }
+}
+
+/** Answers the next native Alert with the button labelled `label`. */
+function answerAlertWith(label: string) {
+  return jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons?: AlertButton[]) => {
+    buttons?.find((b) => b.text === label)?.onPress?.();
+  });
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -40,25 +60,29 @@ function submittedReport(): PostOpReport {
 }
 
 describe('Debrief screen', () => {
-  it('asks every SURG-TLX question using the core wording', async () => {
+  it('asks every SURG-TLX question using the core wording, starting unanswered', async () => {
     await render(<DebriefScreen />);
     for (const dim of SURG_TLX_DIMENSIONS) {
       expect(screen.getByText(dim.question)).toBeOnTheScreen();
-      expect(screen.getByRole('adjustable', { name: dim.label })).toHaveAccessibilityValue({ min: 0, max: 100, now: 50 });
+      const slider = screen.getByRole('adjustable', { name: dim.label });
+      // UX-2: no default rating (no aria-valuenow, no thumb) until the participant answers.
+      expect(slider).toHaveAccessibilityValue({ min: 0, max: 100, text: 'Not rated' });
+      expect(slider.props['aria-valuenow']).toBeUndefined();
+      expect(screen.queryByTestId(`tlx-${dim.id}-thumb`)).toBeNull();
     }
+    expect(screen.getByTestId('debrief-score')).toHaveTextContent('—');
+    expect(screen.getByText('Rate all six demands to see the score (0 of 6 rated).')).toBeOnTheScreen();
   });
 
   it('computes the workload score and submits a PostOpReport with the ratings', async () => {
     await render(<DebriefScreen />);
-    expect(screen.getByTestId('debrief-score')).toHaveTextContent('50.0');
 
-    // Mental demands 50 → 60, Situational stress 50 → 55.
-    await fireEvent(screen.getByRole('adjustable', { name: 'Mental Demands' }), 'accessibilityAction', increment);
-    await fireEvent(screen.getByRole('adjustable', { name: 'Mental Demands' }), 'accessibilityAction', increment);
-    await fireEvent(screen.getByRole('adjustable', { name: 'Situational Stress' }), 'accessibilityAction', increment);
+    // Answer all six (first step = 50); Mental demands → 60, Situational stress → 55.
+    await rateAll({ mental: 2, stress: 1 });
     expect(screen.getByTestId('debrief-score')).toHaveTextContent('52.5');
 
     // Answer two of the "about the case" items.
+    await fireEvent(screen.getByRole('adjustable', { name: 'Self-rated performance' }), 'accessibilityAction', increment);
     await fireEvent(screen.getByRole('adjustable', { name: 'Self-rated performance' }), 'accessibilityAction', increment);
     await fireEvent.press(screen.getByRole('radio', { name: 'No' }));
 
@@ -83,8 +107,31 @@ describe('Debrief screen', () => {
     expect(router.replace).toHaveBeenCalledWith('/session/session-1');
   });
 
+  // UX-2: untouched sliders must never be stored as genuine ratings of 50.
+  it('does not store unanswered SURG-TLX items: asks, then saves without the workload when confirmed', async () => {
+    const alert = answerAlertWith('Save without workload');
+    await render(<DebriefScreen />);
+    await fireEvent(screen.getByRole('adjustable', { name: 'Mental Demands' }), 'accessibilityAction', increment);
+    expect(screen.getByText('Rate all six demands to see the score (1 of 6 rated).')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('debrief-submit'));
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(String(alert.mock.calls[0]?.[1])).toMatch(/^Not rated yet: Physical Demands, Temporal Demands, Task Complexity, Situational Stress, Distractions\./);
+    const report = submittedReport();
+    expect(report).not.toHaveProperty('workload');
+  });
+
+  it('saving with unrated SURG-TLX items can be cancelled to finish rating', async () => {
+    const alert = answerAlertWith('Rate the rest');
+    await render(<DebriefScreen />);
+    await fireEvent.press(screen.getByTestId('debrief-submit'));
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(useRecording.getState().submitDebrief).not.toHaveBeenCalled();
+  });
+
   it('includes pairwise weights once all 15 comparisons are answered', async () => {
     await render(<DebriefScreen />);
+    await rateAll();
     await fireEvent(screen.getByTestId('debrief-weighting'), 'valueChange', true);
     const pairs = tlxPairs('surg-tlx');
     expect(screen.getByText(`0 of ${pairs.length} answered`)).toBeOnTheScreen();
@@ -116,6 +163,14 @@ describe('debrief helpers', () => {
     const all = Object.fromEntries(pairs.map((p, i) => [i, p[1]]));
     const w = weightsFromChoices(pairs, all);
     expect(Object.values(w ?? {}).reduce((a, b) => a + b, 0)).toBe(15);
+  });
+
+  it('missingRatings / completeRatings track unanswered SURG-TLX items', () => {
+    expect(missingRatings(EMPTY_RATINGS)).toEqual(['mental', 'physical', 'temporal', 'complexity', 'stress', 'distraction']);
+    expect(completeRatings(EMPTY_RATINGS)).toBeNull();
+    const partial = { ...EMPTY_RATINGS, mental: 0, stress: 100 };
+    expect(missingRatings(partial)).toEqual(['physical', 'temporal', 'complexity', 'distraction']);
+    expect(buildPostOpReport({ ratings: partial, weights: null, performance: null, perceivedStress: null, sleepHours: null, caffeine: null, outcome: null, notes: '' }, 1)).toEqual({});
   });
 
   it('buildPostOpReport trims notes and omits empty answers', () => {

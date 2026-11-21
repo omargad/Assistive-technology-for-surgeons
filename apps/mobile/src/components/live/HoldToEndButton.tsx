@@ -2,10 +2,15 @@
  * "End case" button that must be held for 1.5 s (accidental taps happen in a
  * busy theatre). A progress ring fills while held; a short tap only shows a
  * hint. Screen-reader users get an explicit "End case" accessibility action.
+ *
+ * Web: react-native-web supports neither long press from the keyboard nor
+ * accessibility actions, so holding Space/Enter completes when the ring fills,
+ * and a key press or an assistive-technology click (no pointer) calls
+ * `onConfirmRequest` (the live screen asks "End the case now?").
  */
-import { Pressable, StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type AccessibilityActionEvent, type GestureResponderEvent } from 'react-native';
 
-import { useHoldToConfirm } from '@/hooks/useHoldToConfirm';
+import { isKeyPress, useHoldToConfirm } from '@/hooks/useHoldToConfirm';
 import { noTextSelect, useStyles, useTheme, withAlpha, type Theme } from '@/theme';
 
 import { AppText } from '../AppText';
@@ -18,12 +23,21 @@ export interface HoldToEndButtonProps {
   onConfirm: () => void;
   /** Called on a short tap (e.g. show "press and hold" hint). */
   onTap?: () => void;
+  /** Web: activated by a key press or assistive technology rather than a held pointer (ask to confirm). */
+  onConfirmRequest?: () => void;
   label?: string;
   disabled?: boolean;
   testID?: string;
 }
 
-export function HoldToEndButton({ onConfirm, onTap, label = 'End case', disabled, testID }: HoldToEndButtonProps) {
+/** Web: a press that did not come from a pointer — a key press, or a click from assistive technology (`detail` 0). */
+export function isNonPointerActivation(event?: GestureResponderEvent): boolean {
+  if (isKeyPress(event)) return true;
+  const native = event?.nativeEvent as { detail?: unknown; type?: unknown } | undefined;
+  return native?.type === 'click' && native.detail === 0;
+}
+
+export function HoldToEndButton({ onConfirm, onTap, onConfirmRequest, label = 'End case', disabled, testID }: HoldToEndButtonProps) {
   const theme = useTheme();
   const styles = useStyles(makeStyles);
   const { progress, handlers, confirm } = useHoldToConfirm(END_HOLD_MS, onConfirm);
@@ -34,10 +48,15 @@ export function HoldToEndButton({ onConfirm, onTap, label = 'End case', disabled
     else if (e.nativeEvent.actionName === 'activate') onTap?.();
   };
 
+  const onPress = (event: GestureResponderEvent) => {
+    if (Platform.OS === 'web' && onConfirmRequest && isNonPointerActivation(event)) onConfirmRequest();
+    else onTap?.();
+  };
+
   return (
     <Pressable
       {...handlers}
-      onPress={disabled ? undefined : onTap}
+      onPress={disabled ? undefined : onPress}
       onLongPress={disabled ? undefined : handlers.onLongPress}
       disabled={disabled}
       accessibilityRole="button"

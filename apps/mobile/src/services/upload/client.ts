@@ -10,11 +10,18 @@
  * - Every request has a timeout (AbortController).
  * - Failures become an {@link UploadError} with a plain-language message and a
  *   machine-readable `kind`. Tokens and health data never appear in messages.
- * - Demo sessions and sessions still recording are never sent; they are
- *   reported as locally rejected.
+ * - Demo and simulated sessions (`tags` `demo`/`simulated` or
+ *   `sensor.source: 'simulated'`, e.g. a practice case with the live
+ *   simulator), sessions still recording and sessions whose participant code
+ *   is not a pseudonymous study code are never sent; they are reported as
+ *   locally rejected, and the rest of the batch is still uploaded.
+ * - Nothing is sent once the profile records withdrawn consent.
+ * - `withdraw` calls `POST {url}/api/v1/me/withdraw` (participant-initiated
+ *   withdrawal: the server deletes the participant's data and revokes the
+ *   token).
  * - Large uploads are split into several requests below the server body limit.
  */
-import { createExportBundle } from '@surgeonpulse/core';
+import { createExportBundle, isValidParticipantCode } from '@surgeonpulse/core';
 import type { AppInfo, ParticipantProfile, SurgicalSession } from '@surgeonpulse/core';
 
 export interface UploadResult {
@@ -30,6 +37,7 @@ export interface UploadConfig {
 
 export type UploadErrorKind =
   | 'config'
+  | 'withdrawn'
   | 'unauthorized'
   | 'too-large'
   | 'rate-limited'
@@ -72,6 +80,7 @@ export interface UploaderDeps {
 }
 
 const DEMO_TAG = 'demo';
+const SIMULATED_TAG = 'simulated';
 const DEFAULT_UPLOAD_TIMEOUT_MS = 60_000;
 const DEFAULT_CHECK_TIMEOUT_MS = 15_000;
 const DEFAULT_MAX_REQUEST_CHARS = 8_000_000;
@@ -81,7 +90,10 @@ const ACCEPTED_STATUSES = new Set(['created', 'updated', 'unchanged']);
 // URL handling (no `URL` class: React Native's implementation is incomplete)
 // ---------------------------------------------------------------------------
 
-const URL_RE = /^(https?):\/\/([^/?#:\s]+)(:\d{1,5})?(\/[^?#\s]*)?$/i;
+// Host: DNS name or IPv4 only. `\`, `@`, `%` and other characters that a WHATWG/OkHttp parser
+// would read as a path separator, credentials or an escape are rejected, so the host checked
+// here is the host that will be contacted.
+const URL_RE = /^(https?):\/\/([A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)(:\d{1,5})?(\/[A-Za-z0-9._~!$&'()*+,;=:@/-]*)?$/i;
 
 function isLocalHost(host: string): boolean {
   const h = host.toLowerCase();
@@ -144,6 +156,13 @@ async function readJson(res: Response): Promise<unknown> {
 /** Map a non-2xx response to an {@link UploadError}. */
 async function errorFromResponse(res: Response): Promise<UploadError> {
   const status = res.status;
+  if (status === 409) {
+    return new UploadError(
+      'withdrawn',
+      'The research server refused the upload because consent has been withdrawn for this participant.',
+      { status },
+    );
+  }
   if (status === 401 || status === 403) {
     return new UploadError(
       'unauthorized',
@@ -224,6 +243,21 @@ function parseUploadResponse(body: unknown, indexMap: readonly number[]): Upload
 export interface Uploader {
   uploadSessions(sessions: SurgicalSession[], cfg: UploadConfig): Promise<UploadResult>;
   checkEnrolment(cfg: { url: string; token: string }): Promise<{ participantCode: string; sessionCount: number }>;
+  /** Withdraw from the study on the server (deletes the participant's server data, revokes every token). */
+  withdraw(cfg: { url: string; token: string }): Promise<{ deletedSessions: number }>;
+}
+
+/** Why a session must not be uploaded, or null when it may be. */
+function localRejection(session: SurgicalSession): string | null {
+  if (session.tags?.includes(DEMO_TAG)) return 'Demo data is never uploaded.';
+  if (session.sensor?.source === 'simulated' || session.tags?.includes(SIMULATED_TAG)) {
+    return 'Sessions recorded with the simulator are never uploaded.';
+  }
+  if (session.status === 'recording') return 'The session is still being recorded.';
+  if (!isValidParticipantCode(session.participantCode)) {
+    return 'The session’s participant code is not a study code, so it cannot be de-identified.';
+  }
+  return null;
 }
 
 /** Group indices so that each request stays below `maxChars` (a single oversized session goes alone). */
@@ -273,18 +307,17 @@ export function createUploader(deps: UploaderDeps = {}): Uploader {
     async uploadSessions(sessions, cfg) {
       const base = normalizeServerUrl(cfg.url);
       const token = requireToken(cfg.token);
+      if (cfg.profile?.consent?.withdrawnAt !== undefined) {
+        throw new UploadError('withdrawn', 'You have withdrawn consent, so nothing is uploaded to the study server.');
+      }
       const result: UploadResult = { accepted: [], rejected: [] };
 
-      // Local filtering: never send demo data or unfinished recordings.
+      // Local filtering: never send synthetic data, unfinished recordings or non-pseudonymous codes.
       const eligible: { session: SurgicalSession; index: number }[] = [];
       sessions.forEach((session, index) => {
-        if (session.tags?.includes(DEMO_TAG)) {
-          result.rejected.push({ index, id: session.id, reason: 'Demo data is never uploaded.' });
-        } else if (session.status === 'recording') {
-          result.rejected.push({ index, id: session.id, reason: 'The session is still being recorded.' });
-        } else {
-          eligible.push({ session, index });
-        }
+        const reason = localRejection(session);
+        if (reason !== null) result.rejected.push({ index, id: session.id, reason });
+        else eligible.push({ session, index });
       });
       if (eligible.length === 0) return result;
 
@@ -341,6 +374,22 @@ export function createUploader(deps: UploaderDeps = {}): Uploader {
         participantCode: body.participantCode,
         sessionCount: typeof body.sessionCount === 'number' ? body.sessionCount : 0,
       };
+    },
+
+    async withdraw(cfg) {
+      const base = normalizeServerUrl(cfg.url);
+      const token = requireToken(cfg.token);
+      const res = await request(
+        `${base}/api/v1/me/withdraw`,
+        { method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } },
+        checkTimeoutMs,
+      );
+      if (!res.ok) throw await errorFromResponse(res);
+      const body = (await readJson(res)) as { deletedSessions?: unknown } | null;
+      if (typeof body?.deletedSessions !== 'number') {
+        throw new UploadError('invalid-response', 'The research server sent an unexpected response.');
+      }
+      return { deletedSessions: body.deletedSessions };
     },
   };
 }

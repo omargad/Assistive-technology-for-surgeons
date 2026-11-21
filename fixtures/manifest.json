@@ -267,6 +267,38 @@
       }
     },
     {
+      "name": "edge-watch",
+      "description": "Hand-built: Health Connect at ~1 sample/min (source-aware gap rule for coverage, dwell and episodes), contact: false samples, tzOffsetMin, sleep/caffeine/outcome covariates and a demo tag (simulated: true).",
+      "session": "sessions/edge-watch.json",
+      "simulate": null,
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/edge-watch.summary.json",
+        "hrv": "expected/edge-watch.hrv.json",
+        "extras": "expected/edge-watch.extras.json",
+        "samplesCsv": "expected/edge-watch.samples.csv",
+        "rrCsv": "expected/edge-watch.rr.csv",
+        "eventsCsv": "expected/edge-watch.events.csv"
+      }
+    },
+    {
+      "name": "edge-strap",
+      "description": "Hand-built: 1 Hz strap with a single spike (robust peakHr), a contact: false block, four 5-min stress-index windows, a 40-s phase without HRV and an irregular-rhythm phase above the artefact limit.",
+      "session": "sessions/edge-strap.json",
+      "simulate": null,
+      "modifications": [],
+      "summaryOptions": {},
+      "expected": {
+        "summary": "expected/edge-strap.summary.json",
+        "hrv": "expected/edge-strap.hrv.json",
+        "extras": "expected/edge-strap.extras.json",
+        "samplesCsv": "expected/edge-strap.samples.csv",
+        "rrCsv": "expected/edge-strap.rr.csv",
+        "eventsCsv": "expected/edge-strap.events.csv"
+      }
+    },
+    {
       "name": "edge-sparse",
       "description": "Hand-built: one HR sample, 12 RR intervals, no events, no endedAt (sessionEnd from data).",
       "session": "sessions/edge-sparse.json",

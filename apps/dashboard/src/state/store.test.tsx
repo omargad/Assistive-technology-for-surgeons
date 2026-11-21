@@ -99,6 +99,21 @@ describe('participant feedback view', () => {
     for (const s of others) expect(hrefs.some((h) => h.includes(s.id))).toBe(false);
   });
 
+  it('hides the cohort comparison when too few other participants are loaded (PRIV-6)', () => {
+    render(
+      <DashboardProvider initial={stateWith([...own, others[0]!])} scheduler={syncScheduler}>
+        <ParticipantDetailPage code="SP-001" />
+      </DashboardProvider>,
+    );
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('Too few other participants');
+    // The accessible summary lists every phase as "yours vs —": no cohort number to invert.
+    const label = document.querySelector('[data-testid="phase-profile"] [role="img"]')?.getAttribute('aria-label') ?? '';
+    const pairs = [...label.matchAll(/ vs (\S+) bpm/g)].map((m) => m[1]);
+    expect(pairs.length).toBeGreaterThan(0);
+    expect(pairs.every((v) => v === '—')).toBe(true);
+  });
+
   it('shows an empty state for unknown participants', () => {
     render(
       <DashboardProvider initial={stateWith(own.slice(0, 1))} scheduler={syncScheduler}>

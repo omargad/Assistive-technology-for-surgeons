@@ -39,6 +39,13 @@ describe('long-format CSVs', () => {
   it('builds events and RR CSVs (RR only for sessions that have it)', () => {
     const events = parseCsv(longEventsCsv([a1, b1]));
     expect(events.length).toBe(1 + a1.events.length + b1.events.length);
+    // DOC-S2: free-text notes from a file that was not de-identified never reach the CSV.
+    const noteCol = events[0]!.indexOf('note');
+    expect(noteCol).toBeGreaterThan(-1);
+    expect(events.slice(1).every((r) => r[noteCol] === '')).toBe(true);
+    const secret = withId({ ...a1, events: a1.events.map((e) => ({ ...e, note: 'Mrs Jones UR 1234567' })) }, 'secret');
+    expect(longEventsCsv([secret])).not.toContain('Jones');
+    expect(a1.events.every((e) => e.note === 'note')).toBe(true); // input untouched
     const rr = parseCsv(longRrCsv([a1, b1]));
     expect(rr.length).toBe(1 + a1.rr.length);
     expect(longRrCsv([b1])).toBe('');

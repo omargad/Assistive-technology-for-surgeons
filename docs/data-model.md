@@ -364,13 +364,17 @@ One row per sample, beat or event. `t_offset_s = (t − startedAt) / 1000`. `pha
 | Events (`eventsToCsv`) | `session_id`, `participant_code`, `t_iso`, `t_offset_s`, `type` (`phase`/`marker`), `kind` (the phase or marker kind), `logged_by`, `note` |
 
 The app de-identifies a session (with the default options) before writing its CSVs, so event notes are empty in those
-files.
+files, and the dashboard's long events CSV always leaves the `note` column empty. `logged_by` is `retrospective` for
+events added after the case **and** for events whose time or kind was changed in the event editor (the original live
+time is not kept).
 
 ### Summary CSV
 
 `summariesToCsv(summaries)` writes one wide row per session for SPSS, R, Stata or pandas, with the fixed column order
-of `SUMMARY_CSV_COLUMNS` (60 columns). Percentages are 0–100. Definitions are in [metrics.md](metrics.md); the
-dashboard's Export page shows the same column dictionary.
+of `SUMMARY_CSV_COLUMNS` (73 columns). Percentages are 0–100. Definitions are in [metrics.md](metrics.md); the
+dashboard's Export page shows the same column dictionary. Columns 61–73 were added in analytics version 2 at the end,
+so scripts that address the older columns by position keep working. **Exclude rows with `simulated` = 1, and do not
+pool rows with different `analytics_version`** (recompute them first; the server does this at start-up).
 
 | # | Column | Unit | Meaning |
 | --- | --- | --- | --- |
@@ -387,25 +391,38 @@ dashboard's Export page shows the same column dictionary.
 | 11 | `complexity` | 1–5 | |
 | 12 | `duration_min` | min | `durationSec / 60` |
 | 13–18 | `hr_mean`, `hr_median`, `hr_min`, `hr_max`, `hr_sd`, `hr_p95` | bpm | Whole-session HR statistics |
-| 19 | `rmssd` | ms | Whole-session RMSSD |
-| 20 | `sdnn` | ms | Whole-session SDNN |
+| 19 | `rmssd` | ms | Whole-session RMSSD (empty when more than 10 % of RR intervals are artefacts) |
+| 20 | `sdnn` | ms | Whole-session SDNN (depends on case length; do not compare across durations) |
 | 21 | `pnn50` | % | Whole-session pNN50 |
 | 22 | `mean_rr` | ms | Mean valid RR interval |
-| 23 | `stress_index` | | Baevsky stress index |
+| 23 | `stress_index` | | Baevsky stress index: median of 5-minute windows (raw SI, not √SI) |
 | 24 | `rr_artifact_pct` | % | RR artefact ratio × 100 |
 | 25 | `baseline_hr` | bpm | Resting HR used (measured or profile) |
 | 26 | `mean_hr_delta` | bpm | Mean HR − resting HR |
-| 27 | `peak_hr_delta` | bpm | Max HR − resting HR |
+| 27 | `peak_hr_delta` | bpm | Robust peak HR (`peak_hr`) − resting HR |
 | 28 | `high_intensity_pct` | % | Time ≥ 70 % of max HR |
 | 29 | `episode_count` | count | Stress episodes |
 | 30 | `episode_minutes` | min | Total episode duration |
 | 31 | `workload_instrument` | | `surg-tlx` or `nasa-tlx` |
-| 32 | `workload_raw` | 0–100 | Raw TLX |
+| 32 | `workload_raw` | 0–100 | Raw TLX (empty unless all six items were rated) |
 | 33 | `workload_weighted` | 0–100 | Weighted TLX (empty without valid weights) |
 | 34 | `performance` | 0–10 | Self-rated performance |
 | 35 | `perceived_stress` | 0–10 | Perceived stress |
 | 36 | `coverage_pct` | % | Signal coverage |
-| 37–60 | `<phase>_duration_s`, `<phase>_hr_mean`, `<phase>_hr_delta`, `<phase>_rmssd` for each phase in `PHASE_ORDER` | s, bpm, bpm, ms | Per-phase values. `<phase>` is `pre_op`, `incision`, `dissection`, `critical`, `closure`, `post_op`. |
+| 37–60 | `<phase>_duration_s`, `<phase>_hr_mean`, `<phase>_hr_delta`, `<phase>_rmssd` for each phase in `PHASE_ORDER` | s, bpm, bpm, ms | Per-phase values. `<phase>` is `pre_op`, `incision`, `dissection`, `critical`, `closure`, `post_op`. `_rmssd` is empty for a phase shorter than 60 s or with more than 10 % artefacts. |
+| 61 | `sensor_source` | | Heart-rate source (`ble`, `web-bluetooth`, `healthkit`, `health-connect`, `simulated`, `import`) |
+| 62 | `simulated` | 0/1 | 1 for simulated or demo data (sensor source `simulated`, or a `simulated`/`demo` tag); **exclude these rows** |
+| 63 | `tz_offset_min` | min | Local time-zone offset at the start, minutes east of UTC (e.g. 660 for AEDT) |
+| 64 | `started_local` | ISO 8601 with offset | Local session start, e.g. `2026-01-05T19:00:00.000+11:00` (empty when the offset is unknown) |
+| 65 | `baseline_source` | | `measured`, `manual` or `profile` |
+| 66 | `baseline_duration_s` | s | Length of the baseline window (0 for a profile baseline; measured baselines are at least 60 s) |
+| 67 | `max_hr` | bpm | Maximum HR used for `high_intensity_pct` (measured value from the snapshot, or age-predicted) |
+| 68 | `peak_hr` | bpm | Robust peak HR: highest 11-s rolling median |
+| 69 | `hrv_n` | count | Valid RR intervals behind the whole-session HRV |
+| 70 | `sleep_hours` | h | Self-reported sleep the night before |
+| 71 | `caffeine` | 0/1 | Self-reported caffeine within 2 hours before the case |
+| 72 | `outcome` | | `as-planned`, `minor-deviation` or `major-deviation` |
+| 73 | `analytics_version` | | Version of the analytics definitions that computed the row (currently `2`) |
 
 For a phase that occurs several times in a session, `_duration_s` is the total and the other three are
 duration-weighted means over its segments (a single segment is copied exactly). A phase that never occurs gives empty
@@ -443,10 +460,11 @@ time shift and set `dropTzOffset`.
 | --- | --- |
 | Mobile app, JSON export | De-identified by default (`createExportBundle({ deidentify: true })`). |
 | Mobile app, single-session CSVs | Always de-identified with the defaults before writing. |
-| Mobile app, summaries CSV | **Not** de-identified: it is written from the cached summaries, so a custom (non-catalogue) procedure name appears unchanged in `procedure_name`, and dates are real. |
-| Mobile app, research upload | Always de-identified with the defaults. Demo sessions (`demo` tag) and sessions still recording are never sent. |
-| Server, on upload | Each session is de-identified **again** with the defaults (defence in depth), then summarised and stored. |
-| Server, `GET /api/v1/export` | Bundle built with `deidentify: true`. |
+| Mobile app, summaries CSV | Each cached summary gets the de-identified procedure name and specialty (`deidentifySession` on the session metadata). Demo and simulator sessions are left out and counted. Dates are real. |
+| Mobile app, research upload | Always de-identified with the defaults. Demo and simulator sessions, sessions still recording, and everything after consent is withdrawn are never sent. |
+| Mobile app, all of the above | A session whose participant code fails `isValidParticipantCode` is skipped and counted instead of making the whole export throw. |
+| Server, on upload | Each session is de-identified **again** with the defaults (defence in depth), then summarised and stored. The server also keeps a specialty only if it is a catalogue specialty, keeps `sensor.location` only if it is a standard body-sensor location, and rejects simulated or demo sessions unless `ACCEPT_SIMULATED=true`. |
+| Server, `GET /api/v1/export` and `/export/summaries.csv` | Bundle built with `deidentify: true`. With `?shiftDates=true`, every timestamp of a participant moves by a secret, consistent whole number of weeks (±1–52, from an HMAC of the code with a server key), and `exportedAt` becomes the latest shifted session end. |
 | Dashboard, de-identified bundle (Export page) | Defaults, plus optional `dropTzOffset`, `dropBirthYear` and a random time shift of whole weeks per participant (up to 52 by default), the same for all of a participant's sessions and never stored or shown. |
 
 **Pseudonymised, not anonymous.** De-identified SurgeonPulse data is still linked to a study code, and the research

@@ -6,10 +6,16 @@
  * - Screen readers: `accessibilityRole="adjustable"` with increment/decrement
  *   accessibility actions (VoiceOver swipe up/down, TalkBack volume keys).
  * - Optional −/+ step buttons for keyboard users on the web and gloved fingers.
+ * - Web keyboard: the track is a tab stop (ARIA slider pattern): Arrow keys step,
+ *   PageUp/PageDown move by about a tenth of the scale, Home/End jump to the ends.
+ * - `value={null}` means "not answered yet": no thumb or fill is drawn, no
+ *   `aria-valuenow` is exposed, and the first tap, drag, step or key press
+ *   records an answer — even when it lands on the scale's midpoint.
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -27,7 +33,8 @@ import { AppText } from './AppText';
 import { Icon } from './Icon';
 
 export interface SliderProps {
-  value: number;
+  /** Current value, or `null` while the question is unanswered (no thumb is drawn). */
+  value: number | null;
   onChange: (value: number) => void;
   /** Called when a drag ends (or after a discrete step). */
   onChangeEnd?: (value: number) => void;
@@ -38,6 +45,12 @@ export interface SliderProps {
   label: string;
   /** Spoken/visible value text, e.g. `v => `${v} / 100``. */
   formatValue?: (value: number) => string;
+  /** Spoken/visible text while `value` is null (default "Not answered"). */
+  unansweredText?: string;
+  /** Where the first −/+ step or arrow key lands while unanswered (default: middle of the scale). */
+  startValue?: number;
+  /** Shows a "Clear" button while answered (optional questions). */
+  onClear?: () => void;
   /** Anchor texts under the track ends, e.g. "Very low" / "Very high". */
   lowLabel?: string;
   highLabel?: string;
@@ -69,6 +82,43 @@ export function snapToStep(v: number, min: number, max: number, step: number): n
   return Number(Math.min(max, Math.max(min, snapped)).toFixed(decimalsOf(step)));
 }
 
+export interface SliderScale {
+  min: number;
+  max: number;
+  step: number;
+  /** Value used for the first step while unanswered. */
+  start: number;
+}
+
+/**
+ * Value after a key press on the slider (ARIA slider keyboard pattern), or `undefined`
+ * for keys the slider does not handle. While unanswered (`value == null`), any step key
+ * answers with `start`; Home/End answer with the ends of the scale.
+ */
+export function valueForKey(key: string, value: number | null, scale: SliderScale): number | undefined {
+  const { min, max, step, start } = scale;
+  const big = Math.max(step, snapToStep((max - min) / 10, 0, max - min, step));
+  const from = (delta: number) => (value == null ? snapToStep(start, min, max, step) : snapToStep(value + delta, min, max, step));
+  switch (key) {
+    case 'ArrowRight':
+    case 'ArrowUp':
+      return from(step);
+    case 'ArrowLeft':
+    case 'ArrowDown':
+      return from(-step);
+    case 'PageUp':
+      return from(big);
+    case 'PageDown':
+      return from(-big);
+    case 'Home':
+      return min;
+    case 'End':
+      return max;
+    default:
+      return undefined;
+  }
+}
+
 export function Slider({
   value,
   onChange,
@@ -78,6 +128,9 @@ export function Slider({
   step = 1,
   label,
   formatValue,
+  unansweredText = 'Not answered',
+  startValue,
+  onClear,
   lowLabel,
   highLabel,
   showButtons = true,
@@ -92,19 +145,23 @@ export function Slider({
   const color = accent ?? theme.colors.primary;
   const [width, setWidth] = useState(0);
 
+  const current = value != null && Number.isFinite(value) ? value : null;
+  const answered = current != null;
+  const start = snapToStep(startValue ?? (min + max) / 2, min, max, step);
   // Latest props for the PanResponder and step handlers (created once).
-  const live = useLatest({ width, value, min, max, step, disabled, onChange, onChangeEnd });
+  const live = useLatest({ width, value: current, min, max, step, start, disabled, onChange, onChangeEnd });
   const dragStartX = useRef(0);
   const dragging = useRef(false);
-  const lastEmitted = useRef(value);
+  const lastEmitted = useRef<number | null>(current);
 
-  const valueText = formatValue ? formatValue(value) : String(value);
-  const fraction = max > min ? (snapToStep(value, min, max, step) - min) / (max - min) : 0;
+  const valueText = current != null ? (formatValue ? formatValue(current) : String(current)) : unansweredText;
+  const fraction = current != null && max > min ? (snapToStep(current, min, max, step) - min) / (max - min) : 0;
 
+  // An unanswered slider records any tap, drag or step, even one that lands on the value a thumb would show.
   const emit = useCallback((next: number) => {
-    const { value: current, onChange: cb } = live.current;
+    const { value: now, onChange: cb } = live.current;
     lastEmitted.current = next;
-    if (next !== current) cb(next);
+    if (now == null || next !== now) cb(next);
   }, []);
 
   const valueAtX = useCallback((x: number) => {
@@ -143,7 +200,7 @@ export function Slider({
           const tap = !dragging.current && Math.abs(g.dx) <= DRAG_SLOP && Math.abs(g.dy) <= DRAG_SLOP;
           if (tap) emit(valueAtX(dragStartX.current));
           dragging.current = false;
-          live.current.onChangeEnd?.(lastEmitted.current);
+          if (lastEmitted.current != null) live.current.onChangeEnd?.(lastEmitted.current);
         },
         onPanResponderTerminate: () => {
           dragging.current = false;
@@ -152,15 +209,34 @@ export function Slider({
     [emit, valueAtX],
   );
 
+  const setTo = useCallback((next: number) => {
+    const { value: v, onChange: cb, onChangeEnd: end } = live.current;
+    if (v == null || next !== v) cb(next);
+    end?.(next);
+  }, []);
+
+  // While unanswered, the first step answers with the start value (the middle of the scale by default).
   const stepBy = useCallback(
     (direction: 1 | -1) => {
-      const { value: v, min: lo, max: hi, step: st, onChange: cb, onChangeEnd: end } = live.current;
-      const next = snapToStep(v + direction * st, lo, hi, st);
-      if (next !== v) cb(next);
-      end?.(next);
+      const { value: v, min: lo, max: hi, step: st, start: first } = live.current;
+      setTo(v == null ? first : snapToStep(v + direction * st, lo, hi, st));
     },
-    [],
+    [setTo],
   );
+
+  const onKeyDown = useCallback(
+    (e: { key?: string; nativeEvent?: { key?: string }; preventDefault?: () => void }) => {
+      const { value: v, min: lo, max: hi, step: st, start: first, disabled: off } = live.current;
+      if (off) return;
+      const next = valueForKey(e.key ?? e.nativeEvent?.key ?? '', v, { min: lo, max: hi, step: st, start: first });
+      if (next === undefined) return;
+      e.preventDefault?.(); // keep arrow / page keys from scrolling the page
+      setTo(next);
+    },
+    [setTo],
+  );
+  // Web only: make the track a keyboard tab stop (RN's own `tabIndex`/`onKeyDown` are not used on native).
+  const webKeyboard: Record<string, unknown> = Platform.OS === 'web' && !disabled ? { tabIndex: 0, onKeyDown } : {};
 
   const onAccessibilityAction = useCallback(
     (event: AccessibilityActionEvent) => {
@@ -176,10 +252,35 @@ export function Slider({
 
   return (
     <View style={[styles.root, disabled ? styles.disabled : null, style]}>
-      {showValue ? (
-        <AppText variant="bodyStrong" tabular align="center" aria-hidden>
-          {valueText}
-        </AppText>
+      {showValue || (onClear && answered) ? (
+        <View style={styles.valueRow}>
+          {showValue ? (
+            <AppText
+              variant="bodyStrong"
+              tabular
+              align="center"
+              tone={answered ? undefined : 'muted'}
+              aria-hidden
+              testID={testID ? `${testID}-value` : undefined}
+            >
+              {answered ? valueText : `${valueText} · tap the scale to answer`}
+            </AppText>
+          ) : null}
+          {onClear && answered ? (
+            <Pressable
+              onPress={onClear}
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityLabel={`Clear ${label}`}
+              style={({ pressed }) => [styles.clear, pressed ? styles.stepPressed : null]}
+              testID={testID ? `${testID}-clear` : undefined}
+            >
+              <AppText variant="label" tone="muted">
+                Clear
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
       <View style={styles.row}>
         {showButtons ? (
@@ -203,21 +304,25 @@ export function Slider({
           accessibilityLabel={label}
           aria-valuemin={min}
           aria-valuemax={max}
-          aria-valuenow={value}
+          aria-valuenow={current ?? undefined}
           aria-valuetext={valueText}
           aria-disabled={!!disabled}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
           onAccessibilityAction={onAccessibilityAction}
           testID={testID}
+          {...webKeyboard}
           {...responder.panHandlers}
         >
-          <View pointerEvents="none" style={styles.track}>
-            <View style={[styles.fill, { width: thumbLeft + THUMB / 2, backgroundColor: color }]} />
+          <View pointerEvents="none" style={[styles.track, answered ? null : styles.trackUnanswered]}>
+            {answered ? <View style={[styles.fill, { width: thumbLeft + THUMB / 2, backgroundColor: color }]} /> : null}
           </View>
-          <View
-            pointerEvents="none"
-            style={[styles.thumb, { left: thumbLeft, borderColor: color, backgroundColor: theme.colors.surface }]}
-          />
+          {answered ? (
+            <View
+              pointerEvents="none"
+              style={[styles.thumb, { left: thumbLeft, borderColor: color, backgroundColor: theme.colors.surface }]}
+              testID={testID ? `${testID}-thumb` : undefined}
+            />
+          ) : null}
         </View>
         {showButtons ? (
           <Pressable
@@ -251,6 +356,9 @@ const makeStyles = (t: Theme) =>
   StyleSheet.create({
     root: { gap: t.space.xs, ...noTextSelect },
     disabled: { opacity: 0.45 },
+    valueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: t.space.sm, minHeight: 24 },
+    clear: { minHeight: 44, minWidth: 44, paddingHorizontal: t.space.sm, alignItems: 'center', justifyContent: 'center', borderRadius: t.radius.sm },
+    trackUnanswered: { borderStyle: 'dashed' },
     row: { flexDirection: 'row', alignItems: 'center', gap: t.space.sm },
     trackArea: { flex: 1, height: 44, justifyContent: 'center' },
     track: {

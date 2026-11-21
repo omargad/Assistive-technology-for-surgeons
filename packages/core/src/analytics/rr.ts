@@ -10,7 +10,18 @@
  */
 import type { ArtifactReport, EpochMs, HrvTimeDomain, RRInterval } from '../types';
 import { buildHrv, hrvFromValidity, medianInPlace } from './internal';
-import { stableSortBy } from './stats';
+import { median, stableSortBy } from './stats';
+
+/**
+ * Largest RR artefact ratio (removed / total, from {@link cleanRr}) at which HRV is still reported by the summaries
+ * and baselines. Above it so many beats were removed (poor sensor contact, frequent ectopy or an irregular rhythm)
+ * that RMSSD, SDNN and the stress index describe the cleaning more than the heart (Kubios advises caution above
+ * 5 %; 10 % is a common exclusion limit in HRV research).
+ */
+export const MAX_HRV_ARTIFACT_RATIO = 0.1;
+
+/** Window length of {@link windowedStressIndex} (5 min, the standard short-term HRV recording length). */
+export const STRESS_INDEX_WINDOW_MS = 300_000;
 
 /** Upper limit on the number of windows {@link rollingHrv} will produce (guards against e.g. `start: 0`). */
 export const MAX_ROLLING_HRV_WINDOWS = 1_000_000;
@@ -309,4 +320,51 @@ export function baevskyStressIndex(intervalsMs: readonly number[], binMs = 50): 
   if (!(mxdmn > 0) || !(mo > 0)) return null;
   const si = amo / (2 * mo * mxdmn);
   return Number.isFinite(si) ? si : null;
+}
+
+/**
+ * Baevsky stress index of a long recording, comparable between recordings of different length.
+ *
+ * The SI histogram (mode amplitude and range) depends on how long and how stationary the recording is, so a
+ * whole-case SI falls as cases get longer even with identical physiology. Here the valid intervals (`valid[i]`, as
+ * from {@link cleanRr}, with a finite `t`) are split into consecutive windows of `windowMs` by `t`: window k covers
+ * `[t₀ + k·windowMs, t₀ + (k + 1)·windowMs)`, where t₀ is the first such interval's `t`. A window is used when its
+ * valid intervals add up to at least 80 % of `windowMs` (4 of 5 min of beats) and {@link baevskyStressIndex} of
+ * them is not null. The result is the median of the used windows' SI (raw Baevsky SI, not Kubios' √SI).
+ *
+ * @returns `null` when no window qualifies (e.g. less than 4 min of clean beats).
+ */
+export function windowedStressIndex(
+  rr: readonly RRInterval[],
+  valid: readonly boolean[],
+  windowMs: number = STRESS_INDEX_WINDOW_MS,
+): number | null {
+  if (!(windowMs > 0) || !Number.isFinite(windowMs)) return null;
+  let t0: number | null = null;
+  const windows = new Map<number, number[]>();
+  const order: number[] = [];
+  for (let i = 0; i < rr.length; i++) {
+    if (valid[i] !== true) continue;
+    const r = rr[i]!;
+    if (!Number.isFinite(r.t) || !Number.isFinite(r.ms)) continue;
+    if (t0 === null) t0 = r.t;
+    const k = Math.floor((r.t - t0) / windowMs);
+    let list = windows.get(k);
+    if (list === undefined) {
+      list = [];
+      windows.set(k, list);
+      order.push(k);
+    }
+    list.push(r.ms);
+  }
+  const values: number[] = [];
+  for (const k of order.sort((a, b) => a - b)) {
+    const ms = windows.get(k)!;
+    let total = 0;
+    for (const x of ms) total += x;
+    if (total < 0.8 * windowMs) continue;
+    const si = baevskyStressIndex(ms);
+    if (si !== null) values.push(si);
+  }
+  return median(values);
 }

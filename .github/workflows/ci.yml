@@ -40,6 +40,7 @@ jobs:
         run: |
           npm run typecheck -w @surgeonpulse/server
           npm test -w @surgeonpulse/server
+          npm run build -w @surgeonpulse/server
       - name: Dashboard
         run: |
           npm run typecheck -w @surgeonpulse/dashboard
@@ -49,9 +50,45 @@ jobs:
         run: |
           npm run typecheck -w @surgeonpulse/mobile
           npm test -w @surgeonpulse/mobile -- --ci
-      - name: Mobile web export
+      - name: Mobile UI tests with the Android preset
         working-directory: apps/mobile
-        run: npx expo export --platform web --output-dir dist-web
+        run: npx jest --ci --preset jest-expo/android src/components __tests__/ui
+      - name: Mobile native bundles (iOS + Android, Hermes) and app config
+        working-directory: apps/mobile
+        run: |
+          npx expo export --platform ios --platform android --output-dir "$RUNNER_TEMP/mobile-native"
+          npx expo config --type public > /dev/null
+
+  cross-platform:
+    # Ubuntu is covered by the `typescript` job above; this checks the same core and server suites on Windows and macOS.
+    name: Core & server · ${{ matrix.os }} · Node 22
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    defaults:
+      run:
+        # bash (Git Bash on Windows) stops at the first failing command; multi-line pwsh steps report only the last one.
+        shell: bash
+    steps:
+      # Keep LF line endings on Windows so the checkout matches the files the tests were written against.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Core
+        run: |
+          npm run typecheck -w @surgeonpulse/core
+          npm test -w @surgeonpulse/core
+      - name: Server
+        run: |
+          npm run typecheck -w @surgeonpulse/server
+          npm test -w @surgeonpulse/server
 
   dashboard-e2e:
     name: Dashboard end-to-end (Playwright)
@@ -67,6 +104,49 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: apps/dashboard
       - run: npm run e2e -w @surgeonpulse/dashboard -- --trace off
+
+  mobile-web-e2e:
+    name: Mobile web build end-to-end (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/mobile
+      - name: Export the web build
+        working-directory: apps/mobile
+        run: npx expo export --platform web --output-dir dist-web
+      - name: Serve it with a single-page-app fallback (e2e/serve-spa.mjs, no extra downloads)
+        working-directory: apps/mobile
+        run: |
+          node e2e/serve-spa.mjs dist-web 8090 > "$RUNNER_TEMP/serve-spa.log" 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8090/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "::error::the web build server did not start"
+          cat "$RUNNER_TEMP/serve-spa.log"
+          exit 1
+      - name: Simulator flow (fails on a failed step or any console error)
+        working-directory: apps/mobile
+        env:
+          SCREENSHOT_DIR: ${{ runner.temp }}/mobile-web-screenshots
+        run: |
+          mkdir -p "$SCREENSHOT_DIR"
+          node e2e/web-flow.mjs http://127.0.0.1:8090
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-web-screenshots
+          path: ${{ runner.temp }}/mobile-web-screenshots
+          if-no-files-found: ignore
+          retention-days: 7
 
   python:
     name: Python analysis toolkit (incl. TS ↔ Python parity) · ${{ matrix.os }} · py${{ matrix.python }}

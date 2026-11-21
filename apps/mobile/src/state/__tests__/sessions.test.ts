@@ -47,6 +47,18 @@ describe('sessions store', () => {
     expect(await repo.getProfile()).toEqual({ code: 'SP-014' }); // profile is kept
   });
 
+  // ROB-1: a session with a non-pseudonymous code would later break export and upload.
+  it('skips imported sessions whose participant code is not a study code', async () => {
+    const repo = createMemoryRepository();
+    const store = createSessionsStore({ repository: repo });
+    const bad = { ...session('bad'), participantCode: 'jane.doe@hospital.org' };
+    const bundle = createExportBundle({ sessions: [session('ok'), bad], now: T0 });
+    const result = await store.getState().importBundle(JSON.stringify(bundle));
+    expect(result.imported).toBe(1);
+    expect(result.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/Session 2 was skipped/)]));
+    expect((await repo.listSessions()).map((i) => i.meta.id)).toEqual(['ok']);
+  });
+
   it('imports an export bundle, summarising each session', async () => {
     const repo = createMemoryRepository();
     const store = createSessionsStore({ repository: repo });

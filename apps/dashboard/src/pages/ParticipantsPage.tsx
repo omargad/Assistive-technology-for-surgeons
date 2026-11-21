@@ -6,7 +6,7 @@ import { TRAINING_LEVEL_LABELS, median } from '@surgeonpulse/core';
 import type { ParticipantProfile } from '@surgeonpulse/core';
 import { DataTable } from '../components/DataTable';
 import type { Column } from '../components/DataTable';
-import { EmptyState, PageHeader } from '../components/ui';
+import { EmptyState, Notice, PageHeader } from '../components/ui';
 import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { fmtDate, fmtSigned, lookup, plural } from '../lib/format';
 import { hrefs, navigate } from '../router';
@@ -98,9 +98,11 @@ export function ParticipantsPage() {
     {
       id: 'delta',
       header: 'Median Δ HR',
-      title: 'Median of session mean heart rate above baseline (bpm)',
+      title:
+        'Median of session mean heart rate above baseline (bpm). Not sortable: differences between participants ' +
+        'mostly reflect case mix and baseline protocol, so this column must not be used to rank people.',
       align: 'right',
-      sortValue: (r) => r.medianDelta,
+      // Deliberately no sortValue: ranking surgeons by physiological response invites performance management.
       cell: (r) => fmtSigned(r.medianDelta, 1),
     },
   ];
@@ -120,6 +122,10 @@ export function ParticipantsPage() {
         title="Participants"
         subtitle={`${plural(rows.length, 'participant')}. Open a participant for their individual feedback view.`}
       />
+      <Notice tone="info">
+        Heart-rate responses are for research and individual feedback, not for comparing or ranking surgeons:
+        differences between participants mostly reflect case mix, training level and how the baseline was taken.
+      </Notice>
       <DataTable
         rows={rows}
         columns={columns}

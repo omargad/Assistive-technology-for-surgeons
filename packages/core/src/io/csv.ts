@@ -326,15 +326,60 @@ const SUMMARY_BASE_COLUMNS: readonly string[] = [
 const PHASE_METRICS = ['duration_s', 'hr_mean', 'hr_delta', 'rmssd'] as const;
 
 /**
+ * Provenance and covariate columns, after the phase columns (appended so that scripts that address the older
+ * columns by position keep working).
+ */
+const SUMMARY_PROVENANCE_COLUMNS: readonly string[] = [
+  'sensor_source',
+  'simulated',
+  'tz_offset_min',
+  'started_local',
+  'baseline_source',
+  'baseline_duration_s',
+  'max_hr',
+  'peak_hr',
+  'hrv_n',
+  'sleep_hours',
+  'caffeine',
+  'outcome',
+  'analytics_version',
+];
+
+/**
  * Fixed column order of {@link summariesToCsv}: identifiers, procedure fields,
  * whole-session metrics, self-report, `coverage_pct`, then for each phase in
  * `PHASE_ORDER`: `<phase>_duration_s`, `<phase>_hr_mean`, `<phase>_hr_delta`,
- * `<phase>_rmssd` (with `_` in phase names, e.g. `pre_op_hr_mean`).
+ * `<phase>_rmssd` (with `_` in phase names, e.g. `pre_op_hr_mean`), then the
+ * provenance and covariate columns `sensor_source`, `simulated`,
+ * `tz_offset_min`, `started_local`, `baseline_source`, `baseline_duration_s`,
+ * `max_hr`, `peak_hr`, `hrv_n`, `sleep_hours`, `caffeine`, `outcome`,
+ * `analytics_version`.
  */
 export const SUMMARY_CSV_COLUMNS: readonly string[] = Object.freeze([
   ...SUMMARY_BASE_COLUMNS,
   ...PHASE_ORDER.flatMap((p) => PHASE_METRICS.map((m) => `${phaseStem(p)}_${m}`)),
+  ...SUMMARY_PROVENANCE_COLUMNS,
 ]);
+
+/**
+ * Local wall-clock time as ISO 8601 with the UTC offset, e.g. `2026-03-02T08:00:00.000+11:00` for
+ * `2026-03-01T21:00:00.000Z` at +660 min; empty when the offset is unknown. Uses only UTC getters (via
+ * `toISOString` of a shifted timestamp), so the device's own time zone never matters.
+ */
+function localIsoTime(t: number, tzOffsetMin: number | undefined): string {
+  if (typeof tzOffsetMin !== 'number' || !Number.isFinite(tzOffsetMin)) return '';
+  const shifted = isoTime(t + tzOffsetMin * 60000);
+  if (shifted === '' || !shifted.endsWith('Z')) return '';
+  const abs = Math.abs(Math.round(tzOffsetMin));
+  const sign = tzOffsetMin < 0 ? '-' : '+';
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+  const mm = String(abs % 60).padStart(2, '0');
+  return `${shifted.slice(0, -1)}${sign}${hh}:${mm}`;
+}
+
+function flag(b: boolean | null | undefined): number | null {
+  return b === null || b === undefined ? null : b ? 1 : 0;
+}
 
 /**
  * Duration-weighted mean of the finite values. Falls back to the plain mean
@@ -391,8 +436,13 @@ function pct(fraction: number | null | undefined): number | null {
  * are 0–100. A phase that occurs several times in a session is combined:
  * `_duration_s` is the total, and `_hr_mean`, `_hr_delta` and `_rmssd` are
  * duration-weighted means over its segments. Phases that never occur are
- * empty. `started_at`/`ended_at` are ISO 8601 UTC with milliseconds. Text
- * fields are formula-guarded ({@link CsvOptions}).
+ * empty. `started_at`/`ended_at` are ISO 8601 UTC with milliseconds;
+ * `started_local` is the local start with its offset (empty without
+ * `tzOffsetMin`). `simulated` and `caffeine` are `1`/`0`;
+ * `baseline_duration_s = (baseline.endedAt − baseline.startedAt)/1000` (0 for a
+ * profile baseline); `hrv_n` is the number of valid RR intervals behind the
+ * whole-session HRV. Fields a summary does not have (older stored summaries)
+ * are empty. Text fields are formula-guarded ({@link CsvOptions}).
  */
 export function summariesToCsv(summaries: readonly SessionSummary[]): string {
   const rows = summaries.map((s) => {
@@ -436,6 +486,19 @@ export function summariesToCsv(summaries: readonly SessionSummary[]): string {
       perceived_stress: s.perceivedStress,
       coverage_pct: pct(s.quality.coverage),
       ...phaseColumns(s.phases),
+      sensor_source: s.sensorSource,
+      simulated: flag(s.simulated),
+      tz_offset_min: s.tzOffsetMin,
+      started_local: localIsoTime(s.startedAt, s.tzOffsetMin),
+      baseline_source: s.baseline?.source,
+      baseline_duration_s: s.baseline ? (s.baseline.endedAt - s.baseline.startedAt) / 1000 : null,
+      max_hr: s.maxHr,
+      peak_hr: s.peakHr,
+      hrv_n: s.hrv?.n,
+      sleep_hours: s.sleepHours,
+      caffeine: flag(s.caffeine),
+      outcome: s.outcome,
+      analytics_version: s.analyticsVersion,
     };
   });
   return toCsv(rows, SUMMARY_CSV_COLUMNS, EXPORT_OPTIONS);

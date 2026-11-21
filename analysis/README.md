@@ -78,16 +78,27 @@ samples.groupby(["participant_code", "phase"])["bpm"].mean()
 # Cohort analysis
 df = summaries_frame(bundle)                 # one row per session, summariesToCsv columns
 aggregate(df, "meanHrDelta", "trainingLevel")   # group, n, mean, sd, median, min, max
-learning_curve(df, "criticalMeanHrDelta")       # OLS slope per participant + pooled
+learning_curve(df, "criticalMeanHrDelta")       # OLS slope, t and p_lt_05 per participant + pooled
 phase_profile(df)                               # mean HR / HR delta / RMSSD by operative phase
 ```
 
 `aggregate` and `learning_curve` accept the app's metric keys (`meanHr`, `peakHr`, `meanHrDelta`,
 `peakHrDelta`, `rmssd`, `sdnn`, `stressIndex`, `highIntensityPct`, `episodeCount`,
 `episodeMinutes`, `workload`, `performance`, `perceivedStress`, `durationMin`, `criticalMeanHr`,
-`criticalMeanHrDelta`, `coveragePct`) or any numeric column name. The group keys are
-`participant`, `procedure`, `specialty`, `approach`, `role`, `trainingLevel`, `urgency`, `month`
-and `none`.
+`criticalMeanHrDelta`, `coveragePct`) or any numeric column name. `workload` is always the raw TLX
+score (`workload_raw`), and `peakHr` reads the robust peak `peak_hr` (falling back to `hr_max` for
+older files). The group keys are `participant`, `procedure`, `specialty`, `approach`, `role`,
+`trainingLevel`, `urgency`, `month` (local month when `tz_offset_min` is known) and `none`.
+
+`learning_curve` returns `participant, n, slope, intercept, r2, first, last, t, p_lt_05`: `t` is the
+slope's t statistic (df = n − 2) and `p_lt_05` whether it differs from 0 at the two-sided 5 % level,
+assuming independent sessions. The final `"(pooled)"` row ignores clustering by participant, so it is
+**descriptive only**; for inference use a mixed model with a random intercept and slope per
+participant. `surgeonpulse report` words the pooled slope the same way and counts the participants
+whose own slope is significant.
+
+`summaries_frame` includes the `simulated` and `analytics_version` columns: drop rows with
+`simulated == 1`, and do not pool rows computed by different analytics versions.
 
 Function names are snake_case ports of the TypeScript names (`cleanRr` → `clean_rr`,
 `summarizeSession` → `summarize_session`), and options become keyword arguments
@@ -99,21 +110,22 @@ normally does.
 
 | Metric (summary key / CSV column) | Definition | Reference |
 | --- | --- | --- |
-| `hr.mean/median/min/max/sd/p95` (`hr_*`) | Over valid samples (finite, 25–250 bpm), not time-weighted; SD with n−1; p95 by linear interpolation (NumPy `linear`) | Hyndman & Fan 1996 (def. 7) |
+| `hr.mean/median/min/max/sd/p95` (`hr_*`) | Over valid samples (finite, 25–250 bpm, not recorded with `contact: false`), not time-weighted; SD with n−1; p95 by linear interpolation (NumPy `linear`) | Hyndman & Fan 1996 (def. 7) |
+| `peakHr` (`peak_hr`) | Robust peak: highest 11-s rolling median of the valid samples | — |
 | Artefact rejection (`rr_artifact_pct`) | RR outside 300–2000 ms, or deviating > 20 % from the median of the ±5 neighbouring valid beats | Task Force 1996 (editing of ectopic beats/artefacts) |
-| `hrv.meanRr`, `sdnn` | Mean and sample SD of all valid RR intervals | Task Force of ESC/NASPE 1996 |
+| `hrv.meanRr`, `sdnn` | Mean and sample SD of all valid RR intervals; whole-session HRV and the stress index are `None` when more than 10 % of intervals are artefacts | Task Force of ESC/NASPE 1996 |
 | `hrv.rmssd` | √(mean of squared successive differences), using only valid pairs within a contiguous run (a gap > 3 s + RR starts a new run) | Task Force 1996 |
 | `hrv.pnn50` | % of valid successive differences with \|Δ\| > 50 ms | Task Force 1996 |
-| `stressIndex` (`stress_index`) | Baevsky SI = AMo / (2·Mo·MxDMn), 50 ms bins, Mo and MxDMn in seconds, AMo in % | Baevsky & Chernikova 2017 |
+| `stressIndex` (`stress_index`) | Baevsky SI = AMo / (2·Mo·MxDMn), 50 ms bins, Mo and MxDMn in seconds, AMo in % (raw SI, not √SI); the summary value is the median over 5-min windows with ≥ 4 min of clean beats | Baevsky & Chernikova 2017 |
 | `maxHr` | Override → participant `maxHr` → 208 − 0.7·age, rounded half-up | Tanaka, Monahan & Seals 2001 |
-| `zones` | Baseline zones (rest+10/20/30 bpm) when a baseline exists, else 60/70/80/90 % of HRmax; time-weighted dwell, gaps capped at 5 s | — |
+| `zones` | Baseline zones (rest+10/20/30 bpm) when a baseline exists, else 60/70/80/90 % of HRmax; time-weighted dwell, gaps capped at `maxGapMs` (5 s for straps; 1.5 × median sample spacing, 5 s–15 min, for Apple Health / Health Connect) | — |
 | `highIntensityFraction` (`high_intensity_pct`) | Time-weighted fraction with HR ≥ 70 % HRmax | — |
-| `baseline` / `meanHrDelta` / `peakHrDelta` | Measured pre-op resting HR (5 min), else profile resting HR; delta = session (or phase) mean/max − resting | — |
-| `phases` (`<phase>_*`) | Segments from phase markers; per-phase HR stats, HRV (≥ 20 intervals) and HR delta; repeated phases are duration-weighted in the CSV | — |
+| `baseline` / `meanHrDelta` / `peakHrDelta` | Measured pre-op resting HR over the configured window (default 3 min, 1–5 min, minimum 60 s; see `baseline.startedAt`/`endedAt` and `baseline_duration_s`), else profile resting HR; delta = session (or phase) mean − resting, peak delta = `peakHr` − resting | — |
+| `phases` (`<phase>_*`) | Segments from phase markers; per-phase HR stats, HRV (≥ 20 intervals, phase ≥ 60 s, ≤ 10 % artefacts) and HR delta; repeated phases are duration-weighted in the CSV | — |
 | `episodes` (`episode_count/minutes`) | Runs with HR ≥ threshold (rest + 20 bpm, else median + 15), merged across ≤ 30 s, kept if ≥ 60 s; peak, mean, phase at peak, events from 2 min before | — |
-| `quality.coverage` (`coverage_pct`) | Covered time (gaps capped at 5 s, clipped to the session) ÷ duration | — |
-| `workload.raw` / `weighted` | SURG-TLX: mean of the 6 ratings (0–100); weighted = Σ(rating·weight)/15 when the 15 pairwise tallies are valid | Wilson et al. 2011; Hart & Staveland 1988 |
-| learning curve slope | OLS slope of a metric against each surgeon's session number | — |
+| `quality.coverage` (`coverage_pct`) | Covered time (gaps capped at `maxGapMs`, clipped to the session) ÷ duration | — |
+| `workload.raw` / `weighted` | SURG-TLX: mean of the 6 ratings (0–100); weighted = Σ(rating·weight)/15 when the 15 pairwise tallies are valid. The cross-session metric `workload` is the raw score | Wilson et al. 2011; Hart & Staveland 1988 |
+| learning curve slope | OLS slope of a metric against each surgeon's session number, with a slope t-test (`t`, `p_lt_05`) | — |
 
 References:
 

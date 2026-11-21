@@ -35,7 +35,7 @@
       "removed": 112,
       "ratio": 0.016758940595540926
     },
-    "stressIndex": 22.085493486009234,
+    "stressIndex": 78.90664292152846,
     "baseline": {
       "startedAt": 1767614160000,
       "endedAt": 1767614460000,
@@ -45,7 +45,7 @@
       "source": "measured"
     },
     "meanHrDelta": 3.613475177304963,
-    "peakHrDelta": 30.16666666666667,
+    "peakHrDelta": 29.16666666666667,
     "maxHr": 179,
     "zones": [
       {
@@ -278,7 +278,15 @@
       "longestGapSec": 0,
       "rrArtifactRatio": 0.016758940595540926,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 97,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 7,
+    "caffeine": true,
+    "outcome": "as-planned",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "2adce920-cf33-4290-82ff-a89f5d76eb8f",
@@ -316,7 +324,7 @@
       "removed": 129,
       "ratio": 0.012052695505932916
     },
-    "stressIndex": 35.96626959487963,
+    "stressIndex": 151.6596830471988,
     "baseline": {
       "startedAt": 1767695100000,
       "endedAt": 1767695400000,
@@ -326,7 +334,7 @@
       "source": "measured"
     },
     "meanHrDelta": 10.761710037174723,
-    "peakHrDelta": 36.93333333333334,
+    "peakHrDelta": 35.93333333333334,
     "maxHr": 186,
     "zones": [
       {
@@ -569,7 +577,15 @@
       "longestGapSec": 15,
       "rrArtifactRatio": 0.012052695505932916,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 105,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 8.5,
+    "caffeine": true,
+    "outcome": "as-planned",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "e902cc7e-f5b0-48a0-81ec-54e18d6f755a",
@@ -607,7 +623,7 @@
       "removed": 140,
       "ratio": 0.013011152416356878
     },
-    "stressIndex": 30.48983590309032,
+    "stressIndex": 160.63830133900285,
     "baseline": {
       "startedAt": 1767789960000,
       "endedAt": 1767790260000,
@@ -617,7 +633,7 @@
       "source": "measured"
     },
     "meanHrDelta": 15.013339899321522,
-    "peakHrDelta": 54.88333333333334,
+    "peakHrDelta": 51.88333333333334,
     "maxHr": 189,
     "zones": [
       {
@@ -893,7 +909,15 @@
       "longestGapSec": 10,
       "rrArtifactRatio": 0.013011152416356878,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 122,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 7,
+    "caffeine": false,
+    "outcome": "major-deviation",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "d0342bd2-9a84-4b01-9141-8e5460c1c0c4",
@@ -1133,7 +1157,15 @@
       "longestGapSec": 40,
       "rrArtifactRatio": null,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 101,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 6,
+    "caffeine": false,
+    "outcome": "as-planned",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "a3e07414-d1a3-48ac-bd87-8d4d9131b2a1",
@@ -1352,7 +1384,15 @@
       "longestGapSec": 40,
       "rrArtifactRatio": null,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 96,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 5.5,
+    "caffeine": false,
+    "outcome": "as-planned",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "6104a5b8-57fc-42c8-9657-ec0a09774f3d",
@@ -1386,7 +1426,7 @@
       "source": "measured"
     },
     "meanHrDelta": 13.553758721584515,
-    "peakHrDelta": 40.78333333333333,
+    "peakHrDelta": 38.78333333333333,
     "maxHr": 189,
     "zones": [
       {
@@ -1653,7 +1693,15 @@
       "longestGapSec": 40,
       "rrArtifactRatio": null,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 109,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 6,
+    "caffeine": false,
+    "outcome": "minor-deviation",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "5efdd905-62d8-42a0-a241-f88d3c96f6ef",
@@ -1687,7 +1735,7 @@
       "source": "measured"
     },
     "meanHrDelta": 7.536604774535817,
-    "peakHrDelta": 28.900000000000006,
+    "peakHrDelta": 27.900000000000006,
     "maxHr": 179,
     "zones": [
       {
@@ -1872,7 +1920,15 @@
       "longestGapSec": 45,
       "rrArtifactRatio": null,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 99,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 7.5,
+    "caffeine": true,
+    "outcome": "minor-deviation",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "6a34f7bc-a456-4697-b9b2-2b6ccb610101",
@@ -1906,7 +1962,7 @@
       "source": "measured"
     },
     "meanHrDelta": 8.634555229716511,
-    "peakHrDelta": 36.05,
+    "peakHrDelta": 34.05,
     "maxHr": 186,
     "zones": [
       {
@@ -2092,7 +2148,15 @@
       "longestGapSec": 40,
       "rrArtifactRatio": null,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 105,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 8.5,
+    "caffeine": false,
+    "outcome": "minor-deviation",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "cad9b75a-6a1b-4d03-a58f-a190e5d3558c",
@@ -2126,7 +2190,7 @@
       "source": "measured"
     },
     "meanHrDelta": 11.489270008795074,
-    "peakHrDelta": 31.983333333333334,
+    "peakHrDelta": 28.983333333333334,
     "maxHr": 189,
     "zones": [
       {
@@ -2343,7 +2407,15 @@
       "longestGapSec": 30,
       "rrArtifactRatio": null,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 100,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 7,
+    "caffeine": false,
+    "outcome": "major-deviation",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "a42b596b-ca38-46ae-8602-0b92981c7615",
@@ -2381,7 +2453,7 @@
       "removed": 160,
       "ratio": 0.014601204599379448
     },
-    "stressIndex": 30.621802214304232,
+    "stressIndex": 131.18998813248461,
     "baseline": {
       "startedAt": 1769422800000,
       "endedAt": 1769423100000,
@@ -2391,7 +2463,7 @@
       "source": "measured"
     },
     "meanHrDelta": 7.827683615819211,
-    "peakHrDelta": 30.16666666666667,
+    "peakHrDelta": 25.16666666666667,
     "maxHr": 179,
     "zones": [
       {
@@ -2635,7 +2707,15 @@
       "longestGapSec": 35,
       "rrArtifactRatio": 0.014601204599379448,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 92,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 6.5,
+    "caffeine": true,
+    "outcome": "minor-deviation",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "3b16ad93-4bf5-44eb-81ef-a4b6abc4ded5",
@@ -2673,7 +2753,7 @@
       "removed": 89,
       "ratio": 0.010036084799278304
     },
-    "stressIndex": 23.493405680646593,
+    "stressIndex": 106.17710259963137,
     "baseline": {
       "startedAt": 1769502720000,
       "endedAt": 1769503020000,
@@ -2683,7 +2763,7 @@
       "source": "measured"
     },
     "meanHrDelta": 6.409477561955796,
-    "peakHrDelta": 24.950000000000003,
+    "peakHrDelta": 23.950000000000003,
     "maxHr": 186,
     "zones": [
       {
@@ -2896,7 +2976,15 @@
       "longestGapSec": 35,
       "rrArtifactRatio": 0.010036084799278304,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 89,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 8.5,
+    "caffeine": false,
+    "outcome": "as-planned",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   },
   {
     "sessionId": "9c7aacb0-8d15-4adb-a266-1b6e90060285",
@@ -2934,7 +3022,7 @@
       "removed": 56,
       "ratio": 0.009377093101138647
     },
-    "stressIndex": 22.270870532299668,
+    "stressIndex": 91.36879466512964,
     "baseline": {
       "startedAt": 1769605200000,
       "endedAt": 1769605500000,
@@ -3180,6 +3268,14 @@
       "longestGapSec": 35,
       "rrArtifactRatio": 0.009377093101138647,
       "sampleRateHz": 0.2
-    }
+    },
+    "peakHr": 104,
+    "sensorSource": "simulated",
+    "simulated": true,
+    "sleepHours": 8.5,
+    "caffeine": true,
+    "outcome": "minor-deviation",
+    "maxGapMs": 5000,
+    "analyticsVersion": "2"
   }
 ]

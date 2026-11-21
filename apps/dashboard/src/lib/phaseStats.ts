@@ -68,3 +68,48 @@ export function phaseProfile(summaries: readonly SessionSummary[], key: PhaseVal
     return { phase, n: xs.length, mean: mean(xs), sd: sampleSd(xs), median: median(xs) };
   });
 }
+
+/** Fewest distinct other participants whose sessions may form a cohort comparison value. */
+export const MIN_COHORT_PARTICIPANTS = 5;
+
+/** A cohort comparison value for one phase. */
+export interface CohortPhaseValue {
+  /** Median over other participants' sessions, or null when suppressed or without data. */
+  median: number | null;
+  /** Distinct other participants contributing a value for this phase. */
+  participants: number;
+}
+
+/**
+ * Per-phase cohort medians for a participant's feedback page, computed from **other**
+ * participants' sessions only, and suppressed (`median: null`) for a phase that fewer than
+ * `minParticipants` distinct other participants contribute to. Including the viewer's own
+ * sessions, or showing a median of very few colleagues, would let the viewer work out a
+ * colleague's exact value (e.g. with one other participant: other = 2 × median − own).
+ */
+export function cohortPhaseMedians(
+  summaries: readonly SessionSummary[],
+  viewerCode: string,
+  key: PhaseValueKey,
+  minParticipants: number = MIN_COHORT_PARTICIPANTS,
+): Map<PhaseKind, CohortPhaseValue> {
+  const values = new Map<PhaseKind, number[]>(PHASE_ORDER.map((p) => [p, []]));
+  const codes = new Map<PhaseKind, Set<string>>(PHASE_ORDER.map((p) => [p, new Set<string>()]));
+  for (const s of summaries) {
+    if (s.participantCode === viewerCode) continue;
+    for (const phase of PHASE_ORDER) {
+      const v = sessionPhaseValue(s, phase, key);
+      if (v === null) continue;
+      values.get(phase)!.push(v);
+      codes.get(phase)!.add(s.participantCode);
+    }
+  }
+  const k = Math.max(1, Math.floor(minParticipants));
+  return new Map(
+    PHASE_ORDER.map((phase) => {
+      const participants = codes.get(phase)!.size;
+      return [phase, { median: participants >= k ? median(values.get(phase)!) : null, participants }];
+    }),
+  );
+}
+

@@ -41,7 +41,9 @@ import { mergeHealthImport } from '../services/health/merge';
 import type { HealthStore } from '../services/health/types';
 import type { HeartRateSource, SensorListener, SensorStatus, SourceChoice } from '../services/sensors/types';
 import type { SessionMeta, SessionRepository } from '../services/storage/types';
+import { withoutUploadedTag } from '../services/upload/tags';
 import { createSerialQueue } from '../services/util/serialQueue';
+import { storableRr, storableSamples } from '../services/util/signals';
 import type { RecordingState, RecordingStore, Settings } from './types';
 
 export interface RecordingDeps {
@@ -61,6 +63,14 @@ export interface RecordingDeps {
   uploadSession?(session: SurgicalSession, profile: ParticipantProfile | null): Promise<unknown>;
   /** Notify listeners (e.g. the sessions list) that stored sessions changed. */
   onSessionsChanged?(): void;
+  /**
+   * Subscribe to app foreground/background changes (React Native `AppState`); returns an unsubscribe
+   * function. While recording, buffered data is flushed when the app leaves the foreground (Android
+   * pauses JS timers then) and the signal watchdog re-checks when it returns.
+   */
+  subscribeAppState?(listener: (state: string) => void): () => void;
+  /** Write repository changes to durable storage now (web: localStorage), after a background flush. */
+  persistNow?(): void;
   /** Flush interval for signals (ms). Default 5000. */
   flushIntervalMs?: number;
   /** No data for longer than this while recording sets `signalLost` (ms). Default 15 000. */
@@ -73,6 +83,9 @@ export interface RecordingDeps {
 export const UNASSIGNED_PARTICIPANT_CODE = 'UNASSIGNED';
 
 const SAVE_ERROR = 'Saving to storage failed. Recording continues and saving will be retried.';
+/** submitDebrief refuses to complete a case whose last data is still only in memory. */
+export const UNSAVED_SIGNALS_ERROR =
+  'The end of the recording could not be saved to storage yet. Check that the device has free space, then save the debrief again. Nothing has been lost.';
 
 type SummaryOptions = NonNullable<Parameters<typeof summarizeSession>[1]>;
 
@@ -83,6 +96,10 @@ interface FlushCursor {
   rr: number;
 }
 
+/** How long "Undo" is offered after an event is marked (the live screen's snackbar shows this long). */
+export const UNDO_WINDOW_MS = 10_000;
+/** Extra time accepted for a tap that started just before the snackbar closed. */
+const UNDO_GRACE_MS = 1_500;
 const DEFAULT_FLUSH_MS = 5_000;
 const DEFAULT_SIGNAL_LOST_MS = 15_000;
 const DEFAULT_SCAN_MS = 15_000;
@@ -110,6 +127,8 @@ export function initialRecordingState(logger: RecordingState['logger'] = 'team')
     lastEvent: null,
     logger,
     signalLost: false,
+    streamSince: null,
+    rrSeenAt: null,
     timedOnly: false,
     error: null,
   };
@@ -117,6 +136,24 @@ export function initialRecordingState(logger: RecordingState['logger'] = 'team')
 
 export function isTimedChoice(choice: string | null | undefined): choice is 'healthkit' | 'health-connect' {
   return choice === 'healthkit' || choice === 'health-connect';
+}
+
+/**
+ * Id of the stored session the recording flow owns in `state` (recording, debrief, or a resumed
+ * interrupted case in setup), or null. Such a session must not be deleted, replaced or edited
+ * outside the recording store.
+ */
+export function activeSessionOf(state: Pick<RecordingState, 'stage' | 'session'>): string | null {
+  return state.session && state.stage !== 'idle' && state.stage !== 'done' ? state.session.id : null;
+}
+
+/**
+ * Whether a health-store import may be merged into `session`: only a timed session (recorded with a
+ * health store as its source) or a session without any heart-rate data. A live sensor's series is
+ * never mixed with a second device's samples or beats.
+ */
+export function canImportHealthInto(session: Pick<SurgicalSession, 'sensor' | 'samples' | 'rr'>): boolean {
+  return isTimedChoice(session.sensor.source) || (session.samples.length === 0 && session.rr.length === 0);
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -137,10 +174,22 @@ export function snapshotFromProfile(profile: ParticipantProfile | null): Partici
   return Object.keys(snap).length > 0 ? snap : undefined;
 }
 
-/** Summary options derived from the participant profile (measured max HR wins over the age estimate). */
-export function summaryOptionsFor(profile: ParticipantProfile | null): SummaryOptions {
-  return profile?.maxHr !== undefined ? { maxHr: profile.maxHr } : {};
+/**
+ * Summary options for a session. Always empty: the session's own `participantSnapshot` (taken when it was recorded,
+ * including a measured max HR) is what the server and dashboard use, so the app must not override it with the
+ * current profile, or the same session would show different numbers on different platforms (RV-16).
+ */
+export function summaryOptionsFor(_profile: ParticipantProfile | null): SummaryOptions {
+  return {};
 }
+
+/** Whether completed sessions should be uploaded automatically now (enabled, configured, consent not withdrawn). */
+export function shouldAutoUpload(cfg: Settings, profile: ParticipantProfile | null): boolean {
+  return cfg.autoUpload && profile?.consent?.withdrawnAt === undefined && !!cfg.researchServerUrl && !!cfg.researchToken;
+}
+
+/** Shortest resting window stored as a measured baseline; a few seconds after walking in is not a resting HR. */
+export const MIN_MEASURED_BASELINE_SEC = 60;
 
 /** The phase in progress at the end of the event list (events are sorted by `t`). */
 function lastPhase(events: readonly SessionEvent[]): PhaseKind | null {
@@ -189,6 +238,7 @@ export function createRecordingStore(deps: RecordingDeps) {
     scanTimer: null as ReturnType<typeof setTimeout> | null,
     flushTimer: null as ReturnType<typeof setInterval> | null,
     watchdogTimer: null as ReturnType<typeof setInterval> | null,
+    unsubscribeAppState: null as (() => void) | null,
     /** Set once the session row exists in storage; tracks what has been flushed. */
     cursor: null as FlushCursor | null,
     baselineSamples: [] as HeartRateSample[],
@@ -232,6 +282,13 @@ export function createRecordingStore(deps: RecordingDeps) {
       if (rt.watchdogTimer !== null) clearInterval(rt.watchdogTimer);
       rt.flushTimer = null;
       rt.watchdogTimer = null;
+      const unsubscribe = rt.unsubscribeAppState;
+      rt.unsubscribeAppState = null;
+      try {
+        unsubscribe?.();
+      } catch {
+        // ignore
+      }
     }
 
     function startTimers(): void {
@@ -240,6 +297,28 @@ export function createRecordingStore(deps: RecordingDeps) {
         void flush();
       }, flushIntervalMs);
       rt.watchdogTimer = setInterval(checkSignal, WATCHDOG_TICK_MS);
+      try {
+        rt.unsubscribeAppState = deps.subscribeAppState?.(onAppStateChange) ?? null;
+      } catch {
+        rt.unsubscribeAppState = null;
+      }
+    }
+
+    /**
+     * Leaving the foreground: JS timers may stop (Android pauses them; browsers throttle hidden tabs),
+     * so write everything buffered now. Returning: re-check the signal at once so a dropout that
+     * happened in the background is shown immediately.
+     */
+    function onAppStateChange(state: string): void {
+      if (get().stage !== 'recording') return;
+      if (state === 'active') checkSignal();
+      void flush().then(() => {
+        try {
+          deps.persistNow?.();
+        } catch {
+          // ignore
+        }
+      });
     }
 
     function checkSignal(): void {
@@ -290,6 +369,13 @@ export function createRecordingStore(deps: RecordingDeps) {
         const cursor = rt.cursor;
         if (session && cursor) await appendPending(session, cursor);
       });
+    }
+
+    /** True when storage holds every sample and RR interval of `session` captured so far. */
+    function isFullyFlushed(session: SurgicalSession): boolean {
+      const cursor = rt.cursor;
+      if (!cursor || cursor.id !== session.id) return true; // not a live recording (nothing buffered)
+      return cursor.samples >= session.samples.length && cursor.rr >= session.rr.length;
     }
 
     function cursorFor(session: SurgicalSession): FlushCursor {
@@ -402,6 +488,8 @@ export function createRecordingStore(deps: RecordingDeps) {
           sensor: null,
           sensorStatus: IDLE_STATUS,
           currentBpm: null,
+          streamSince: null,
+          rrSeenAt: null,
           error: null,
         });
         rememberSource({ preferredSource: choice });
@@ -481,6 +569,8 @@ export function createRecordingStore(deps: RecordingDeps) {
         set({
           error: null,
           sensorStatus: deviceName ? { state: 'connecting', deviceName } : { state: 'connecting' },
+          streamSince: null,
+          rrSeenAt: null,
         });
         try {
           // Web Bluetooth: requestPermissions resolves at once, so `connect` still runs within the user gesture.
@@ -536,11 +626,14 @@ export function createRecordingStore(deps: RecordingDeps) {
         if (s.stage !== 'baseline' || s.baselineStartedAt === null) return;
         const lastT = rt.baselineSamples[rt.baselineSamples.length - 1]?.t ?? 0;
         const end = Math.max(deps.now(), lastT + 1);
+        const tooShort = end - s.baselineStartedAt < MIN_MEASURED_BASELINE_SEC * 1000;
         let baseline = null;
-        try {
-          baseline = computeBaseline(rt.baselineSamples, rt.baselineRr, s.baselineStartedAt, end);
-        } catch {
-          baseline = null;
+        if (!tooShort) {
+          try {
+            baseline = computeBaseline(rt.baselineSamples, rt.baselineRr, s.baselineStartedAt, end);
+          } catch {
+            baseline = null;
+          }
         }
         rt.baselineSamples = [];
         rt.baselineRr = [];
@@ -549,7 +642,9 @@ export function createRecordingStore(deps: RecordingDeps) {
           baseline,
           error: baseline
             ? null
-            : 'Not enough heart-rate data for a baseline. Your profile resting heart rate will be used if set.',
+            : tooShort
+              ? `The baseline was shorter than ${MIN_MEASURED_BASELINE_SEC} seconds, so it was not used. Your profile resting heart rate will be used if set.`
+              : 'Not enough heart-rate data for a baseline. Your profile resting heart rate will be used if set.',
         });
       },
 
@@ -668,6 +763,11 @@ export function createRecordingStore(deps: RecordingDeps) {
       undoLastEvent() {
         const s = get();
         if (!s.session || !s.lastEvent) return;
+        if (deps.now() - s.lastEvent.t > UNDO_WINDOW_MS + UNDO_GRACE_MS) {
+          // The undo window has passed (e.g. the live screen was minimised): keep the event.
+          set({ lastEvent: null });
+          return;
+        }
         const session = removeEvent(s.session, s.lastEvent.id);
         set({ session, lastEvent: null, currentPhase: lastPhase(session.events) });
         void persistMeta(session.id, { events: session.events });
@@ -700,6 +800,12 @@ export function createRecordingStore(deps: RecordingDeps) {
         const s = get();
         const session = s.session;
         if (s.stage !== 'debrief' || !session) throw new Error('There is no finished case waiting for a debrief.');
+        // Retry the final flush: the case is marked completed only once every captured sample is stored,
+        // so the cached summary always matches the stored (and exported) signals.
+        await flush();
+        if (!isFullyFlushed(session)) {
+          throw new Error(UNSAVED_SIGNALS_ERROR);
+        }
         const endedAt = session.endedAt ?? Math.max(deps.now(), session.startedAt);
         const completed: SurgicalSession = { ...session, endedAt, status: 'completed', postOp: report };
         await writes.run(() =>
@@ -721,7 +827,7 @@ export function createRecordingStore(deps: RecordingDeps) {
         notifySessionsChanged();
 
         const cfg = settings();
-        if (cfg.autoUpload && cfg.researchServerUrl && cfg.researchToken && deps.uploadSession) {
+        if (shouldAutoUpload(cfg, profile) && deps.uploadSession) {
           // Fire and forget: the debrief must never wait on the network.
           void deps
             .uploadSession(completed, profile)
@@ -758,7 +864,7 @@ export function createRecordingStore(deps: RecordingDeps) {
         deps.keepAwake.deactivate();
         const session = s.session;
         const cursor = rt.cursor;
-        if (s.stage === 'recording' && session && cursor) {
+        if ((s.stage === 'recording' || s.stage === 'debrief') && session && cursor) {
           // Never drop buffered data: final flush of the captured session.
           void writes.run(() => appendPending(session, cursor));
         }
@@ -805,56 +911,83 @@ export function createRecordingStore(deps: RecordingDeps) {
         const active = get().session?.id === sessionId ? get().session : null;
         const session = active ?? (await deps.repository.getSession(sessionId));
         if (!session) throw new Error('That session could not be found.');
+        if (!canImportHealthInto(session)) {
+          // Interleaving a second device's beats with the strap's would corrupt HRV and HR statistics.
+          throw new Error(
+            `This case already has heart-rate data from its sensor. Importing from ${store.label} would mix data from two devices, so it is only offered for cases recorded with ${store.label} as the source or without any heart-rate data.`,
+          );
+        }
         const start = session.startedAt;
         const end = session.endedAt ?? Math.max(sessionEnd(session), deps.now());
         const result = await store.importRange(start, end);
         const merged = mergeHealthImport(session, result);
         const changed = merged.addedSamples + merged.addedRr + merged.addedHrv > 0;
         if (changed) {
-          await writes.run(() => deps.repository.saveSession(merged.session));
-          if (merged.session.status !== 'recording') {
+          // New data makes an earlier upload out of date: drop the "uploaded" marker so the session counts as
+          // not uploaded (Settings › Upload now, the session's upload button), and re-upload it when automatic
+          // upload is on (RV-3: watch sessions were auto-uploaded at the debrief before their HR had synced).
+          const updated: SurgicalSession =
+            merged.session.tags === undefined ? merged.session : { ...merged.session, tags: withoutUploadedTag(merged.session.tags) };
+          await writes.run(() => deps.repository.saveSession(updated));
+          let profile: ParticipantProfile | null = null;
+          try {
+            profile = await deps.getProfile();
+          } catch {
+            profile = null;
+          }
+          if (updated.status !== 'recording') {
             try {
-              const profile = await deps.getProfile();
-              const summary = summarizeSession(merged.session, summaryOptionsFor(profile));
+              const summary = summarizeSession(updated, summaryOptionsFor(profile));
               await writes.run(() => deps.repository.saveSummary(sessionId, summary));
             } catch {
               // summary is recomputed on open if this fails
             }
           }
           if (get().session?.id === sessionId) {
-            rt.cursor = cursorFor(merged.session);
-            set({ session: merged.session });
+            rt.cursor = cursorFor(updated);
+            set({ session: updated });
           }
           notifySessionsChanged();
+          if (updated.status === 'completed' && shouldAutoUpload(settings(), profile) && deps.uploadSession) {
+            void deps
+              .uploadSession(updated, profile)
+              .then(() => notifySessionsChanged())
+              .catch(() => undefined);
+          }
         }
         return merged.addedSamples;
       },
 
-      ingest(samples, rr) {
+      ingest(rawSamples, rawRr) {
         const s = get();
-        if (s.stage === 'idle' || (samples.length === 0 && rr.length === 0)) return;
-        rt.lastDataAt = deps.now();
+        if (s.stage === 'idle' || (rawSamples.length === 0 && rawRr.length === 0)) return;
+        const now = deps.now();
+        const live = s.stage === 'recording' ? s.session : null;
+        const lastSampleT = live?.samples[live.samples.length - 1]?.t ?? -Infinity;
+        const lastRrT = live?.rr[live.rr.length - 1]?.t ?? -Infinity;
+        // Clamp times, then drop values the session schema rejects (a glitching strap can send a
+        // uint16 heart rate or an RR > 5 s): one bad notification must never make the session unreadable.
+        const samples = storableSamples(monotonic(rawSamples, lastSampleT, now));
+        const rr = storableRr(monotonic(rawRr, lastRrT, now));
+        if (samples.length === 0 && rr.length === 0) return;
+        rt.lastDataAt = now;
         const patch: Partial<RecordingState> = {};
         const bpm = validBpm(samples);
         if (bpm !== undefined) patch.currentBpm = bpm;
         if (s.signalLost) patch.signalLost = false;
+        // Beat-to-beat (RR) indicator: HRV outcomes need RR, and some sensors never send it.
+        if (s.streamSince == null) patch.streamSince = now;
+        if (rr.length > 0) patch.rrSeenAt = now;
 
         if (s.stage === 'baseline') {
           for (const x of samples) rt.baselineSamples.push(x);
           for (const x of rr) rt.baselineRr.push(x);
-        } else if (s.stage === 'recording' && s.session) {
-          let session = s.session;
-          const lastSampleT = session.samples[session.samples.length - 1]?.t ?? -Infinity;
-          const lastRrT = session.rr[session.rr.length - 1]?.t ?? -Infinity;
-          const now = deps.now();
-          const newSamples = monotonic(samples, lastSampleT, now);
-          const newRr = monotonic(rr, lastRrT, now);
-          session = {
-            ...session,
-            samples: newSamples.length > 0 ? session.samples.concat(newSamples) : session.samples,
-            rr: newRr.length > 0 ? session.rr.concat(newRr) : session.rr,
+        } else if (live) {
+          patch.session = {
+            ...live,
+            samples: samples.length > 0 ? live.samples.concat(samples) : live.samples,
+            rr: rr.length > 0 ? live.rr.concat(rr) : live.rr,
           };
-          patch.session = session;
         }
         set(patch);
       },

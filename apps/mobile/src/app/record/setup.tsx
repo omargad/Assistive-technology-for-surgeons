@@ -5,7 +5,7 @@
  * sensor when resuming an interrupted session.
  */
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Stack, router } from 'expo-router';
 
 import { APPROACH_LABELS, COMPLEXITY_LABELS, ROLE_LABELS, URGENCY_LABELS } from '@surgeonpulse/core';
@@ -23,6 +23,7 @@ import { ProcedurePicker, type ProcedureChoice } from '@/components/ProcedurePic
 import { Screen } from '@/components/Screen';
 import { openLiveScreen } from '@/components/navigation';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { BeatToBeatNote } from '@/components/BeatToBeatNote';
 import { SensorStatusPill } from '@/components/SensorStatusPill';
 import { useBusy } from '@/hooks/useBusy';
 import { availableSources, type SourceOption } from '@/services/sensors/registry';
@@ -310,6 +311,7 @@ export default function SetupScreen() {
         {sourceChoice ? (
           <Card>
             <SensorStatusPill status={sensorStatus} />
+            <BeatToBeatNote />
             {sourceChoice === 'ble' ? (
               <View style={styles.actions}>
                 {settings.preferredDeviceId && !connected ? (
@@ -352,6 +354,12 @@ export default function SetupScreen() {
             {sourceChoice === 'simulated' ? (
               <AppText variant="caption" tone="warning">
                 Simulated data — for demos and training only.
+              </AppText>
+            ) : null}
+            {Platform.OS === 'android' && selectedOption?.live ? (
+              <AppText variant="caption" tone="warning" testID="setup-keep-open">
+                Keep SurgeonPulse open with the screen on until the case ends. Android pauses recording while the app
+                is in the background or the screen is locked.
               </AppText>
             ) : null}
           </Card>

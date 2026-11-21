@@ -6,7 +6,7 @@
  *   J Am Coll Cardiol 37(1):153–156. HRmax = 208 − 0.7 × age.
  */
 import type { HeartRateSample, ZoneDefinition, ZoneTime } from '../types';
-import { isValidBpm } from './hr';
+import { isValidSample } from './hr';
 import { resolveMaxGapMs } from './internal';
 import { median, stableSortBy } from './stats';
 
@@ -56,7 +56,7 @@ export function zonesFromBaseline(restingHr: number): ZoneDefinition[] {
 }
 
 /**
- * Time-weighted dwell per sample: valid samples ({@link isValidBpm}) sorted by t (stably); sample i dwells
+ * Time-weighted dwell per sample: valid samples ({@link isValidSample}: valid bpm, not `contact: false`) sorted by t (stably); sample i dwells
  * `min(t[i+1] − t[i], maxGapMs)`; the last sample dwells the median of the other (already capped) dwells, again
  * capped at `maxGapMs`, or 0 if it is the only sample. Negative dwells (duplicate t cannot produce any) count as 0.
  */
@@ -65,7 +65,7 @@ function sampleDwells(
   maxGapMs: number,
 ): { bpm: number; dwellMs: number }[] {
   const valid = stableSortBy(
-    samples.filter((s) => isValidBpm(s.bpm) && Number.isFinite(s.t)),
+    samples.filter((s) => isValidSample(s) && Number.isFinite(s.t)),
     (s) => s.t,
   );
   const n = valid.length;
@@ -80,7 +80,8 @@ function sampleDwells(
 /**
  * Time spent in each zone (time-weighted).
  *
- * Each valid sample (finite bpm within [25, 250], see {@link isValidBpm}) contributes its dwell
+ * Each valid sample (finite bpm within [25, 250] and not recorded with `contact: false`, see {@link isValidSample})
+ * contributes its dwell
  * (`min(t[i+1] − t[i], maxGapMs)`; the last sample uses the median of the other, capped dwells, capped again at
  * `maxGapMs`, or 0 when it is the only sample) to the first zone with `minBpm ≤ bpm < maxBpm`. The output follows
  * the order of `zones`, includes zero-time zones, and has `fraction = seconds / Σseconds` (0 when nothing was

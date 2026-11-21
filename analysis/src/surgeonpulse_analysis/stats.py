@@ -21,6 +21,9 @@ __all__ = [
     "HR_VALID_MAX_BPM",
     "is_finite_number",
     "is_valid_bpm",
+    "is_valid_sample",
+    "robust_peak_hr",
+    "PEAK_HR_HALF_WINDOW_MS",
     "js_round",
     "naive_sum",
     "mean",
@@ -28,6 +31,7 @@ __all__ = [
     "sample_sd",
     "percentile",
     "linear_trend",
+    "t_critical_95",
     "pearson_correlation",
     "moving_average",
     "hr_stats",
@@ -57,6 +61,14 @@ def is_finite_number(x: Any) -> bool:
 def is_valid_bpm(bpm: Any) -> bool:
     """SPEC ``hrStats``: a sample is valid when ``bpm`` is finite and within [25, 250]."""
     return is_finite_number(bpm) and HR_VALID_MIN_BPM <= bpm <= HR_VALID_MAX_BPM
+
+
+def is_valid_sample(s: Mapping[str, Any]) -> bool:
+    """SPEC ``isValidSample``: a valid bpm recorded without ``contact: false`` (lost skin contact).
+
+    ``contact`` absent/``None`` (sensor without contact detection) is accepted.
+    """
+    return is_valid_bpm(s.get("bpm")) and s.get("contact") is not False
 
 
 def js_round(x: float) -> int:
@@ -160,6 +172,30 @@ def linear_trend(points: Iterable[Any]) -> dict[str, float] | None:
     return {"slope": slope, "intercept": intercept, "r2": r2, "n": n}
 
 
+_T_CRIT_95 = (
+    math.nan, 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228, 2.201, 2.179, 2.16, 2.145,
+    2.131, 2.12, 2.11, 2.101, 2.093, 2.086, 2.08, 2.074, 2.069, 2.064, 2.06, 2.056, 2.052, 2.048, 2.045, 2.042,
+)  # fmt: skip
+
+
+def t_critical_95(df: float) -> float | None:
+    """Two-sided 5 % critical value of Student's t (same table as the TypeScript ``tCritical95``)."""
+    if not is_finite_number(df) or df < 1:
+        return None
+    d = math.floor(df)
+    if d <= 30:
+        return _T_CRIT_95[d]
+    if d < 40:
+        return 2.042
+    if d < 60:
+        return 2.021
+    if d < 120:
+        return 2.0
+    if d < 1000:
+        return 1.98
+    return 1.96
+
+
 def pearson_correlation(xs: Sequence[float], ys: Sequence[float]) -> float | None:
     """Pearson r of paired values; ``None`` if n < 2 or either variance is 0."""
     n = min(len(xs), len(ys))
@@ -193,11 +229,12 @@ def sorted_by_t(xs: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
 def hr_stats(samples: Iterable[Mapping[str, Any]]) -> dict[str, float] | None:
     """Heart-rate summary statistics over sample values (not time-weighted).
 
-    Ignores samples whose ``bpm`` is not finite or lies outside [25, 250].
+    Ignores samples whose ``bpm`` is not finite or lies outside [25, 250], and
+    samples recorded with ``contact: false`` (:func:`is_valid_sample`).
     Returns ``{"count", "mean", "median", "min", "max", "sd", "p95"}`` or
     ``None`` when no valid sample remains. ``p95`` uses :func:`percentile`.
     """
-    vals = [s["bpm"] for s in samples if is_valid_bpm(s.get("bpm"))]
+    vals = [s["bpm"] for s in samples if is_valid_sample(s)]
     if not vals:
         return None
     return {
@@ -228,3 +265,34 @@ def detect_gaps(samples: Sequence[Mapping[str, Any]], max_gap_ms: float = 5000) 
         if dt > max_gap_ms:
             gaps.append({"start": prev["t"], "end": nxt["t"], "durationMs": dt})
     return gaps
+
+
+#: Half-width of the rolling-median window of :func:`robust_peak_hr` (ms): 11 s at 1 Hz.
+PEAK_HR_HALF_WINDOW_MS = 5000
+
+
+def robust_peak_hr(samples: Sequence[Mapping[str, Any]], half_window_ms: float = PEAK_HR_HALF_WINDOW_MS) -> float | None:
+    """Largest rolling median of the valid samples (SPEC ``robustPeakHr``).
+
+    For each valid sample (sorted by ``t``), the median of the valid samples with
+    ``|t − tᵢ| <= half_window_ms``; the result is the largest of these medians,
+    so one spike cannot become the peak. ``None`` without a valid sample.
+    """
+    valid = sorted((s for s in samples if is_valid_sample(s) and is_finite_number(s.get("t"))), key=lambda s: s["t"])
+    if not valid:
+        return None
+    half = half_window_ms if is_finite_number(half_window_ms) and half_window_ms > 0 else 0
+    best = -math.inf
+    lo = hi = 0
+    for i, s in enumerate(valid):
+        t = s["t"]
+        while valid[lo]["t"] < t - half:
+            lo += 1
+        if hi < i:
+            hi = i
+        while hi + 1 < len(valid) and valid[hi + 1]["t"] <= t + half:
+            hi += 1
+        m = median([valid[j]["bpm"] for j in range(lo, hi + 1)])
+        if m is not None and m > best:
+            best = m
+    return best

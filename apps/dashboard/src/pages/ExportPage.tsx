@@ -109,7 +109,11 @@ export function ExportPage() {
       <FilterSummary />
       <SummaryProgress />
       {state.simulated && (
-        <Notice tone="info">The loaded data is simulated. Exported files are labelled “simulated” in their sensor source.</Notice>
+        <Notice tone="info">
+          The loaded data is simulated. The JSON bundle and the session CSVs keep the “simulated” sensor source, and the
+          summaries CSV has <code>sensor_source</code> and <code>simulated</code> (1) columns; exclude these rows from
+          analyses.
+        </Notice>
       )}
       <div className="checkbox checkbox--card">
         <input id={ids.bom} type="checkbox" checked={excelBom} onChange={(e) => setExcelBom(e.target.checked)} />
@@ -146,7 +150,7 @@ export function ExportPage() {
         />
         <ExportCard
           title="Events"
-          description="Long format: phase changes and markers with who logged them."
+          description="Long format: phase changes and markers with who logged them. Free-text notes are never included."
           detail={`${fmtCount(eventRows)} rows from ${plural(sessions.length, 'session')}`}
           buttonLabel={busy === 'events' ? 'Preparing…' : 'Download events CSV'}
           disabled={sessions.length === 0 || busy !== null}

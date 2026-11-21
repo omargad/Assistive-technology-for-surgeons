@@ -32,6 +32,7 @@ export function uploadRoutes(ctx: AppContext): FastifyPluginAsync {
           participantCode,
           repo: ctx.repo,
           now: ctx.now(),
+          acceptSimulated: ctx.config.acceptSimulated,
           onProcessingError: (index, err) => {
             // Index and error type only: never session content.
             request.log.warn({ index, error: err instanceof Error ? err.name : typeof err }, 'session could not be processed');

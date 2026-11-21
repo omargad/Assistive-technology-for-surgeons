@@ -41,7 +41,7 @@ describe('database', () => {
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all()
       .map((r) => (r as { name: string }).name);
-    expect(tables).toEqual(['audit', 'enrolments', 'participants', 'schema_version', 'sessions']);
+    expect(tables).toEqual(['audit', 'enrolments', 'participants', 'schema_version', 'server_secrets', 'sessions']);
   });
 
   it('is idempotent when reopened', async () => {

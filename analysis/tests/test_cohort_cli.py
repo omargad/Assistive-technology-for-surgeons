@@ -23,7 +23,9 @@ from surgeonpulse_analysis.cohort import (
     cohort_report,
     learning_curve,
     phase_profile,
+    metric_values,
     summaries_frame,
+    summarize_session,
     summary_row,
 )
 from surgeonpulse_analysis.io import parse_csv
@@ -201,3 +203,58 @@ def test_python_dash_m_entry_point() -> None:
         [sys.executable, "-m", "surgeonpulse_analysis", "--version"], capture_output=True, text=True, env=env, check=False
     )
     assert res.returncode == 0 and res.stdout.strip() == f"surgeonpulse {__version__}"
+
+
+# ---------------------------------------------------------------------------
+# Research-validity rules (RV review)
+# ---------------------------------------------------------------------------
+
+
+def test_cohort_report_does_not_attribute_the_pooled_slope(bundle: dict) -> None:
+    """RV-1: the naive pooled OLS is described as descriptive only, never as 'settling'."""
+    text = cohort_report(bundle)
+    assert "settling" not in text and "(rising" not in text
+    assert "ignores clustering by participant" in text and "mixed model" in text
+    lc = learning_curve(summaries_frame(bundle), "criticalMeanHrDelta").set_index("participant")
+    assert bool(lc.loc["P-A", "p_lt_05"]) is True and math.isnan(lc.loc["P-A", "t"])  # exact fit
+    assert bool(lc.loc["P-B", "p_lt_05"]) is False and math.isnan(lc.loc["P-B", "t"])  # n = 2: nothing to test
+
+
+def test_workload_metric_is_always_raw(bundle: dict) -> None:
+    """RV-18: weighted and raw TLX scores are never mixed in one series."""
+    bundle["sessions"][0]["postOp"]["workload"]["weights"] = {
+        "mental": 5, "physical": 0, "temporal": 3, "complexity": 4, "stress": 2, "distraction": 1,
+    }  # fmt: skip
+    df = summaries_frame(bundle)
+    assert not math.isnan(df["workload_weighted"].iloc[0])
+    assert metric_values(df, "workload")[0] == df["workload_raw"].iloc[0]
+
+
+def test_month_groups_use_local_time_when_known(bundle: dict) -> None:
+    """RV-7: 08:00 AEDT on 1 March (21:00 UTC on 28 Feb) belongs to March."""
+    s = synthetic_session("m0", "P-M", 0, 10)
+    s["startedAt"] = 1_772_312_400_000  # 2026-02-28T21:00Z
+    s["endedAt"] = s["startedAt"] + 600_000
+    local = dict(s, id="m1", tzOffsetMin=660)
+    df = summaries_frame({"sessions": [s, local]})
+    assert aggregate(df, "meanHr", "month")["group"].tolist() == ["2026-02", "2026-03"]
+    row = summary_row(summarize_session(local))
+    assert row["started_local"] == "2026-03-01T08:00:00.000+11:00" and row["tz_offset_min"] == 660
+
+
+def test_summary_csv_has_provenance_columns(bundle: dict) -> None:
+    """RV-4/RV-7/RV-13: research CSVs say where data came from and which definitions produced it."""
+    from surgeonpulse_analysis.summary import ANALYTICS_VERSION
+
+    bundle["sessions"][0]["tags"] = ["demo"]
+    bundle["sessions"][0]["sensor"] = {"source": "ble"}
+    bundle["sessions"][1]["sensor"] = {"source": "ble"}
+    bundle["sessions"][0]["postOp"].update({"sleepHours": 5, "caffeine": True, "outcome": "as-planned"})
+    df = summaries_frame(bundle)
+    a0 = df.iloc[0]
+    assert a0["simulated"] == 1 and df["simulated"].iloc[1] == 0
+    assert a0["sensor_source"] == "ble" and df["simulated"].iloc[2] == 1  # make_session's source is "simulated"
+    assert (a0["sleep_hours"], a0["caffeine"], a0["outcome"]) == (5, 1, "as-planned")
+    assert a0["baseline_source"] == "manual" and a0["baseline_duration_s"] == 300
+    assert a0["analytics_version"] == ANALYTICS_VERSION and a0["hrv_n"] == 600
+    assert math.isnan(df["tz_offset_min"].iloc[1]) and df["started_local"].iloc[1] is None

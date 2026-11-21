@@ -8,7 +8,10 @@
  *   at most one flush interval of data.
  * - Every write goes through a serial queue: exclusive transactions must not
  *   overlap (a concurrent write would fail with "database is locked").
- * - `getSession` reassembles and validates the session with core `parseSession`.
+ * - `getSession` reassembles and validates the session with core `parseSession`
+ *   (signal rows outside the schema's limits are skipped, never fatal).
+ * - `PRAGMA secure_delete` is on for every connection that writes, so deleted
+ *   sessions are overwritten instead of lingering in free pages.
  *
  * Never imported by the web bundle (see `index.web.ts`).
  */
@@ -23,6 +26,7 @@ import type {
 import { openDatabaseAsync } from 'expo-sqlite';
 import type { SQLiteBindValue, SQLiteDatabase } from 'expo-sqlite';
 import { createSerialQueue } from '../util/serialQueue';
+import { storableRr, storableSamples } from '../util/signals';
 import { applyMetaPatch, safeJsonParse, toMeta } from './meta';
 import type { SessionListItem, SessionMeta, SessionRepository } from './types';
 
@@ -92,7 +96,7 @@ interface RrRow {
 // ---------------------------------------------------------------------------
 
 async function migrate(db: SQLiteDatabase): Promise<void> {
-  await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;');
+  await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA secure_delete = ON;');
   await db.execAsync('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);');
   const row = await db.getFirstAsync<{ version: number }>('SELECT MAX(version) AS version FROM schema_version');
   const current = row?.version ?? 0;
@@ -206,7 +210,12 @@ export function createSqliteRepository(options: SqliteRepositoryOptions = {}): S
   function write(task: (txn: SQLiteDatabase) => Promise<void>): Promise<void> {
     return writes.run(async () => {
       const handle = await db();
-      await handle.withExclusiveTransactionAsync(task);
+      await handle.withExclusiveTransactionAsync(async (txn) => {
+        // expo-sqlite runs each exclusive transaction on a new connection, and secure_delete is a
+        // per-connection setting: set it here so deleted health data is overwritten, not left in free pages.
+        await txn.execAsync('PRAGMA secure_delete = ON;');
+        await task(txn);
+      });
     });
   }
 
@@ -256,7 +265,9 @@ export function createSqliteRepository(options: SqliteRepositoryOptions = {}): S
         r.contact === null ? { t: r.t, bpm: r.bpm } : { t: r.t, bpm: r.bpm, contact: r.contact === 1 },
       );
       const rr: RRInterval[] = rrRowsRead.map((r) => ({ t: r.t, ms: r.ms }));
-      return parseSession({ ...meta, samples, rr });
+      // Rows the schema rejects (written by an older version that stored out-of-range sensor values)
+      // are left out rather than making the whole session unreadable.
+      return parseSession({ ...meta, samples: storableSamples(samples), rr: storableRr(rr) });
     },
 
     createSession(session: SurgicalSession): Promise<void> {
@@ -382,6 +393,12 @@ export function createSqliteRepository(options: SqliteRepositoryOptions = {}): S
           'INSERT INTO profile (id, json) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json',
           JSON.stringify(profile),
         );
+      });
+    },
+
+    deleteProfile(): Promise<void> {
+      return write(async (txn) => {
+        await txn.execAsync('DELETE FROM profile;');
       });
     },
   };

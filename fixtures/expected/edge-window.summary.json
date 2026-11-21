@@ -31,7 +31,7 @@
     "removed": 0,
     "ratio": 0
   },
-  "stressIndex": 177.77667377281566,
+  "stressIndex": 162.32443349605322,
   "baseline": null,
   "meanHrDelta": null,
   "peakHrDelta": null,
@@ -173,5 +173,13 @@
     "longestGapSec": 11,
     "rrArtifactRatio": 0,
     "sampleRateHz": 0.9865343727852587
-  }
+  },
+  "peakHr": 132,
+  "sensorSource": "web-bluetooth",
+  "simulated": false,
+  "sleepHours": null,
+  "caffeine": null,
+  "outcome": null,
+  "maxGapMs": 5000,
+  "analyticsVersion": "2"
 }

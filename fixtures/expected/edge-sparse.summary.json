@@ -39,5 +39,13 @@
     "longestGapSec": 0,
     "rrArtifactRatio": 0,
     "sampleRateHz": 0
-  }
+  },
+  "peakHr": 77,
+  "sensorSource": "ble",
+  "simulated": false,
+  "sleepHours": null,
+  "caffeine": null,
+  "outcome": null,
+  "maxGapMs": 5000,
+  "analyticsVersion": "2"
 }

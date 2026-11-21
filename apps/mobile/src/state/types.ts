@@ -51,6 +51,10 @@ export interface RecordingState {
   logger: Extract<EventLogger, 'self' | 'team'>;
   /** True when no data has arrived for > 15 s while recording (live sources only). */
   signalLost: boolean;
+  /** When data first arrived from the current sensor connection (epoch ms), or null before any. */
+  streamSince: number | null;
+  /** When beat-to-beat (RR) intervals last arrived (epoch ms), or null if none yet on this connection. */
+  rrSeenAt: number | null;
   /** True for health-store sources: no live HR, data imported after the case. */
   timedOnly: boolean;
   error: string | null;
@@ -102,6 +106,11 @@ export interface Settings {
   preferredDeviceName: string | null;
   /** Theme override for the live "OR mode" screen. */
   orModeDark: boolean; // default true
+  /**
+   * Show the heart rate (digits, zone, sparkline) on the live screen, which the theatre team can see.
+   * When false the HR is still recorded; the live screen shows the clock, sensor status and event buttons only.
+   */
+  showLiveHr: boolean; // default true
   researchServerUrl: string;
   /** Enrolment token issued by the research team (stored locally; never logged). */
   researchToken: string;

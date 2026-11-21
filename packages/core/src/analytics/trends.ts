@@ -3,10 +3,11 @@
  *
  * Determinism and portability: sessions are ordered with an engine-independent stable sort, group names are
  * compared by UTF-16 code units (never `localeCompare`/`Intl`, whose results differ between Hermes, browsers and
- * Node), and month keys use UTC getters only.
+ * Node), and month keys use UTC getters only (on a timestamp shifted by the session's `tzOffsetMin`).
  */
 import type { EpochMs, Insight, PhaseKind, SessionSummary, SurgicalSession } from '../types';
 import { linearTrend, mean, median, pearsonCorrelation, sampleSd, stableSortBy } from './stats';
+import type { LinearTrend } from './stats';
 
 /** Per-session metrics available for trends and group comparisons. */
 export type MetricKey =
@@ -77,6 +78,79 @@ export interface InsightContext {
   sessions?: readonly SurgicalSession[];
 }
 
+// ---------------------------------------------------------------------------
+// Statistical evidence (used by the insight rules and by trend charts)
+// ---------------------------------------------------------------------------
+
+/** Two-sided 5 % critical values of Student's t for df = 1…30 (index = df). */
+const T_CRIT_95: readonly number[] = [
+  Number.NaN, 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228, 2.201, 2.179, 2.16, 2.145,
+  2.131, 2.12, 2.11, 2.101, 2.093, 2.086, 2.08, 2.074, 2.069, 2.064, 2.06, 2.056, 2.052, 2.048, 2.045, 2.042,
+];
+
+/**
+ * Two-sided 5 % critical value of Student's t with `df` degrees of freedom (`df` is floored; above 30 the value of
+ * the next lower tabulated df among 30, 40, 60 and 120 is used, which is conservative; 1.96 from df ≥ 1000).
+ * `null` when df < 1 or not finite. A table, not an approximation, so every JavaScript engine gives the same answer.
+ */
+export function tCritical95(df: number): number | null {
+  if (!Number.isFinite(df) || df < 1) return null;
+  const d = Math.floor(df);
+  if (d <= 30) return T_CRIT_95[d]!;
+  if (d < 40) return 2.042;
+  if (d < 60) return 2.021;
+  if (d < 120) return 2.0;
+  if (d < 1000) return 1.98;
+  return 1.96;
+}
+
+/** {@link linearTrend} plus a t-test of the slope, see {@link trendEvidence}. */
+export interface TrendEvidence extends LinearTrend {
+  /** t statistic of the slope (df = n − 2); `null` for n < 3 or an exact (residual-free) non-flat fit. */
+  t: number | null;
+  /** True when the slope differs from 0 at the two-sided 5 % level (|t| ≥ {@link tCritical95}(n − 2)). */
+  significant: boolean;
+}
+
+/**
+ * OLS trend with the usual t-test of `slope = 0`: `t = sign(slope)·√(r²·(n − 2)/(1 − r²))`, df = n − 2. With fewer
+ * than 3 points nothing can be tested (`t: null, significant: false`). An exact, non-flat fit (r² = 1) is
+ * `significant` with `t: null` (t is unbounded). This is evidence that the points are not flat, not that one thing
+ * caused another, and it assumes independent sessions.
+ */
+export function trendEvidence(points: readonly { x: number; y: number }[]): TrendEvidence | null {
+  const fit = linearTrend(points);
+  if (fit === null) return null;
+  if (fit.n < 3 || fit.slope === 0) return { ...fit, t: fit.n < 3 ? null : 0, significant: false };
+  if (fit.r2 >= 1) return { ...fit, t: null, significant: true };
+  const t = Math.sign(fit.slope) * Math.sqrt((fit.r2 * (fit.n - 2)) / (1 - fit.r2));
+  const crit = tCritical95(fit.n - 2);
+  return { ...fit, t: Number.isFinite(t) ? t : null, significant: crit !== null && Math.abs(t) >= crit };
+}
+
+/** True when a Pearson r from `n` pairs differs from 0 at the two-sided 5 % level (t = r·√(n − 2)/√(1 − r²)). */
+function correlationSignificant(r: number, n: number): boolean {
+  if (!Number.isFinite(r) || n < 3) return false;
+  if (Math.abs(r) >= 1) return true;
+  const crit = tCritical95(n - 2);
+  return crit !== null && Math.abs(r) * Math.sqrt((n - 2) / (1 - r * r)) >= crit;
+}
+
+/** Welch's two-sample t-test of equal means at the two-sided 5 % level (each group needs ≥ 2 values). */
+function welchSignificant(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length < 2 || b.length < 2) return false;
+  const ma = mean(a)!;
+  const mb = mean(b)!;
+  const va = sampleSd(a)! ** 2 / a.length;
+  const vb = sampleSd(b)! ** 2 / b.length;
+  const se2 = va + vb;
+  if (!(se2 > 0)) return ma !== mb;
+  const t = (ma - mb) / Math.sqrt(se2);
+  const df = (se2 * se2) / ((va * va) / (a.length - 1) + (vb * vb) / (b.length - 1));
+  const crit = tCritical95(df);
+  return crit !== null && Number.isFinite(t) && Math.abs(t) >= crit;
+}
+
 /** Metric metadata for labels, units, colouring and formatting. */
 export const METRICS: Readonly<Record<MetricKey, Readonly<MetricInfo>>> = Object.freeze({
   meanHr: { label: 'Mean heart rate', unit: 'bpm', higherIsBetter: null, decimals: 0 },
@@ -84,12 +158,13 @@ export const METRICS: Readonly<Record<MetricKey, Readonly<MetricInfo>>> = Object
   meanHrDelta: { label: 'Mean HR above baseline', unit: 'bpm', higherIsBetter: false, decimals: 1 },
   peakHrDelta: { label: 'Peak HR above baseline', unit: 'bpm', higherIsBetter: false, decimals: 0 },
   rmssd: { label: 'RMSSD', unit: 'ms', higherIsBetter: true, decimals: 1 },
-  sdnn: { label: 'SDNN', unit: 'ms', higherIsBetter: true, decimals: 1 },
-  stressIndex: { label: 'Stress index (Baevsky)', unit: '', higherIsBetter: false, decimals: 0 },
+  // Whole-case SDNN grows with recording length (Task Force 1996: do not compare SDNN across durations).
+  sdnn: { label: 'SDNN (depends on case length)', unit: 'ms', higherIsBetter: null, decimals: 1 },
+  stressIndex: { label: 'Stress index (Baevsky, 5-min median)', unit: '', higherIsBetter: false, decimals: 0 },
   highIntensityPct: { label: 'Time ≥ 70 % of max HR', unit: '%', higherIsBetter: false, decimals: 0 },
   episodeCount: { label: 'Stress episodes', unit: '', higherIsBetter: false, decimals: 0 },
   episodeMinutes: { label: 'Time in stress episodes', unit: 'min', higherIsBetter: false, decimals: 1 },
-  workload: { label: 'Workload (TLX)', unit: '/100', higherIsBetter: false, decimals: 0 },
+  workload: { label: 'Workload (raw TLX)', unit: '/100', higherIsBetter: false, decimals: 0 },
   performance: { label: 'Self-rated performance', unit: '/10', higherIsBetter: true, decimals: 1 },
   perceivedStress: { label: 'Perceived stress', unit: '/10', higherIsBetter: false, decimals: 1 },
   durationMin: { label: 'Duration', unit: 'min', higherIsBetter: null, decimals: 0 },
@@ -127,7 +202,8 @@ function criticalWeighted(
 /**
  * Value of one metric for one session, or `null` when unavailable.
  *
- * `highIntensityPct = highIntensityFraction × 100`; `workload` is the weighted TLX score, else the raw score;
+ * `highIntensityPct = highIntensityFraction × 100`; `peakHr` is the robust `summary.peakHr` (raw `hr.max` for
+ * summaries without it); `workload` is the raw TLX score (never the weighted one, see SPEC);
  * `criticalMeanHr` is the duration-weighted mean of `hr.mean` over the `critical` phases (and
  * `criticalMeanHrDelta` the same for the phases' `meanHrDelta`); `episodeMinutes = Σ durationSec / 60`;
  * `coveragePct = quality.coverage × 100`.
@@ -137,7 +213,8 @@ export function metricValue(s: SessionSummary, key: MetricKey): number | null {
     case 'meanHr':
       return finiteOrNull(s.hr?.mean);
     case 'peakHr':
-      return finiteOrNull(s.hr?.max);
+      // Robust peak when the summary has one (older stored summaries only have the raw maximum).
+      return finiteOrNull(s.peakHr !== undefined ? s.peakHr : s.hr?.max);
     case 'meanHrDelta':
       return finiteOrNull(s.meanHrDelta);
     case 'peakHrDelta':
@@ -158,7 +235,9 @@ export function metricValue(s: SessionSummary, key: MetricKey): number | null {
       return finiteOrNull(sec / 60);
     }
     case 'workload':
-      return s.workload === null ? null : finiteOrNull(s.workload.weighted ?? s.workload.raw);
+      // Always the raw (unweighted) score: weighting is optional per debrief, and mixing weighted and raw scores
+      // in one series would change the values with the scoring method rather than the workload.
+      return s.workload === null ? null : finiteOrNull(s.workload.raw);
     case 'performance':
       return finiteOrNull(s.performance);
     case 'perceivedStress':
@@ -177,6 +256,16 @@ export function metricValue(s: SessionSummary, key: MetricKey): number | null {
 const UNSPECIFIED = 'Unspecified';
 /** Group name used by `groupBy: 'none'`. */
 const ALL_GROUP = 'All';
+
+/**
+ * `YYYY-MM` of a session's start in the participant's local time when `tzOffsetMin` is known (minutes east of UTC),
+ * else in UTC. Only UTC getters are used, on a shifted timestamp, so the result does not depend on the device's
+ * time zone.
+ */
+function sessionMonth(t: EpochMs, tzOffsetMin: number | undefined): string | null {
+  const offset = typeof tzOffsetMin === 'number' && Number.isFinite(tzOffsetMin) ? tzOffsetMin * 60000 : 0;
+  return utcMonth(t + offset);
+}
 
 function utcMonth(t: EpochMs): string | null {
   if (!Number.isFinite(t)) return null;
@@ -213,7 +302,7 @@ function groupOf(s: SessionSummary, groupBy: GroupKey): string {
       v = s.urgency;
       break;
     case 'month':
-      v = utcMonth(s.startedAt);
+      v = sessionMonth(s.startedAt, s.tzOffsetMin);
       break;
     case 'none':
       v = ALL_GROUP;
@@ -237,7 +326,8 @@ function monthOrdinal(group: string): number {
  * Descriptive statistics of a metric per group.
  *
  * Sessions with a `null` value are skipped and groups without any value are dropped. A missing (or blank)
- * group field becomes `'Unspecified'`; `month` is the UTC `YYYY-MM` of `startedAt`; `none` puts every session in
+ * group field becomes `'Unspecified'`; `month` is the `YYYY-MM` of `startedAt` in local time when the summary has
+ * `tzOffsetMin` (UTC otherwise), so a Melbourne case at 08:00 on the 1st is in that month; `none` puts every session in
  * one group named `'All'`. `sd` is the sample SD (0 for n = 1). Rows are sorted by group name (UTF-16 code
  * unit order, independent of locale), except `month`, which is chronological.
  */
@@ -335,16 +425,49 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+/** Minimum number of sessions before a trend or recent-vs-earlier insight is evaluated. */
+const MIN_TREND_SESSIONS = 8;
+/** Minimum number of paired sessions before the workload–HR correlation is evaluated. */
+const MIN_CORRELATION_SESSIONS = 10;
+
+/**
+ * The phase with the highest mean HR in one session. Repeated segments of a phase are first combined into one
+ * duration-weighted mean (as in the summaries CSV), so a short segment does not count as much as a long one; ties go
+ * to the phase that comes first in the operative order (`PHASE_ORDER`).
+ */
+function sessionPeakPhase(s: SessionSummary): PhaseKind | null {
+  const acc = new Map<PhaseKind, { w: number; wx: number; sum: number; n: number }>();
+  for (const p of s.phases) {
+    if (p.hr === null || !Number.isFinite(p.hr.mean)) continue;
+    const a = acc.get(p.phase) ?? { w: 0, wx: 0, sum: 0, n: 0 };
+    a.n++;
+    a.sum += p.hr.mean;
+    if (Number.isFinite(p.durationSec) && p.durationSec > 0) {
+      a.w += p.durationSec;
+      a.wx += p.durationSec * p.hr.mean;
+    }
+    acc.set(p.phase, a);
+  }
+  let best: { phase: PhaseKind; mean: number } | null = null;
+  for (const [phase, a] of acc) {
+    const m = a.n === 1 ? a.sum : a.w > 0 ? a.wx / a.w : a.sum / a.n;
+    if (
+      best === null ||
+      m > best.mean ||
+      (m === best.mean && PHASE_RANK[phase] < PHASE_RANK[best.phase])
+    ) {
+      best = { phase, mean: m };
+    }
+  }
+  return best === null ? null : best.phase;
+}
+
 /** Rule 1: the phase that most often has the highest mean HR. */
 function peakPhaseInsight(sorted: readonly SessionSummary[]): Insight | null {
   const peaks: { id: string; phase: PhaseKind }[] = [];
   for (const s of sorted) {
-    let best: { phase: PhaseKind; mean: number } | null = null;
-    for (const p of s.phases) {
-      if (p.hr === null || !Number.isFinite(p.hr.mean)) continue;
-      if (best === null || p.hr.mean > best.mean) best = { phase: p.phase, mean: p.hr.mean };
-    }
-    if (best !== null) peaks.push({ id: s.sessionId, phase: best.phase });
+    const phase = sessionPeakPhase(s);
+    if (phase !== null) peaks.push({ id: s.sessionId, phase });
   }
   const total = peaks.length;
   if (total < 3) return null;
@@ -373,7 +496,11 @@ function peakPhaseInsight(sorted: readonly SessionSummary[]): Insight | null {
   };
 }
 
-/** Rule 2: linear trend of HR reactivity (meanHrDelta, else meanHr) against session order. */
+/**
+ * Rule 2: linear trend of HR reactivity (meanHrDelta, else meanHr) against session order. Fires only with
+ * ≥ {@link MIN_TREND_SESSIONS} sessions, a slope of at least 0.5 bpm/session and a slope that is statistically
+ * distinguishable from flat (t-test, two-sided p < 0.05). The wording is descriptive: the data cannot say *why*.
+ */
 function trendInsight(sorted: readonly SessionSummary[]): Insight | null {
   for (const key of ['meanHrDelta', 'meanHr'] as const) {
     const points: { x: number; y: number }[] = [];
@@ -385,77 +512,74 @@ function trendInsight(sorted: readonly SessionSummary[]): Insight | null {
         ids.push(s.sessionId);
       }
     });
-    if (points.length < 5) continue;
-    const fit = linearTrend(points);
+    if (points.length < MIN_TREND_SESSIONS) continue;
+    const fit = trendEvidence(points);
     if (fit === null) return null;
+    if (!fit.significant || Math.abs(fit.slope) < 0.5) return null;
     const what = key === 'meanHrDelta' ? 'heart-rate rise above your baseline' : 'average heart rate';
     const rate = `${signed(fit.slope, 1)} bpm per session`;
-    if (fit.slope <= -0.5) {
+    const caveat =
+      `This is a statistical pattern across ${points.length} sessions (unlikely to be chance alone, p < 0.05), ` +
+      `not an explanation: case mix, workload, baseline conditions, sleep and caffeine can all play a part.`;
+    if (fit.slope < 0) {
       return {
         id: 'hr-trend',
         kind: 'positive',
-        title: 'Your heart-rate response is settling with experience',
-        detail:
-          `Across ${points.length} sessions, your ${what} has changed by about ${rate}. ` +
-          `A gradual settling like this is common as procedures become more familiar.`,
+        title: 'Your heart-rate response has been lower in recent sessions',
+        detail: `Across ${points.length} sessions, your ${what} has changed by about ${rate}. ${caveat}`,
         evidence: ids,
       };
     }
-    if (fit.slope >= 0.5) {
-      return {
-        id: 'hr-trend',
-        kind: 'attention',
-        title: 'Your heart-rate response has been rising',
-        detail:
-          `Across ${points.length} sessions, your ${what} has changed by about ${rate}. ` +
-          `Case mix, workload, sleep and caffeine can all play a part; it may be worth reflecting on what has ` +
-          `changed recently.`,
-        evidence: ids,
-      };
-    }
-    return null;
+    return {
+      id: 'hr-trend',
+      kind: 'attention',
+      title: 'Your heart-rate response has been higher in recent sessions',
+      detail:
+        `Across ${points.length} sessions, your ${what} has changed by about ${rate}. ${caveat} ` +
+        `It may be worth reflecting on what has changed recently.`,
+      evidence: ids,
+    };
   }
   return null;
 }
 
-/** Rule 3: RMSSD of the last 3 sessions vs the earlier ones. */
+/**
+ * Rule 3: intra-operative RMSSD of the last 3 sessions vs the earlier ones. Needs ≥ {@link MIN_TREND_SESSIONS}
+ * sessions with RMSSD, a change of at least 15 % and a Welch t-test with two-sided p < 0.05. Intra-operative HRV
+ * mostly reflects heart rate and arousal during the case, so the message is descriptive (no recovery advice).
+ */
 function hrvInsight(sorted: readonly SessionSummary[]): Insight | null {
   const withHrv = sorted.filter((s) => metricValue(s, 'rmssd') !== null);
-  if (withHrv.length < 5) return null;
+  if (withHrv.length < MIN_TREND_SESSIONS) return null;
   const values = withHrv.map((s) => metricValue(s, 'rmssd')!);
-  const recent = mean(values.slice(-3))!;
-  const earlier = mean(values.slice(0, -3))!;
+  const recentValues = values.slice(-3);
+  const earlierValues = values.slice(0, -3);
+  const recent = mean(recentValues)!;
+  const earlier = mean(earlierValues)!;
   if (!(earlier > 0)) return null;
   const change = (recent - earlier) / earlier;
+  if (Math.abs(change) < 0.15 || !welchSignificant(recentValues, earlierValues)) return null;
   const pct = fmt(Math.abs(change) * 100, 0);
   const evidence = withHrv.map((s) => s.sessionId);
-  if (change <= -0.15) {
-    return {
-      id: 'hrv-trend',
-      kind: 'attention',
-      title: 'Heart-rate variability is lower in your recent sessions',
-      detail:
-        `Your average RMSSD over the last 3 sessions (${fmt(recent, 0)} ms) is about ${pct} % lower than in your ` +
-        `earlier sessions (${fmt(earlier, 0)} ms). Lower HRV can reflect fatigue or accumulated strain; ` +
-        `prioritising rest and recovery between demanding lists may help.`,
-      evidence,
-    };
-  }
-  if (change >= 0.15) {
-    return {
-      id: 'hrv-trend',
-      kind: 'positive',
-      title: 'Heart-rate variability is higher in your recent sessions',
-      detail:
-        `Your average RMSSD over the last 3 sessions (${fmt(recent, 0)} ms) is about ${pct} % higher than in ` +
-        `your earlier sessions (${fmt(earlier, 0)} ms). Higher HRV is generally associated with good recovery.`,
-      evidence,
-    };
-  }
-  return null;
+  const lower = change < 0;
+  return {
+    id: 'hrv-trend',
+    kind: 'info',
+    title: `Heart-rate variability during surgery was ${lower ? 'lower' : 'higher'} in your recent sessions`,
+    detail:
+      `Your average RMSSD over the last 3 sessions (${fmt(recent, 0)} ms) is about ${pct} % ${lower ? 'lower' : 'higher'} ` +
+      `than in your ${earlierValues.length} earlier sessions (${fmt(earlier, 0)} ms; unlikely to be chance alone, ` +
+      `p < 0.05). HRV measured during a case mostly reflects heart rate and arousal at the time (case mix, ` +
+      `physical effort, posture), so on its own it is not a measure of fatigue or recovery.`,
+    evidence,
+  };
 }
 
-/** Rule 4: Pearson correlation between self-rated workload and HR rise above baseline. */
+/**
+ * Rule 4: Pearson correlation between self-rated workload (raw TLX) and HR rise above baseline. Needs
+ * ≥ {@link MIN_CORRELATION_SESSIONS} paired sessions, |r| ≥ 0.5 and a correlation that differs from 0 at the
+ * two-sided 5 % level.
+ */
 function workloadInsight(sorted: readonly SessionSummary[]): Insight | null {
   const points: { x: number; y: number }[] = [];
   const ids: string[] = [];
@@ -467,9 +591,9 @@ function workloadInsight(sorted: readonly SessionSummary[]): Insight | null {
       ids.push(s.sessionId);
     }
   }
-  if (points.length < 5) return null;
+  if (points.length < MIN_CORRELATION_SESSIONS) return null;
   const r = pearsonCorrelation(points);
-  if (r === null || Math.abs(r) < 0.5) return null;
+  if (r === null || Math.abs(r) < 0.5 || !correlationSignificant(r, points.length)) return null;
   const direction = r > 0 ? 'a larger' : 'a smaller';
   return {
     id: 'workload-hr',
@@ -480,26 +604,33 @@ function workloadInsight(sorted: readonly SessionSummary[]): Insight | null {
         : 'Your workload ratings and heart-rate response move in opposite directions',
     detail:
       `Across ${points.length} sessions, cases you rated as more demanding tended to show ${direction} rise in ` +
-      `heart rate above baseline (Pearson r = ${fmt(r, 2)}). Comparing how a case felt with how your body ` +
-      `responded can be a useful prompt for reflection.`,
+      `heart rate above baseline (Pearson r = ${fmt(r, 2)}, n = ${points.length}, p < 0.05). A correlation does not ` +
+      `show that one causes the other, but comparing how a case felt with how your body responded can be a useful ` +
+      `prompt for reflection.`,
     evidence: ids,
   };
 }
 
-/** Rule 5: signal coverage of the latest session. */
+/** Rule 5: signal coverage of the latest session, with advice that matches the sensor used. */
 function qualityInsight(sorted: readonly SessionSummary[]): Insight | null {
   const latest = sorted[sorted.length - 1];
   if (latest === undefined) return null;
   const coverage = latest.quality.coverage;
   if (!Number.isFinite(coverage) || !(coverage < 0.8)) return null;
+  const source = latest.sensorSource;
+  if (source === 'simulated') return null;
+  const tip =
+    source === 'healthkit' || source === 'health-connect'
+      ? `Watches often record heart rate only every few minutes unless a workout is running. For a denser ` +
+        `signal, start a workout on the watch for the case (or use a chest strap), wear the watch snugly above the ` +
+        `wrist bone, and let it sync before importing.`
+      : `For a steadier signal, moisten the strap electrodes before scrubbing, wear the strap snugly just below the ` +
+        `chest muscles, and keep the phone or receiver within range.`;
   return {
     id: 'data-quality',
     kind: 'attention',
     title: 'Heart-rate signal was patchy in your latest session',
-    detail:
-      `Heart-rate data covered about ${fmt(coverage * 100, 0)} % of your latest session. For a steadier ` +
-      `signal, moisten the strap electrodes before scrubbing, wear the strap snugly just below the chest ` +
-      `muscles, and keep the phone or receiver within range.`,
+    detail: `Heart-rate data covered about ${fmt(coverage * 100, 0)} % of your latest session. ${tip}`,
     evidence: [latest.sessionId],
   };
 }
@@ -549,14 +680,19 @@ function episodeMarkerInsight(
 
 /**
  * Deterministic, evidence-based feedback in plain, non-judgemental language (SPEC.md rules 1–6, in that order).
- * Sessions are first put in chronological order (stable for equal start times).
+ * Sessions are first put in chronological order (stable for equal start times). Rules that look for change over
+ * time or association need enough sessions and a two-sided p < 0.05 test, so that ordinary session-to-session
+ * variation does not produce feedback; their wording describes the pattern without attributing a cause.
  *
- * 1. `peak-phase` (info): one phase has the highest mean HR in ≥ 50 % of the ≥ 3 sessions with phase data.
- * 2. `hr-trend`: with ≥ 5 sessions, OLS slope of meanHrDelta (else meanHr) vs session order;
- *    ≤ −0.5 bpm/session → positive, ≥ +0.5 → attention.
- * 3. `hrv-trend`: with ≥ 5 sessions with RMSSD, last-3 mean vs earlier mean; −15 % → attention, +15 % → positive.
- * 4. `workload-hr` (info): with ≥ 5 sessions with workload and meanHrDelta, |Pearson r| ≥ 0.5.
- * 5. `data-quality` (attention): latest session coverage < 0.8.
+ * 1. `peak-phase` (info): one phase has the highest mean HR in ≥ 50 % of the ≥ 3 sessions with phase data
+ *    (segments of a phase combined duration-weighted; ties → earlier phase in `PHASE_ORDER`).
+ * 2. `hr-trend`: with ≥ 8 sessions, OLS slope of meanHrDelta (else meanHr) vs session order; fires when
+ *    |slope| ≥ 0.5 bpm/session and the slope t-test has p < 0.05 (falling → positive, rising → attention).
+ * 3. `hrv-trend` (info): with ≥ 8 sessions with RMSSD, last-3 mean vs earlier mean; |change| ≥ 15 % and Welch
+ *    t-test p < 0.05.
+ * 4. `workload-hr` (info): with ≥ 10 sessions with workload and meanHrDelta, |Pearson r| ≥ 0.5 and p < 0.05.
+ * 5. `data-quality` (attention): latest session coverage < 0.8 (not for simulated sessions); the tip depends on
+ *    `sensorSource` (watch vs strap).
  * 6. `episodes-after-markers` (info): ≥ 50 % of ≥ 3 episodes have a related complication/interruption event.
  *    Summaries only store event ids, so this rule needs `context.sessions` and is skipped without it.
  *

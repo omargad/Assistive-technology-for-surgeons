@@ -1,0 +1,169 @@
+{
+  "sessionId": "edge-watch-0001",
+  "participantCode": "EDGE-05",
+  "procedureName": "Total knee replacement",
+  "approach": "open",
+  "role": "primary",
+  "trainingLevel": "registrar",
+  "startedAt": 1772312580000,
+  "endedAt": 1772318280000,
+  "durationSec": 5700,
+  "hr": {
+    "count": 90,
+    "mean": 84.23333333333333,
+    "median": 73,
+    "min": 71,
+    "max": 107,
+    "sd": 16.217655797018317,
+    "p95": 107
+  },
+  "hrv": null,
+  "rrArtifacts": null,
+  "stressIndex": null,
+  "baseline": {
+    "startedAt": 1772312340000,
+    "endedAt": 1772312520000,
+    "restingHr": 69.5,
+    "source": "measured"
+  },
+  "meanHrDelta": 14.733333333333334,
+  "peakHrDelta": 37.5,
+  "maxHr": null,
+  "zones": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 3562,
+      "fraction": 0.6341463414634146
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 0,
+      "fraction": 0
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 2055,
+      "fraction": 0.36585365853658536
+    }
+  ],
+  "highIntensityFraction": null,
+  "phases": [
+    {
+      "phase": "incision",
+      "index": 0,
+      "start": 1772312580000,
+      "end": 1772313660000,
+      "durationSec": 1080,
+      "hr": {
+        "count": 17,
+        "mean": 71.94117647058823,
+        "median": 72,
+        "min": 71,
+        "max": 73,
+        "sd": 0.8269362305593853,
+        "p95": 73
+      },
+      "hrv": null,
+      "meanHrDelta": 2.441176470588232
+    },
+    {
+      "phase": "dissection",
+      "index": 1,
+      "start": 1772313660000,
+      "end": 1772316780000,
+      "durationSec": 3120,
+      "hr": {
+        "count": 49,
+        "mean": 94.44897959183673,
+        "median": 104,
+        "min": 71,
+        "max": 107,
+        "sd": 15.913910613686637,
+        "p95": 107
+      },
+      "hrv": null,
+      "meanHrDelta": 24.948979591836732
+    },
+    {
+      "phase": "closure",
+      "index": 2,
+      "start": 1772316780000,
+      "end": 1772318280000,
+      "durationSec": 1500,
+      "hr": {
+        "count": 23,
+        "mean": 72.04347826086956,
+        "median": 72,
+        "min": 71,
+        "max": 73,
+        "sd": 0.8245252556672847,
+        "p95": 73
+      },
+      "hrv": null,
+      "meanHrDelta": 2.5434782608695627
+    }
+  ],
+  "episodes": [
+    {
+      "start": 1772313778000,
+      "end": 1772313842000,
+      "durationSec": 64,
+      "peakBpm": 105,
+      "peakT": 1772313842000,
+      "meanBpm": 104.5,
+      "phase": "dissection",
+      "relatedEventIds": ["hw-2"]
+    },
+    {
+      "start": 1772313959000,
+      "end": 1772314864000,
+      "durationSec": 905,
+      "peakBpm": 107,
+      "peakT": 1772313959000,
+      "meanBpm": 105.5,
+      "phase": "dissection",
+      "relatedEventIds": ["hw-3"]
+    },
+    {
+      "start": 1772314981000,
+      "end": 1772315822000,
+      "durationSec": 841,
+      "peakBpm": 107,
+      "peakT": 1772315162000,
+      "meanBpm": 105.4,
+      "phase": "dissection",
+      "relatedEventIds": []
+    }
+  ],
+  "markerCounts": {
+    "complication": 1
+  },
+  "workload": null,
+  "performance": 6,
+  "perceivedStress": null,
+  "quality": {
+    "coverage": 0.9740350877192983,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": null,
+    "sampleRateHz": 0.01585014409221902
+  },
+  "peakHr": 107,
+  "sensorSource": "health-connect",
+  "simulated": true,
+  "tzOffsetMin": 660,
+  "sleepHours": 6.5,
+  "caffeine": false,
+  "outcome": "minor-deviation",
+  "maxGapMs": 96000,
+  "analyticsVersion": "2"
+}

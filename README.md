@@ -157,10 +157,12 @@ Details are in the [development guide](docs/development.md#tests-type-checks-and
 | --- | --- | --- |
 | Core | `npm run typecheck -w @surgeonpulse/core`<br>`npm test -w @surgeonpulse/core` | Every core module (Vitest), schema ⇄ type agreement, "no NaN" ground rules |
 | Fixtures | `npm run fixtures -w @surgeonpulse/core`, then fail if `fixtures/` changed | Parity fixtures match the current TypeScript output |
-| Server | `npm run typecheck -w @surgeonpulse/server`<br>`npm test -w @surgeonpulse/server` | Config, auth, upload, export, withdrawal, rate limiting, audit, security headers |
+| Server | `npm run typecheck -w @surgeonpulse/server`<br>`npm test -w @surgeonpulse/server`<br>`npm run build -w @surgeonpulse/server` | Config, auth, upload, export (incl. date shift), withdrawal, rate limiting, audit, security headers, summary recompute; the esbuild bundle |
+| Core & server on Windows and macOS | The core and server typecheck and test commands | The same suites on `windows-latest` and `macos-latest` |
 | Dashboard | `npm run typecheck -w @surgeonpulse/dashboard`<br>`npm test -w @surgeonpulse/dashboard`<br>`npm run build -w @surgeonpulse/dashboard` | State, filters, file reading, downloads, exports, server client, components |
 | Dashboard end-to-end | `npx playwright install --with-deps chromium` (in `apps/dashboard`)<br>`npm run e2e -w @surgeonpulse/dashboard -- --trace off` | Full research workflow in Chromium, layout, theme, server token handling |
-| Mobile | `npm run typecheck -w @surgeonpulse/mobile`<br>`npm test -w @surgeonpulse/mobile -- --ci`<br>`npx expo export --platform web --output-dir dist-web` (in `apps/mobile`) | Recording state machine, storage, sensors and health import with mocks, upload, export, charts and screens; the web bundle builds |
+| Mobile | `npm run typecheck -w @surgeonpulse/mobile`<br>`npm test -w @surgeonpulse/mobile -- --ci`<br>In `apps/mobile`: `npx jest --ci --preset jest-expo/android src/components __tests__/ui`<br>`npx expo export --platform ios --platform android --output-dir <dir>` | Recording state machine, storage, sensors and health import with mocks, upload, export, charts and screens (also under the Android preset); both native bundles build |
+| Mobile web end-to-end | In `apps/mobile`: `npx expo export --platform web --output-dir dist-web`<br>`node e2e/serve-spa.mjs dist-web 8090 &`<br>`node e2e/web-flow.mjs http://127.0.0.1:8090` | The exported web build in Chromium: onboarding, simulator recording, debrief, session detail, Insights, Settings, reload; fails on any console error |
 | Python | `python -m pip install -e "analysis[dev]"`<br>`python -m pytest -q analysis`<br>`surgeonpulse summarize fixtures/cohort-small.json -o analysis-out/summaries.csv` | Unit and TypeScript ↔ Python parity tests on Linux, Windows and macOS, Python 3.10 and 3.13; CLI smoke test |
 
 ## Project status and known limitations
@@ -170,17 +172,16 @@ SurgeonPulse is a **version 0.1.0 research prototype**. It has not yet been used
 - **No device testing yet.** The native Bluetooth, Apple Health and Health Connect code paths have been tested with
   mocks and compiled bundles, not on physical phones, straps or watches. Follow the
   [pilot checklist](docs/hardware.md#pilot-checklist-before-the-first-real-case) before the first real case.
-- **Native builds** need `expo-dev-client` added before the first development build (see the
-  [mobile README](apps/mobile/README.md#running-on-a-phone-development-build)).
+- **Android has no foreground service yet.** Recording pauses if the app leaves the foreground or the screen locks;
+  the app saves what it has and tells the team when it returns. Keep the live screen open on a stand.
 - **The server's Docker image has not been built in CI.** Build and test it before deploying.
 - **Web storage is limited** to about 4 MB of `localStorage`. When it fills, the signal data of the oldest finished
-  sessions is no longer persisted (metadata and summaries are kept). Export regularly when recording in a browser.
+  sessions is no longer persisted (metadata and summaries are kept) and History shows a "Browser storage is full"
+  banner. Export regularly when recording in a browser.
 - **Thresholds are project defaults**, not validated cut-offs: stress-episode thresholds, baseline-relative zones and
   the insight rules (see [metrics](docs/metrics.md)).
-- **Known gaps** affecting privacy and data handling, such as in-app withdrawal being local only and live simulator
-  sessions not being blocked from upload, are listed in
-  [privacy and ethics](docs/privacy-ethics.md#known-gaps-and-limitations).
-- The mobile app's Insights tab does not evaluate the "episodes after markers" insight (the dashboard does).
+- **Known gaps** affecting privacy and data handling, such as real dates in app exports, iOS backups and the web
+  build's token storage, are listed in [privacy and ethics](docs/privacy-ethics.md#known-gaps-and-limitations).
 - HRV values imported from Apple Health or Health Connect are stored but not used in the metrics.
 - The server is a single-instance reference implementation (in-memory rate limiting, one SQLite file).
 
@@ -191,9 +192,9 @@ SurgeonPulse is a **version 0.1.0 research prototype**. It has not yet been used
 - **No patient data.** Nothing about patients is recorded. Never enter patient names, record numbers or other
   identifiers in any free-text field.
 - **Pseudonymous participants.** Surgeons are identified only by study codes issued by the research team (for example
-  `SP-014`), never by name, e-mail or staff number. JSON exports, per-session CSVs and uploads are de-identified by
-  default (the app's summaries CSV is an exception; see [data model](docs/data-model.md#where-it-is-applied)), and the
-  server de-identifies every uploaded session again. Pseudonymised data can still be re-identified by the team that holds the
+  `SP-014`), never by name, e-mail or staff number. JSON exports, per-session CSVs, the summaries CSV and uploads are
+  de-identified by default (see [data model](docs/data-model.md#where-it-is-applied)), and the server de-identifies
+  every uploaded session again. Pseudonymised data can still be re-identified by the team that holds the
   code key, so handle it as identifiable health information.
 - **Approvals first.** Real data must not be collected until the study has approval from a Human Research Ethics
   Committee (HREC) under the *National Statement on Ethical Conduct in Human Research*, and research governance

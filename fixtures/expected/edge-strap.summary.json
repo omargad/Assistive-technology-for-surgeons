@@ -1,0 +1,202 @@
+{
+  "sessionId": "edge-strap-0001",
+  "participantCode": "EDGE-06",
+  "procedureName": "Laparoscopic cholecystectomy",
+  "trainingLevel": "resident",
+  "startedAt": 1783301400000,
+  "endedAt": 1783302720000,
+  "durationSec": 1320,
+  "hr": {
+    "count": 1201,
+    "mean": 81.90424646128227,
+    "median": 82,
+    "min": 72,
+    "max": 212,
+    "sd": 7.051358518224668,
+    "p95": 93
+  },
+  "hrv": {
+    "n": 1748,
+    "pairs": 1746,
+    "meanRr": 720.8554925629302,
+    "sdnn": 60.15317782614005,
+    "rmssd": 22.76314664922224,
+    "pnn50": 0.0572737686139748,
+    "meanHr": 83.2344354992371
+  },
+  "rrArtifacts": {
+    "total": 1842,
+    "removed": 94,
+    "ratio": 0.051031487513572206
+  },
+  "stressIndex": 539.2360302398669,
+  "baseline": {
+    "startedAt": 1783301220000,
+    "endedAt": 1783301400000,
+    "restingHr": 70,
+    "rmssd": 38,
+    "source": "measured"
+  },
+  "meanHrDelta": 11.90424646128227,
+  "peakHrDelta": 23,
+  "maxHr": 183,
+  "zones": [
+    {
+      "id": "rest",
+      "label": "At rest",
+      "seconds": 397,
+      "fraction": 0.32946058091286307
+    },
+    {
+      "id": "elevated",
+      "label": "Elevated",
+      "seconds": 634,
+      "fraction": 0.5261410788381743
+    },
+    {
+      "id": "high",
+      "label": "High",
+      "seconds": 173,
+      "fraction": 0.14356846473029045
+    },
+    {
+      "id": "very-high",
+      "label": "Very high",
+      "seconds": 1,
+      "fraction": 0.0008298755186721991
+    }
+  ],
+  "highIntensityFraction": 0.0008298755186721991,
+  "phases": [
+    {
+      "phase": "dissection",
+      "index": 0,
+      "start": 1783301400000,
+      "end": 1783302000000,
+      "durationSec": 600,
+      "hr": {
+        "count": 480,
+        "mean": 79.20833333333333,
+        "median": 80,
+        "min": 72,
+        "max": 212,
+        "sd": 7.316176869138338,
+        "p95": 84
+      },
+      "hrv": {
+        "n": 788,
+        "pairs": 787,
+        "meanRr": 759.5296484771582,
+        "sdnn": 21.539450624354828,
+        "rmssd": 23.464860485491016,
+        "pnn50": 0,
+        "meanHr": 78.99625790816567
+      },
+      "meanHrDelta": 9.208333333333329
+    },
+    {
+      "phase": "critical",
+      "index": 1,
+      "start": 1783302000000,
+      "end": 1783302040000,
+      "durationSec": 40,
+      "hr": {
+        "count": 40,
+        "mean": 83.45,
+        "median": 84,
+        "min": 82,
+        "max": 84,
+        "sd": 0.6774764637788969,
+        "p95": 84
+      },
+      "hrv": null,
+      "meanHrDelta": 13.450000000000003
+    },
+    {
+      "phase": "dissection",
+      "index": 2,
+      "start": 1783302040000,
+      "end": 1783302480000,
+      "durationSec": 440,
+      "hr": {
+        "count": 440,
+        "mean": 81.35454545454546,
+        "median": 81,
+        "min": 72,
+        "max": 93,
+        "sd": 6.367752418517281,
+        "p95": 93
+      },
+      "hrv": {
+        "n": 623,
+        "pairs": 622,
+        "meanRr": 705.9083932584273,
+        "sdnn": 63.6681667159918,
+        "rmssd": 22.97711358251077,
+        "pnn50": 0.1607717041800643,
+        "meanHr": 84.9968644274704
+      },
+      "meanHrDelta": 11.354545454545459
+    },
+    {
+      "phase": "closure",
+      "index": 3,
+      "start": 1783302480000,
+      "end": 1783302720000,
+      "durationSec": 240,
+      "hr": {
+        "count": 240,
+        "mean": 88.04583333333333,
+        "median": 88,
+        "min": 82,
+        "max": 93,
+        "sd": 3.793021467768298,
+        "p95": 93
+      },
+      "hrv": null,
+      "meanHrDelta": 18.045833333333334
+    }
+  ],
+  "episodes": [
+    {
+      "start": 1783302301000,
+      "end": 1783302370000,
+      "durationSec": 69,
+      "peakBpm": 93,
+      "peakT": 1783302301000,
+      "meanBpm": 92.12857142857143,
+      "phase": "dissection",
+      "relatedEventIds": []
+    },
+    {
+      "start": 1783302551000,
+      "end": 1783302653000,
+      "durationSec": 102,
+      "peakBpm": 93,
+      "peakT": 1783302584000,
+      "meanBpm": 91.81553398058253,
+      "phase": "closure",
+      "relatedEventIds": ["hs-4"]
+    }
+  ],
+  "markerCounts": {},
+  "workload": null,
+  "performance": null,
+  "perceivedStress": null,
+  "quality": {
+    "coverage": 0.9121212121212121,
+    "gapCount": 0,
+    "longestGapSec": 0,
+    "rrArtifactRatio": 0.051031487513572206,
+    "sampleRateHz": 0.9966777408637874
+  },
+  "peakHr": 93,
+  "sensorSource": "ble",
+  "simulated": false,
+  "tzOffsetMin": -240,
+  "sleepHours": null,
+  "caffeine": true,
+  "outcome": null,
+  "maxGapMs": 5000,
+  "analyticsVersion": "2"
+}

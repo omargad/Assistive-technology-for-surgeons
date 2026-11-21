@@ -27,9 +27,17 @@ __all__ = [
     "compute_hrv",
     "rolling_hrv",
     "baevsky_stress_index",
+    "windowed_stress_index",
     "valid_rr_ms",
+    "MAX_HRV_ARTIFACT_RATIO",
+    "STRESS_INDEX_WINDOW_MS",
     "MAX_ROLLING_HRV_WINDOWS",
 ]
+
+#: Largest RR artefact ratio at which summaries and baselines still report HRV (SPEC ``MAX_HRV_ARTIFACT_RATIO``).
+MAX_HRV_ARTIFACT_RATIO = 0.1
+#: Window length of :func:`windowed_stress_index` (5 min).
+STRESS_INDEX_WINDOW_MS = 300_000
 
 #: Upper limit on the number of windows :func:`rolling_hrv` produces (SPEC ``rollingHrv``).
 MAX_ROLLING_HRV_WINDOWS = 1_000_000
@@ -273,3 +281,38 @@ def baevsky_stress_index(intervals_ms: Sequence[float], bin_ms: float = 50) -> f
     if mxdmn == 0 or mo <= 0:
         return None
     return amo / (2 * mo * mxdmn)
+
+
+def windowed_stress_index(
+    rr: Sequence[RR], valid: Sequence[bool], window_ms: float = STRESS_INDEX_WINDOW_MS
+) -> float | None:
+    """Median Baevsky SI over consecutive 5-min windows (SPEC ``windowedStressIndex``).
+
+    Valid intervals with a finite ``t`` are assigned to window
+    ``k = floor((t − t0)/window_ms)`` (``t0`` = first such interval's ``t``); a
+    window is used when its intervals sum to ``>= 0.8·window_ms`` and
+    :func:`baevsky_stress_index` of them is not ``None``. ``None`` when no window qualifies.
+    """
+    if not (is_finite_number(window_ms) and window_ms > 0):
+        return None
+    t0 = None
+    windows: dict[int, list[float]] = {}
+    for r, v in zip(rr, valid):
+        if v is not True or not is_finite_number(r.get("t")) or not is_finite_number(r.get("ms")):
+            continue
+        if t0 is None:
+            t0 = r["t"]
+        k = math.floor((r["t"] - t0) / window_ms)
+        windows.setdefault(k, []).append(r["ms"])
+    values: list[float] = []
+    for k in sorted(windows):
+        ms = windows[k]
+        total = 0.0
+        for x in ms:
+            total += x
+        if total < 0.8 * window_ms:
+            continue
+        si = baevsky_stress_index(ms)
+        if si is not None:
+            values.append(si)
+    return median(values)

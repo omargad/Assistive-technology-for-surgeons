@@ -558,9 +558,9 @@ describe('recording store', () => {
   });
 
   it('re-summarises a completed session after a retrospective health import', async () => {
+    // The strap delivered nothing (a health import never mixes into a strap's own data: SP-MOB-3).
     const h = setup();
     await recording(h);
-    await stream(h.sensor, 5, 70);
     await h.store.getState().endRecording();
     const id = await h.store.getState().submitDebrief(REPORT);
     h.store.getState().reset();
@@ -597,6 +597,20 @@ describe('recording store', () => {
     expect(upload2).not.toHaveBeenCalled();
   });
 
+  // PRIV-3: withdrawn consent stops automatic upload even if the setting is still on.
+  it('never auto-uploads once the profile records withdrawn consent', async () => {
+    const uploadSession = jest.fn(async () => undefined);
+    const h = setup({
+      uploadSession,
+      getProfile: async () => ({ ...PROFILE, consent: { version: 'PICF-1.0', givenAt: 1, withdrawnAt: 2 } }),
+      settings: { autoUpload: true, researchServerUrl: 'https://research.example.edu', researchToken: 'spk_test' },
+    });
+    await recording(h);
+    await h.store.getState().endRecording();
+    await h.store.getState().submitDebrief(REPORT);
+    expect(uploadSession).not.toHaveBeenCalled();
+  });
+
   it('a failing auto-upload never breaks the debrief', async () => {
     const uploadSession = jest.fn(async () => {
       throw new Error('offline');
@@ -610,5 +624,37 @@ describe('recording store', () => {
     await expect(h.store.getState().submitDebrief(REPORT)).resolves.toEqual(expect.any(String));
     await jest.advanceTimersByTimeAsync(0);
     expect(h.store.getState().stage).toBe('done');
+  });
+});
+
+// UX-10: researchers need to see whether a sensor sends beat-to-beat (RR) intervals before a study case.
+describe('beat-to-beat (RR) tracking', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: START });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('records when data and RR intervals arrive, and resets on a new connection', async () => {
+    const h = setup();
+    await connected(h);
+    expect(h.store.getState().streamSince).toBeNull();
+    expect(h.store.getState().rrSeenAt).toBeNull();
+
+    const t0 = Date.now();
+    h.sensor.emit([{ t: t0, bpm: 70 }], []);
+    expect(h.store.getState().streamSince).toBe(t0);
+    expect(h.store.getState().rrSeenAt).toBeNull();
+
+    await jest.advanceTimersByTimeAsync(2000);
+    const t1 = Date.now();
+    h.sensor.emit([{ t: t1, bpm: 71 }], [{ t: t1, ms: 845 }]);
+    expect(h.store.getState().streamSince).toBe(t0);
+    expect(h.store.getState().rrSeenAt).toBe(t1);
+
+    await h.store.getState().connect('polar');
+    expect(h.store.getState().streamSince).toBeNull();
+    expect(h.store.getState().rrSeenAt).toBeNull();
   });
 });

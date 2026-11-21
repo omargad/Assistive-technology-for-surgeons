@@ -74,5 +74,13 @@
     "longestGapSec": 0,
     "rrArtifactRatio": null,
     "sampleRateHz": 0
-  }
+  },
+  "peakHr": null,
+  "sensorSource": "healthkit",
+  "simulated": false,
+  "sleepHours": null,
+  "caffeine": null,
+  "outcome": null,
+  "maxGapMs": 5000,
+  "analyticsVersion": "2"
 }

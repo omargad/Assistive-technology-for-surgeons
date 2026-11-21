@@ -48,6 +48,7 @@ describe('loadConfig', () => {
       bodyLimit: 25 * 1024 * 1024,
       trustProxy: false,
       logLevel: 'info',
+      acceptSimulated: false,
     });
   });
 
@@ -94,6 +95,17 @@ describe('loadConfig', () => {
     const names = err.issues.map((i) => i.split(':')[0]);
     expect(names).toEqual(expect.arrayContaining(['PORT', 'CORS_ORIGINS', 'MAX_UPLOAD_MB', 'TRUST_PROXY', 'LOG_LEVEL']));
     expect(err.issues.filter((i) => i.startsWith('CORS_ORIGINS'))).toHaveLength(3);
+  });
+
+  it('accepts TRUST_PROXY as a boolean word or a list of proxy addresses, ranges and presets', () => {
+    const tp = (v: string) => loadConfig({ ADMIN_TOKEN: TOKEN, TRUST_PROXY: v }).trustProxy;
+    expect(tp('false')).toBe(false);
+    expect(tp('0')).toBe(false);
+    expect(tp('yes')).toBe(true);
+    expect(tp(' 10.0.0.5 , 172.16.0.0/12,Loopback, fd00::/8 ')).toEqual(['10.0.0.5', '172.16.0.0/12', 'loopback', 'fd00::/8']);
+    for (const bad of ['10.0.0.300', '10.0.0.0/33', 'proxy.example.org', 'loopback, nope', ',']) {
+      expect(errorOf(() => loadConfig({ ADMIN_TOKEN: TOKEN, TRUST_PROXY: bad })).issues[0]).toMatch(/^TRUST_PROXY:/);
+    }
   });
 
   it('rejects out-of-range ports', () => {

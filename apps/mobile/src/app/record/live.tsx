@@ -1,13 +1,18 @@
 /**
  * Live "OR mode" screen. Readable from 1–2 m and operable by a non-sterile
  * team member: big zone-coloured HR with trend, elapsed clock, current phase,
- * sensor status, signal-lost banner, phase buttons (PHASE_ORDER, current
+ * sensor status, signal-lost notice, phase buttons (PHASE_ORDER, current
  * highlighted, next emphasised), marker buttons (hold for a quick note),
- * "Logged by: Self / Team", a 10-second undo snackbar and a press-and-hold
- * "End case". Landscape puts HR on the left and controls on the right.
+ * "Logged by: Self / Team", a 10-second undo bar and a press-and-hold
+ * "End case". Landscape puts HR (and the logger toggle) on the left and the
+ * event controls on the right.
+ *
+ * Transient messages (undo bar, hints, signal lost) are shown in a fixed-height
+ * area of the HR panel (over the sparkline), never over the buttons, and they
+ * never change the layout: a tap aimed at a button always lands on that button.
  */
-import { useEffect, useMemo, useState } from 'react';
-import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AppState, BackHandler, Platform, Pressable, ScrollView, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,8 +33,10 @@ import { Banner } from '@/components/Banner';
 import { BigButton } from '@/components/BigButton';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { Dialog } from '@/components/Dialog';
 import { EmptyState } from '@/components/EmptyState';
+import { Icon } from '@/components/Icon';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { SensorStatusPill } from '@/components/SensorStatusPill';
 import { TextField } from '@/components/TextField';
@@ -37,15 +44,20 @@ import { goHome } from '@/components/navigation';
 import { Toast } from '@/components/Toast';
 import { HoldToEndButton } from '@/components/live/HoldToEndButton';
 import { LiveHeartRate } from '@/components/live/LiveHeartRate';
+import { useBeatToBeat } from '@/hooks/useBeatToBeat';
 import { useHrTrend } from '@/hooks/useHrTrend';
 import { useElapsed } from '@/hooks/useNow';
 import { useOrientation } from '@/hooks/useOrientation';
 import { useRecording } from '@/state/recording';
+import { UNDO_WINDOW_MS } from '@/state/recordingStore';
 import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { ThemeProvider, useStyles, useTheme, zonesFor, type Theme } from '@/theme';
 
-const UNDO_MS = 10_000;
+const UNDO_MS = UNDO_WINDOW_MS;
+/** Narrowest phase/event button (pt): two columns on phones, three when three fit. */
+const CELL_MIN = 140;
+const MARKER_CELL_MIN = 180;
 
 export default function LiveScreen() {
   const orModeDark = useSettings((s) => s.settings.orModeDark);
@@ -60,6 +72,10 @@ function describeEvent(e: SessionEvent): string {
   const what = e.type === 'phase' ? `Phase: ${PHASE_LABELS[e.phase]}` : `Marked: ${MARKER_LABELS[e.marker]}`;
   const who = e.loggedBy === 'team' ? ' (team)' : '';
   return `${what}${who}${e.note ? ` — “${e.note}”` : ''}`;
+}
+
+function hasShift(event: GestureResponderEvent): boolean {
+  return (event?.nativeEvent as { shiftKey?: unknown } | undefined)?.shiftKey === true;
 }
 
 function nextPhase(current: PhaseKind | null): PhaseKind | null {
@@ -86,11 +102,14 @@ function LiveView() {
   const storeBaseline = useRecording((s) => s.baseline);
   const error = useRecording((s) => s.error);
   const profile = useSessions((s) => s.profile);
+  const showLiveHr = useSettings((s) => s.settings.showLiveHr);
+  const beatToBeat = useBeatToBeat();
 
   const [hint, setHint] = useState<string | null>(null);
   const [noteFor, setNoteFor] = useState<MarkerKind | null>(null);
   const [noteText, setNoteText] = useState('');
   const [ending, setEnding] = useState(false);
+  const [wasBackgrounded, setWasBackgrounded] = useState(false);
 
   const elapsed = useElapsed(session?.startedAt);
   const trend = useHrTrend(session?.samples);
@@ -100,6 +119,28 @@ function LiveView() {
       profile?.maxHr ?? (profile?.birthYear ? estimateMaxHr(profile.birthYear, new Date().getFullYear()) : null);
     return zonesFor(baselineBpm, maxHr);
   }, [baselineBpm, profile?.maxHr, profile?.birthYear]);
+
+  // The undo snackbar only covers what is left of the event's undo window (it is not restarted when the
+  // screen is reopened after "Minimise"); a stale `lastEvent` is cleared instead of shown again.
+  const undoMs = useMemo(() => (lastEvent ? Math.min(UNDO_MS, UNDO_MS - (Date.now() - lastEvent.t)) : UNDO_MS), [lastEvent]);
+  useEffect(() => {
+    if (lastEvent && undoMs <= 0 && typeof useRecording.setState === 'function') useRecording.setState({ lastEvent: null });
+  }, [lastEvent, undoMs]);
+
+  // Android has no background recording service: JS timers stop while the app is in the background or the
+  // screen is locked. Pending data is flushed when that happens (recording store); tell the team afterwards.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+    let left = false;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') left = true;
+      else if (state === 'active' && left) {
+        left = false;
+        setWasBackgrounded(true);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Android hardware back: keep the live screen unless the user explicitly minimises.
   useEffect(() => {
@@ -149,6 +190,18 @@ function LiveView() {
     setNoteFor(null);
   };
 
+  // Web keyboard / assistive-technology users cannot hold the button: ask instead.
+  const confirmEnd = async () => {
+    const ok = await confirmAsync({
+      title: 'End the case now?',
+      message: 'Recording stops and the debrief opens.',
+      confirmLabel: 'End case',
+      cancelLabel: 'Keep recording',
+      destructive: true,
+    });
+    if (ok) await endCase();
+  };
+
   const endCase = async () => {
     if (ending) return;
     setEnding(true);
@@ -168,11 +221,27 @@ function LiveView() {
     if (typeof useRecording.setState === 'function') useRecording.setState({ lastEvent: null });
   };
 
+  const undoEvent = () => {
+    const before = rec().session?.events.length ?? 0;
+    const event = lastEvent;
+    rec().undoLastEvent();
+    // Confirm what was removed (the undo bar itself disappears).
+    if (event && (rec().session?.events.length ?? 0) < before) setHint(`Undone: ${describeEvent(event)}`);
+  };
+
+  // Short phone screens: landscape below 500 pt high, or portrait below 740 pt (e.g. 360 × 640, iPhone SE).
   const compact = isLandscape && height < 500;
-  // Two columns on phones; three when the controls area is tablet-wide.
-  const controlsWidth = isLandscape ? width * 0.6 : width;
-  const columns = controlsWidth >= 680 ? 3 : 2;
-  const cellBasis = `${Math.floor(100 / columns) - 2}%` as const;
+  const dense = !isLandscape && !isWide && height < 740;
+  // Two columns on phones; three when the controls column fits three 140-pt buttons.
+  const contentWidth = width - insets.left - insets.right - 2 * theme.space.lg;
+  const controlsWidth = isLandscape ? (contentWidth - theme.space.xl) * 0.6 : contentWidth;
+  const basis = (min: number) => {
+    const columns = controlsWidth >= 3 * min + 2 * theme.space.sm ? 3 : 2;
+    return `${Math.floor(100 / columns) - 2}%` as const;
+  };
+  const phaseBasis = basis(CELL_MIN);
+  // Event buttons carry a glyph badge: three columns only when each is wide enough for "Complication".
+  const markerBasis = basis(MARKER_CELL_MIN);
 
   const clock = (
     <View style={styles.clock} accessible accessibilityLabel={`Elapsed ${formatClock(elapsed)}`}>
@@ -195,21 +264,46 @@ function LiveView() {
       ) : (
         <Chip label="No phase yet" />
       )}
-      {!timedOnly ? <SensorStatusPill status={sensorStatus} compact onPress={() => router.push('/sensors')} /> : null}
+      {!timedOnly ? (
+        <SensorStatusPill status={sensorStatus} noData={signalLost} rr={beatToBeat} compact onPress={() => router.push('/sensors')} testID="live-sensor" />
+      ) : null}
     </View>
   );
-  const minimiseButton = (
+  const minimiseButton = dense ? (
+    // Short portrait phones: icon-only so clock, sensor and Minimise share one row (44-pt target).
+    <Pressable
+      onPress={minimise}
+      accessibilityRole="button"
+      accessibilityLabel="Minimise"
+      accessibilityHint="Leaves the live screen; recording continues"
+      style={({ pressed }) => [styles.iconButton, pressed ? styles.pressed : null]}
+      testID="live-minimise"
+    >
+      <Icon name="chevron-down" size={24} color={theme.colors.primary} />
+    </Pressable>
+  ) : (
     <Button
       label="Minimise"
-      size="sm"
       variant="ghost"
       icon="chevron-down"
       accessibilityHint="Leaves the live screen; recording continues"
       onPress={minimise}
+      testID="live-minimise"
     />
   );
-  // Portrait: clock + minimise, then the status chips. Landscape: one row to save height.
-  const topBar = isLandscape ? (
+  // Portrait: clock + minimise, then the status chips. Landscape: one row to save height. Short portrait
+  // phones: clock, sensor and minimise in one row (the current phase is highlighted in the phase grid).
+  const topBar = dense ? (
+    <View style={styles.topRow}>
+      {clock}
+      <View style={[styles.flex, styles.topMeta]}>
+        {!timedOnly ? (
+          <SensorStatusPill status={sensorStatus} noData={signalLost} rr={beatToBeat} compact onPress={() => router.push('/sensors')} testID="live-sensor" />
+        ) : null}
+      </View>
+      {minimiseButton}
+    </View>
+  ) : isLandscape ? (
     <View style={styles.topRow}>
       {clock}
       <View style={styles.flex}>{status}</View>
@@ -225,6 +319,82 @@ function LiveView() {
     </View>
   );
 
+  // One fixed-height area shows, in order of priority: the undo bar, a hint, or the signal-lost notice.
+  const undoVisible = !!lastEvent && undoMs > 0;
+  let overlay: ReactNode = null;
+  if (undoVisible && lastEvent) {
+    overlay = (
+      <Toast
+        inline
+        visible
+        toastKey={lastEvent.id}
+        message={describeEvent(lastEvent)}
+        actionLabel="Undo"
+        onAction={undoEvent}
+        onDismiss={clearUndo}
+        durationMs={Math.max(1, undoMs)}
+        showCountdown
+        large={!compact}
+        icon={compact ? undefined : lastEvent.type === 'phase' ? 'flag' : 'pin'}
+        testID="live-undo"
+      />
+    );
+  } else if (hint) {
+    overlay = (
+      <Toast
+        inline
+        visible
+        message={hint}
+        toastKey={hint}
+        onDismiss={() => setHint(null)}
+        durationMs={4000}
+        large={!compact}
+        icon={compact ? undefined : 'information-circle'}
+        testID="live-hint"
+      />
+    );
+  } else if (signalLost) {
+    overlay = (
+      <View
+        style={styles.notice}
+        accessible
+        accessibilityRole="alert"
+        accessibilityLiveRegion="polite"
+        accessibilityLabel="Signal lost. No heart-rate data for over 15 seconds. Check strap contact and battery. Recording continues."
+        testID="live-signal-lost"
+      >
+        <Icon name="warning" size={22} color={theme.colors.warning} />
+        <View style={styles.flex}>
+          <AppText variant="bodyStrong" tone="warning" numberOfLines={1}>
+            Signal lost
+          </AppText>
+          <AppText variant="label" numberOfLines={dense || compact ? 1 : 2}>
+            No data for over 15 s. Check strap contact and battery — recording continues.
+          </AppText>
+        </View>
+      </View>
+    );
+  }
+
+  const loggerToggle = (
+    <View style={styles.sectionHead}>
+      <AppText variant="overline" tone="muted" accessibilityRole="header">
+        Logged by
+      </AppText>
+      <SegmentedControl
+        options={[
+          { value: 'self', label: 'Self', accessibilityLabel: 'Logged by me (surgeon)' },
+          { value: 'team', label: 'Team', accessibilityLabel: 'Logged by a team member' },
+        ]}
+        value={logger}
+        onChange={(v) => rec().setLogger(v)}
+        accessibilityLabel="Who is logging events"
+        style={styles.logger}
+        testID="live-logger"
+      />
+    </View>
+  );
+
   const hrPanel = (
     <View style={[styles.hrPanel, isLandscape ? styles.hrPanelLandscape : null]}>
       <LiveHeartRate
@@ -236,50 +406,46 @@ function LiveView() {
         timedOnly={timedOnly}
         elapsedMs={elapsed}
         compact={compact}
+        dense={dense}
         large={isWide && !compact}
+        signalLost={signalLost}
+        hidden={showLiveHr === false}
+        overlay={overlay}
       />
-      {signalLost ? (
+      {error ? <Banner tone="danger" message={error} /> : null}
+      {wasBackgrounded ? (
         <Banner
           tone="warning"
-          title="Signal lost"
-          message="No heart-rate data for over 15 seconds. Check strap contact and battery — recording continues."
-          testID="live-signal-lost"
+          title="SurgeonPulse was in the background"
+          message="Heart-rate data may be missing for that time. Keep the app open with the screen on until the case ends."
+          action={<Button label="OK" size="sm" variant="ghost" onPress={() => setWasBackgrounded(false)} />}
+          testID="live-backgrounded"
         />
       ) : null}
-      {error ? <Banner tone="danger" message={error} /> : null}
     </View>
   );
 
   const controls = (
     <ScrollView
       style={styles.controlsScroll}
-      contentContainerStyle={[styles.controls, { paddingBottom: 96 + insets.bottom }]}
+      contentContainerStyle={[
+        styles.controls,
+        compact || dense ? styles.controlsTight : null,
+        { paddingBottom: theme.space.lg + insets.bottom },
+      ]}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.sectionHead}>
-        <AppText variant="overline" tone="muted" accessibilityRole="header">
-          Logged by
-        </AppText>
-        <SegmentedControl
-          options={[
-            { value: 'self', label: 'Self', accessibilityLabel: 'Logged by me (surgeon)' },
-            { value: 'team', label: 'Team', accessibilityLabel: 'Logged by a team member' },
-          ]}
-          value={logger}
-          onChange={(v) => rec().setLogger(v)}
-          accessibilityLabel="Who is logging events"
-          size="sm"
-          style={styles.logger}
-          testID="live-logger"
-        />
-      </View>
+      {isLandscape ? null : loggerToggle}
 
-      <AppText variant="overline" tone="muted" accessibilityRole="header">
-        Phase
-      </AppText>
+      {compact ? null : (
+        // Short landscape phones drop this heading so "Complication" stays above the fold.
+        <AppText variant="overline" tone="muted" accessibilityRole="header">
+          Phase
+        </AppText>
+      )}
       <View style={styles.grid}>
         {PHASE_ORDER.map((phase) => (
-          <View key={phase} style={[styles.cell, { flexBasis: cellBasis }]}>
+          <View key={phase} style={[styles.cell, { flexBasis: phaseBasis }]}>
             <BigButton
               label={PHASE_LABELS[phase]}
               accent={PHASE_COLORS[phase]}
@@ -294,17 +460,18 @@ function LiveView() {
       </View>
 
       <AppText variant="overline" tone="muted" accessibilityRole="header">
-        Events · hold for a note
+        {Platform.OS === 'web' ? 'Events · hold or Shift+Enter for a note' : 'Events · hold for a note'}
       </AppText>
       <View style={styles.grid}>
         {MARKER_KINDS.map((marker) => (
-          <View key={marker} style={[styles.cell, { flexBasis: cellBasis }]}>
+          <View key={marker} style={[styles.cell, { flexBasis: markerBasis }]}>
             <BigButton
               label={MARKER_LABELS[marker]}
               glyph={MARKER_ICONS[marker]}
               labelSize="medium"
               accent={marker === 'complication' ? theme.colors.danger : theme.colors.textMuted}
-              onPress={() => onMarker(marker)}
+              // Web: Shift+Enter (or Shift+click) adds a note — keyboards cannot long-press.
+              onPress={(e) => (Platform.OS === 'web' && hasShift(e) ? openNote(marker) : onMarker(marker))}
               onLongPress={() => openNote(marker)}
               delayLongPress={500}
               accessibilityHint={marker === 'note' ? 'Adds a timestamped note' : 'Marks this event now. Hold to add a note.'}
@@ -321,6 +488,7 @@ function LiveView() {
       <HoldToEndButton
         onConfirm={() => void endCase()}
         onTap={() => setHint('Press and hold “End case” for 1.5 seconds to finish.')}
+        onConfirmRequest={() => void confirmEnd()}
         disabled={ending}
         testID="live-end"
       />
@@ -338,7 +506,10 @@ function LiveView() {
       {topBar}
       {isLandscape ? (
         <View style={styles.landscape}>
-          {hrPanel}
+          <View style={styles.landscapeSide}>
+            {hrPanel}
+            {loggerToggle}
+          </View>
           <View style={styles.landscapeControls}>{controls}</View>
         </View>
       ) : (
@@ -347,30 +518,6 @@ function LiveView() {
           {controls}
         </>
       )}
-
-      <Toast
-        visible={!!lastEvent}
-        toastKey={lastEvent?.id}
-        message={lastEvent ? describeEvent(lastEvent) : ''}
-        actionLabel="Undo"
-        onAction={() => rec().undoLastEvent()}
-        onDismiss={clearUndo}
-        durationMs={UNDO_MS}
-        showCountdown
-        large
-        icon={lastEvent?.type === 'phase' ? 'flag' : 'pin'}
-        bottomOffset={insets.bottom + theme.space.md}
-        testID="live-undo"
-      />
-      <Toast
-        visible={!lastEvent && !!hint}
-        message={hint ?? ''}
-        toastKey={hint ?? undefined}
-        onDismiss={() => setHint(null)}
-        durationMs={4000}
-        icon="information-circle"
-        bottomOffset={insets.bottom + theme.space.md}
-      />
 
       <Dialog
         visible={noteFor != null}
@@ -405,15 +552,36 @@ const makeStyles = (t: Theme) =>
     topBar: { gap: t.space.xs },
     topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.space.md },
     clock: { minWidth: 110 },
+    iconButton: {
+      minWidth: t.layout.minTouch,
+      minHeight: t.layout.minTouch,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: t.radius.md,
+    },
+    pressed: { opacity: 0.6 },
     topMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: t.space.sm },
     hrPanel: { gap: t.space.sm },
-    hrPanelLandscape: { flex: 4, justifyContent: 'center' },
+    hrPanelLandscape: { justifyContent: 'center' },
     landscape: { flex: 1, flexDirection: 'row', gap: t.space.xl },
+    landscapeSide: { flex: 4, justifyContent: 'center', gap: t.space.md },
     landscapeControls: { flex: 6 },
     controlsScroll: { flex: 1 },
     controls: { gap: t.space.md, paddingTop: t.space.xs },
+    controlsTight: { gap: t.space.sm },
+    notice: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: t.space.md,
+      paddingHorizontal: t.space.md,
+      borderRadius: t.radius.md,
+      borderLeftWidth: 4,
+      borderColor: t.colors.warning,
+      backgroundColor: t.colors.warningSoft,
+    },
     sectionHead: { flexDirection: 'row', alignItems: 'center', gap: t.space.md, flexWrap: 'wrap' },
     logger: { flex: 1, minWidth: 180, maxWidth: 320 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: t.space.sm },
-    cell: { flexGrow: 1, minWidth: 140 },
+    cell: { flexGrow: 1, minWidth: CELL_MIN },
   });

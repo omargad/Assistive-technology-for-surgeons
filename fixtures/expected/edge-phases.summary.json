@@ -12,12 +12,12 @@
   "endedAt": 1772444400000,
   "durationSec": 600,
   "hr": {
-    "count": 578,
-    "mean": 85.0363321799308,
+    "count": 572,
+    "mean": 85.10664335664336,
     "median": 80,
     "min": 72,
     "max": 107,
-    "sd": 11.058708702657304,
+    "sd": 11.090654524644458,
     "p95": 104
   },
   "hrv": {
@@ -34,22 +34,22 @@
     "removed": 4,
     "ratio": 0.004860267314702308
   },
-  "stressIndex": 81.58362196266964,
+  "stressIndex": 332.9987151275528,
   "baseline": {
     "startedAt": 1772443500000,
     "endedAt": 1772443800000,
     "restingHr": 70,
     "source": "manual"
   },
-  "meanHrDelta": 15.036332179930795,
-  "peakHrDelta": 37,
+  "meanHrDelta": 15.10664335664336,
+  "peakHrDelta": 35,
   "maxHr": 183,
   "zones": [
     {
       "id": "rest",
       "label": "At rest",
-      "seconds": 291,
-      "fraction": 0.49072512647554806
+      "seconds": 287,
+      "fraction": 0.4839797639123103
     },
     {
       "id": "elevated",
@@ -60,8 +60,8 @@
     {
       "id": "high",
       "label": "High",
-      "seconds": 128,
-      "fraction": 0.21585160202360876
+      "seconds": 132,
+      "fraction": 0.22259696458684655
     },
     {
       "id": "very-high",
@@ -79,12 +79,12 @@
       "end": 1772443860000,
       "durationSec": 60,
       "hr": {
-        "count": 60,
-        "mean": 73,
+        "count": 59,
+        "mean": 72.98305084745763,
         "median": 73,
         "min": 72,
         "max": 74,
-        "sd": 0.8233869695926183,
+        "sd": 0.8198302057959781,
         "p95": 74
       },
       "hrv": {
@@ -96,7 +96,7 @@
         "pnn50": 0,
         "meanHr": 72.28909897187083
       },
-      "meanHrDelta": 3
+      "meanHrDelta": 2.9830508474576334
     },
     {
       "phase": "incision",
@@ -131,12 +131,12 @@
       "end": 1772444130000,
       "durationSec": 210,
       "hr": {
-        "count": 190,
-        "mean": 91.62105263157895,
+        "count": 188,
+        "mean": 91.72340425531915,
         "median": 95,
         "min": 80,
         "max": 107,
-        "sd": 10.699037139457976,
+        "sd": 10.707490761263745,
         "p95": 106
       },
       "hrv": {
@@ -148,7 +148,7 @@
         "pnn50": 0.3246753246753247,
         "meanHr": 89.32014361661042
       },
-      "meanHrDelta": 21.621052631578948
+      "meanHrDelta": 21.723404255319153
     },
     {
       "phase": "closure",
@@ -157,12 +157,12 @@
       "end": 1772444400000,
       "durationSec": 270,
       "hr": {
-        "count": 267,
-        "mean": 80.17977528089888,
+        "count": 264,
+        "mean": 80.21212121212122,
         "median": 78,
         "min": 75,
         "max": 99,
-        "sd": 7.598320646105984,
+        "sd": 7.635249755532432,
         "p95": 99
       },
       "hrv": {
@@ -174,7 +174,7 @@
         "pnn50": 0,
         "meanHr": 78.97744304833158
       },
-      "meanHrDelta": 10.17977528089888
+      "meanHrDelta": 10.212121212121218
     },
     {
       "phase": "post-op",
@@ -226,6 +226,15 @@
     "gapCount": 2,
     "longestGapSec": 12,
     "rrArtifactRatio": 0.004860267314702308,
-    "sampleRateHz": 0.9746621621621622
-  }
+    "sampleRateHz": 0.964527027027027
+  },
+  "peakHr": 105,
+  "sensorSource": "import",
+  "simulated": false,
+  "tzOffsetMin": 600,
+  "sleepHours": null,
+  "caffeine": null,
+  "outcome": null,
+  "maxGapMs": 5000,
+  "analyticsVersion": "2"
 }

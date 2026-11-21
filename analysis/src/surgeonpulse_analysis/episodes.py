@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from .phases import phase_at
-from .stats import is_valid_bpm, naive_sum
+from .stats import is_valid_sample, naive_sum, resolve_max_gap_ms
 
 __all__ = ["default_episode_threshold", "detect_stress_episodes", "RUN_GAP_MS", "RELATED_EVENT_LOOKBACK_MS"]
 
@@ -36,14 +36,16 @@ def detect_stress_episodes(
     *,
     min_duration_ms: float = 60000,
     merge_gap_ms: float = 30000,
+    max_sample_gap_ms: float | None = None,
     segments: Sequence[Mapping[str, Any]] | None = None,
     events: Sequence[Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Sustained periods of heart rate at or above ``threshold_bpm`` (SPEC ``detectStressEpisodes``).
 
     1. Maximal runs of consecutive valid samples with ``bpm >= threshold``; a run
-       breaks on a below-threshold sample or a data gap > 5000 ms. Run start/end
-       are its first/last sample ``t``.
+       breaks on a below-threshold sample or a data gap > ``max_sample_gap_ms``
+       (default 5000 ms; ``None``/NaN = default). Samples with ``contact: false``
+       are skipped (:func:`is_valid_sample`). Run start/end are its first/last sample ``t``.
     2. Runs separated by ``<= merge_gap_ms`` (earlier end → later start) merge.
     3. Merged episodes with ``end − start >= min_duration_ms`` are kept.
     4. ``peakBpm``/``peakT``: max of the episode's above-threshold samples (first
@@ -51,13 +53,14 @@ def detect_stress_episodes(
        at ``peakT`` (key omitted when unknown); ``relatedEventIds``: ids of
        events with ``start − 120000 <= t <= end`` in time order.
     """
-    valid = sorted((s for s in samples if is_valid_bpm(s.get("bpm"))), key=lambda s: s["t"])
+    run_gap = RUN_GAP_MS if max_sample_gap_ms is None else resolve_max_gap_ms(max_sample_gap_ms)
+    valid = sorted((s for s in samples if is_valid_sample(s)), key=lambda s: s["t"])
     runs: list[list[Mapping[str, Any]]] = []
     current: list[Mapping[str, Any]] | None = None
     prev_t: float | None = None
     for s in valid:
         above = s["bpm"] >= threshold_bpm
-        if current is not None and (not above or (prev_t is not None and s["t"] - prev_t > RUN_GAP_MS)):
+        if current is not None and (not above or (prev_t is not None and s["t"] - prev_t > run_gap)):
             runs.append(current)
             current = None
         if above:

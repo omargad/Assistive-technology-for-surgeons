@@ -7,6 +7,7 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { AppText } from '@/components/AppText';
+import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { notify } from '@/components/ConfirmDialog';
@@ -14,6 +15,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { SessionRow } from '@/components/SessionRow';
 import { TextField } from '@/components/TextField';
 import { errorMessage, useBusy } from '@/hooks/useBusy';
+import { useStorageWarning } from '@/hooks/useStorageWarning';
 import type { SessionListItem } from '@/services/storage/types';
 import { useRecording } from '@/state/recording';
 import { useSessions } from '@/state/sessions';
@@ -27,6 +29,8 @@ export default function HistoryScreen() {
   const [query, setQuery] = useState('');
   const [specialty, setSpecialty] = useState<string | null>(null);
   const { busy, run } = useBusy();
+  const storageWarning = useStorageWarning();
+  const unsaved = storageWarning.unsavedSignalSessionIds.length;
 
   const specialties = useMemo(() => {
     const set = new Set<string>();
@@ -54,6 +58,23 @@ export default function HistoryScreen() {
 
   const header = (
     <View style={styles.header}>
+      {storageWarning.writeFailed ? (
+        <Banner
+          tone="danger"
+          title="Browser storage is full or blocked"
+          message="Recent changes could not be saved in this browser. Export your sessions from Settings before you close this page."
+          action={<Button label="Settings" size="sm" variant="ghost" onPress={() => router.push('/settings')} />}
+          testID="history-storage-failed"
+        />
+      ) : unsaved > 0 ? (
+        <Banner
+          tone="warning"
+          title="Browser storage is full"
+          message={`The heart-rate data of ${unsaved} older case${unsaved === 1 ? '' : 's'} no longer fits in this browser's storage and will be lost when this page is closed. Export all sessions from Settings now to keep ${unsaved === 1 ? 'it' : 'them'}.`}
+          action={<Button label="Settings" size="sm" variant="ghost" onPress={() => router.push('/settings')} />}
+          testID="history-storage-full"
+        />
+      ) : null}
       <TextField
         label="Search"
         value={query}

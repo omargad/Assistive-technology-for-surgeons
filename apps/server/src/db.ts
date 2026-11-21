@@ -137,6 +137,17 @@ export const MIGRATIONS: readonly Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    description: 'server secrets (key for consistent per-participant export date shifts)',
+    sql: `
+      CREATE TABLE server_secrets (
+        name       TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+    `,
+  },
 ];
 
 /** The highest applied migration version (0 for an empty database). */

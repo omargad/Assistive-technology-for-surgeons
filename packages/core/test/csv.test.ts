@@ -320,14 +320,28 @@ describe('summariesToCsv', () => {
     const at = SUMMARY_CSV_COLUMNS.indexOf('duration_min');
     expect(SUMMARY_CSV_COLUMNS.slice(at, at + physiology.length)).toEqual(physiology);
     expect(SUMMARY_CSV_COLUMNS.slice(0, 2)).toEqual(['session_id', 'participant_code']);
-    expect(SUMMARY_CSV_COLUMNS.slice(at + physiology.length)).toEqual(
-      ['pre_op', 'incision', 'dissection', 'critical', 'closure', 'post_op'].flatMap((p) => [
+    expect(SUMMARY_CSV_COLUMNS.slice(at + physiology.length)).toEqual([
+      ...['pre_op', 'incision', 'dissection', 'critical', 'closure', 'post_op'].flatMap((p) => [
         `${p}_duration_s`,
         `${p}_hr_mean`,
         `${p}_hr_delta`,
         `${p}_rmssd`,
       ]),
-    );
+      // provenance and covariates (appended, RV-4/RV-7/RV-13)
+      'sensor_source',
+      'simulated',
+      'tz_offset_min',
+      'started_local',
+      'baseline_source',
+      'baseline_duration_s',
+      'max_hr',
+      'peak_hr',
+      'hrv_n',
+      'sleep_hours',
+      'caffeine',
+      'outcome',
+      'analytics_version',
+    ]);
     expect(new Set(SUMMARY_CSV_COLUMNS).size).toBe(SUMMARY_CSV_COLUMNS.length);
   });
 

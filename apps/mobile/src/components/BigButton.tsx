@@ -8,6 +8,7 @@ import {
   View,
   type AccessibilityActionEvent,
   type AccessibilityActionInfo,
+  type GestureResponderEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -31,7 +32,8 @@ export interface BigButtonProps {
   emphasis?: BigButtonEmphasis;
   /** Label size: `large` (18 pt, default) or `medium` (16 pt) for long labels in narrow columns. */
   labelSize?: 'large' | 'medium';
-  onPress?: () => void;
+  /** Receives the press event (on the web it carries modifier keys, e.g. Shift+Enter). */
+  onPress?: (event: GestureResponderEvent) => void;
   onLongPress?: () => void;
   delayLongPress?: number;
   disabled?: boolean;

@@ -9,11 +9,11 @@ import type {
   SessionEvent,
   StressEpisode,
 } from '../types';
-import { isValidBpm } from './hr';
+import { isValidSample } from './hr';
 import { phaseAt } from './phases';
 import { stableSortBy } from './stats';
 
-/** A data gap longer than this (ms) always ends a run of elevated samples. */
+/** Default: a data gap longer than this (ms) always ends a run of elevated samples. */
 const EPISODE_MAX_SAMPLE_GAP_MS = 5000;
 /** Events up to this long (ms) before an episode starts count as related to it. */
 const RELATED_EVENT_LOOKBACK_MS = 120000;
@@ -26,6 +26,11 @@ export interface StressEpisodeOptions {
   minDurationMs?: number;
   /** Runs separated by at most this much time are merged (default 30000 ms). */
   mergeGapMs?: number;
+  /**
+   * A spacing between consecutive valid samples larger than this ends a run (default 5000 ms; `NaN` also means the
+   * default). `summarizeSession` passes its effective `maxGapMs`, which is larger for sparse watch data.
+   */
+  maxSampleGapMs?: number;
 }
 
 /** Optional context used to annotate episodes. */
@@ -58,8 +63,9 @@ interface Run {
 /**
  * Detects sustained heart-rate elevations.
  *
- * 1. Maximal runs of consecutive valid samples with `bpm ≥ thresholdBpm`. A run breaks on a valid sample below
- *    the threshold or on a data gap > 5000 ms between consecutive valid samples (invalid samples are skipped).
+ * 1. Maximal runs of consecutive valid samples ({@link isValidSample}) with `bpm ≥ thresholdBpm`. A run breaks on a
+ *    valid sample below the threshold or on a data gap > `maxSampleGapMs` (default 5000 ms) between consecutive
+ *    valid samples (invalid samples, including `contact: false`, are skipped).
  *    A run starts at its first sample t and ends at its last sample t.
  * 2. Runs separated by `≤ mergeGapMs` (earlier run's end → later run's start) are merged.
  * 3. Merged episodes with `end − start ≥ minDurationMs` are kept.
@@ -75,8 +81,12 @@ export function detectStressEpisodes(
   const threshold = opts.thresholdBpm;
   const minDurationMs = opts.minDurationMs ?? 60000;
   const mergeGapMs = opts.mergeGapMs ?? 30000;
+  const maxSampleGapMs =
+    typeof opts.maxSampleGapMs === 'number' && !Number.isNaN(opts.maxSampleGapMs)
+      ? opts.maxSampleGapMs
+      : EPISODE_MAX_SAMPLE_GAP_MS;
   const valid = stableSortBy(
-    samples.filter((s) => isValidBpm(s.bpm) && Number.isFinite(s.t)),
+    samples.filter((s) => isValidSample(s) && Number.isFinite(s.t)),
     (s) => s.t,
   );
 
@@ -85,7 +95,7 @@ export function detectStressEpisodes(
   let current: Run | null = null;
   let prevT: number | null = null;
   for (const s of valid) {
-    const gapBreak = prevT !== null && s.t - prevT > EPISODE_MAX_SAMPLE_GAP_MS;
+    const gapBreak = prevT !== null && s.t - prevT > maxSampleGapMs;
     prevT = s.t;
     if (!(s.bpm >= threshold)) {
       current = null;

@@ -1,12 +1,16 @@
 /**
  * One metric per session (chronological; from core `metricSeries`) with an
- * ordinary-least-squares trend line over session order (core `linearTrend`).
+ * ordinary-least-squares trend line over session order. Core `trendEvidence`
+ * tests the slope (two-sided p < 0.05), and the text calls a trend "rising" or
+ * "falling" only when it is unlikely to be chance; otherwise it says there is no
+ * clear trend, so ordinary session-to-session variation is not presented as a
+ * pattern (RV-1).
  */
 import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 
-import { linearTrend } from '@surgeonpulse/core';
+import { trendEvidence } from '@surgeonpulse/core';
 
 import { formatShortDate, useStyles, useTheme, type Theme } from '@/theme';
 
@@ -40,7 +44,7 @@ const PAD_TOP = 12;
 const PAD_BOTTOM = 26;
 
 function trendOf(points: readonly TrendPoint[]) {
-  return linearTrend(points.map((p, i) => ({ x: i, y: p.value })));
+  return trendEvidence(points.map((p, i) => ({ x: i, y: p.value })));
 }
 
 export function describeTrend(points: readonly TrendPoint[], label: string, unit: string, decimals = 0): string {
@@ -52,8 +56,13 @@ export function describeTrend(points: readonly TrendPoint[], label: string, unit
   if (first && last) s += `, from ${fmt(first.value)} to ${fmt(last.value)}`;
   const trend = trendOf(points);
   if (trend && points.length >= 3) {
-    const dir = Math.abs(trend.slope) < 10 ** -decimals / 2 ? 'flat' : trend.slope > 0 ? 'rising' : 'falling';
-    s += `; trend ${dir}${dir === 'flat' ? '' : ` by about ${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session`}`;
+    const flat = Math.abs(trend.slope) < 10 ** -decimals / 2;
+    if (trend.significant && !flat) {
+      const dir = trend.slope > 0 ? 'rising' : 'falling';
+      s += `; trend ${dir} by about ${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session (unlikely to be chance, p < 0.05)`;
+    } else {
+      s += '; no clear trend (the changes could be ordinary variation between sessions)';
+    }
   }
   return `${s}.`;
 }
@@ -76,7 +85,9 @@ export function TrendChart({
 
   const caption =
     trend && points.length >= 3
-      ? `Trend ${trend.slope >= 0 ? '+' : '−'}${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session (R² ${trend.r2.toFixed(2)}, n = ${trend.n}).`
+      ? `Trend ${trend.slope >= 0 ? '+' : '−'}${Math.abs(trend.slope).toFixed(Math.max(1, decimals))} ${unit} per session (R² ${trend.r2.toFixed(2)}, n = ${trend.n}; ${
+          trend.significant ? 'p < 0.05' : 'not statistically clear, could be chance'
+        }).`
       : points.length > 0
         ? 'A trend line appears after three sessions.'
         : '';

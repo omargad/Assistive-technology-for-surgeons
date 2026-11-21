@@ -1,0 +1,28 @@
+{
+  "computeHrv": {
+    "hrv": null,
+    "artifacts": {
+      "total": 0,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "computeHrvMin20": {
+    "hrv": null,
+    "artifacts": {
+      "total": 0,
+      "removed": 0,
+      "ratio": 0
+    }
+  },
+  "cleanRrValid": [],
+  "cleanRrReport": {
+    "total": 0,
+    "removed": 0,
+    "ratio": 0
+  },
+  "hrvTimeDomainValid": null,
+  "baevskyStressIndex": null,
+  "rollingHrv": [],
+  "rollingHrvCustom": []
+}

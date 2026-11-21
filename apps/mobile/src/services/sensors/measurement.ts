@@ -5,6 +5,9 @@
 import { parseHeartRateMeasurement } from '@surgeonpulse/core';
 import type { HeartRateSample, RRInterval } from '@surgeonpulse/core';
 
+/** How often a live source re-reads the battery level during a recording (a strap can run flat mid-case). */
+export const BATTERY_REFRESH_MS = 5 * 60_000;
+
 export interface MeasurementData {
   sample: HeartRateSample;
   rr: RRInterval[];

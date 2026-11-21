@@ -13,6 +13,7 @@ import {
   APPROACH_LABELS,
   COMPLEXITY_LABELS,
   MARKER_LABELS,
+  MAX_HRV_ARTIFACT_RATIO,
   OUTCOME_LABELS,
   PHASE_COLORS,
   PHASE_LABELS,
@@ -50,6 +51,7 @@ import { shareBundle, shareSessionCsv } from '@/services/export/share';
 import { healthStore } from '@/services/health';
 import { uploadSessions } from '@/services/upload/research';
 import { useRecording } from '@/state/recording';
+import { activeSessionOf, canImportHealthInto } from '@/state/recordingStore';
 import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import {
@@ -100,10 +102,18 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
   const p = session.procedure;
   const workload = summary.workload ? (summary.workload.weighted ?? summary.workload.raw) : null;
   const episodeMinutes = summary.episodes.reduce((a, e) => a + e.durationSec, 0) / 60;
+  // Core reports no HRV above this artefact ratio (MAX_HRV_ARTIFACT_RATIO).
+  const rrTooIrregular = summary.quality.rrArtifactRatio != null && summary.quality.rrArtifactRatio > MAX_HRV_ARTIFACT_RATIO;
   const researchConfigured = settings.researchServerUrl.trim() !== '' && settings.researchToken.trim() !== '';
+  // No upload action after the participant has withdrawn consent (the upload client refuses too).
+  const consentWithdrawn = profile?.consent?.withdrawnAt !== undefined;
   const uploadedTag = (session.tags ?? []).find((t) => t.startsWith('uploaded:'));
   const isTimedSource = session.sensor.source === 'healthkit' || session.sensor.source === 'health-connect';
-  const canImportHealth = healthStore.source != null && session.status !== 'recording';
+  // Only into a timed (health-store) session or one without HR data: never mix a second device into a strap's series.
+  const canImportHealth = healthStore.source != null && session.status !== 'recording' && canImportHealthInto(session);
+  // The case the recording flow still owns (being recorded, awaiting its debrief, or resumed) is
+  // edited and ended from the live screen only.
+  const inProgress = useRecording((s) => activeSessionOf(s) === session.id);
 
   const guarded = (key: string, title: string, fn: () => Promise<void>) =>
     void run(key, async () => {
@@ -114,7 +124,10 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
       }
     });
 
-  const exportJson = () => guarded('json', 'Export failed', () => shareBundle([session], { deidentify: true, profile }));
+  const exportJson = () =>
+    guarded('json', 'Export failed', async () => {
+      await shareBundle([session], { deidentify: true, profile });
+    });
   const exportCsv = (kind: 'samples' | 'rr' | 'events') => guarded(`csv-${kind}`, 'Export failed', () => shareSessionCsv(session, kind));
 
   const importHealth = () =>
@@ -176,7 +189,14 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
           </View>
         </View>
 
-        {session.status === 'recording' ? (
+        {inProgress ? (
+          <Banner
+            tone="info"
+            title="Case in progress"
+            message="This case is still being recorded. Return to the live screen from the Record tab to mark events or end the case."
+            testID="session-in-progress"
+          />
+        ) : session.status === 'recording' ? (
           <Banner tone="warning" title="Unfinished session" message="This case was interrupted while recording. Its data is shown up to the last saved point." />
         ) : null}
         {session.sensor.source === 'simulated' ? <Banner tone="info" message="Simulated data — for demos and training only." live={false} /> : null}
@@ -190,15 +210,35 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
 
         <StatGrid>
           <StatTile label="Mean HR" value={formatNumber(summary.hr?.mean ?? null)} unit="bpm" />
-          <StatTile label="Peak HR" value={formatNumber(summary.hr?.max ?? null)} unit="bpm" />
+          <StatTile
+            label="Peak HR"
+            value={formatNumber(summary.peakHr !== undefined ? summary.peakHr : (summary.hr?.max ?? null))}
+            unit="bpm"
+            detail="Highest 11-s median (single spikes ignored)"
+          />
           <StatTile
             label="vs resting"
             value={formatDelta(summary.meanHrDelta)}
             unit="bpm"
             detail={summary.baseline ? `Baseline ${Math.round(summary.baseline.restingHr)} bpm` : 'No baseline'}
           />
-          <StatTile label="RMSSD" value={formatNumber(summary.hrv?.rmssd ?? null)} unit="ms" detail={summary.hrv ? `SDNN ${Math.round(summary.hrv.sdnn)} ms` : 'Needs RR data'} />
-          <StatTile label="Stress index" value={formatNumber(summary.stressIndex, 0)} detail="Baevsky SI" />
+          <StatTile
+            label="RMSSD"
+            value={formatNumber(summary.hrv?.rmssd ?? null)}
+            unit="ms"
+            detail={
+              summary.hrv
+                ? `Beat-to-beat variability · SDNN ${Math.round(summary.hrv.sdnn)} ms`
+                : rrTooIrregular
+                  ? 'Not shown: too many irregular beats or artefacts'
+                  : 'Needs RR data'
+            }
+          />
+          <StatTile
+            label="Stress index"
+            value={formatNumber(summary.stressIndex, 0)}
+            detail="Baevsky, median of 5-min windows · higher = more strain"
+          />
           <StatTile
             label="Episodes"
             value={String(summary.episodes.length)}
@@ -289,7 +329,14 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
           ) : null}
         </Card>
 
-        <Card title="Stress episodes" subtitle={threshold != null ? `Sustained HR ≥ ${Math.round(threshold)} bpm for at least a minute` : 'Needs heart-rate data'}>
+        <Card
+          title="Stress episodes"
+          subtitle={
+            threshold != null
+              ? `Sustained HR ≥ ${Math.round(threshold)} bpm for at least a minute. Standing, moving and physical effort raise heart rate too, so a rise is not always stress.`
+              : 'Needs heart-rate data'
+          }
+        >
           {summary.episodes.length === 0 ? (
             <AppText variant="label" tone="muted">
               No sustained heart-rate rises were detected.
@@ -328,13 +375,21 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
             <StatTile
               label="RR artefacts"
               value={summary.quality.rrArtifactRatio == null ? '—' : formatPercent(summary.quality.rrArtifactRatio, 1)}
-              detail={summary.quality.rrArtifactRatio == null ? 'No beat-to-beat data' : 'Removed before HRV'}
+              detail={
+                summary.quality.rrArtifactRatio == null
+                  ? 'No beat-to-beat data'
+                  : rrTooIrregular
+                    ? 'Too many for reliable HRV'
+                    : 'Removed before HRV'
+              }
             />
             <StatTile label="Sample rate" value={formatNumber(summary.quality.sampleRateHz, 2)} unit="Hz" />
           </StatGrid>
           {summary.quality.coverage < 0.8 && session.samples.length > 0 ? (
             <AppText variant="caption" tone="warning">
-              Coverage is low. Moisten the strap electrodes and fit it snugly below the chest muscles for better contact.
+              {session.sensor.source === 'healthkit' || session.sensor.source === 'health-connect'
+                ? 'Coverage is low. Watches record heart rate sparsely unless a workout is running: start a workout on the watch for the case, or use a chest strap.'
+                : 'Coverage is low. Moisten the strap electrodes and fit it snugly below the chest muscles for better contact.'}
             </AppText>
           ) : null}
         </Card>
@@ -344,8 +399,13 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
           <ListRow
             icon="create-outline"
             title="Edit events & times"
-            subtitle={`${session.events.length} event${session.events.length === 1 ? '' : 's'} — correct times, add or remove`}
+            subtitle={
+              inProgress
+                ? 'Available once the case has ended — use the live screen until then'
+                : `${session.events.length} event${session.events.length === 1 ? '' : 's'} — correct times, add or remove`
+            }
             onPress={() => router.push(`/session/events/${session.id}`)}
+            disabled={inProgress}
             testID="session-edit-events"
           />
           <ListRow icon="share-outline" title="Export session (JSON)" subtitle="De-identified" disabled={busy != null} onPress={exportJson} />
@@ -361,7 +421,7 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
               onPress={importHealth}
             />
           ) : null}
-          {researchConfigured && session.status === 'completed' ? (
+          {researchConfigured && !consentWithdrawn && session.status === 'completed' ? (
             <ListRow
               icon="cloud-upload-outline"
               title={uploadedTag ? 'Upload again' : 'Upload to study server'}
@@ -370,7 +430,15 @@ function SessionDashboard({ session, summary, reload }: { session: SurgicalSessi
               onPress={upload}
             />
           ) : null}
-          <ListRow icon="trash-outline" title="Delete session" destructive disabled={busy != null} onPress={() => void remove()} />
+          <ListRow
+            icon="trash-outline"
+            title="Delete session"
+            subtitle={inProgress ? 'Available once the case has ended' : undefined}
+            destructive
+            disabled={busy != null || inProgress}
+            onPress={() => void remove()}
+            testID="session-delete"
+          />
         </ListGroup>
         <AppText variant="caption" tone="faint" align="center">
           Research tool — not a medical device. Values describe your physiology during the case; they are not

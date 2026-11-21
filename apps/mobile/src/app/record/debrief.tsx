@@ -3,6 +3,10 @@
  * of 5, wording from core `SURG_TLX_DIMENSIONS`), optional pairwise weighting
  * (core `tlxPairs`), live workload score (core `scoreWorkload`), then
  * self-rated performance, perceived stress, sleep, caffeine, outcome and notes.
+ *
+ * Every rating starts unanswered (no thumb, no default value): the score appears
+ * once all six SURG-TLX items are rated, and saving with some unrated asks whether
+ * to save the debrief without the workload ratings (never filled with defaults).
  */
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -29,7 +33,14 @@ import { goHome } from '@/components/navigation';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Slider } from '@/components/Slider';
 import { TextField } from '@/components/TextField';
-import { DEFAULT_RATINGS, buildPostOpReport, weightsFromChoices, type Ratings } from '@/components/debriefReport';
+import {
+  EMPTY_RATINGS,
+  buildPostOpReport,
+  completeRatings,
+  missingRatings,
+  weightsFromChoices,
+  type DraftRatings,
+} from '@/components/debriefReport';
 import { errorMessage, useBusy } from '@/hooks/useBusy';
 import { healthStore } from '@/services/health';
 import { useRecording } from '@/state/recording';
@@ -46,7 +57,7 @@ export default function DebriefScreen() {
   const timedOnly = useRecording((s) => s.timedOnly);
   const pairs = useMemo(() => tlxPairs('surg-tlx'), []);
 
-  const [ratings, setRatings] = useState<Ratings>(DEFAULT_RATINGS);
+  const [ratings, setRatings] = useState<DraftRatings>(EMPTY_RATINGS);
   const [weighting, setWeighting] = useState(false);
   const [choices, setChoices] = useState<Record<number, string>>({});
   const [performance, setPerformance] = useState<number | null>(null);
@@ -60,10 +71,11 @@ export default function DebriefScreen() {
 
   const weights = weighting ? weightsFromChoices(pairs, choices) : null;
   const answered = Object.keys(choices).length;
-  const score = useMemo(
-    () => scoreWorkload({ instrument: 'surg-tlx', ratings, ...(weights ? { weights } : {}), completedAt: 0 }),
-    [ratings, weights],
-  );
+  const missing = missingRatings(ratings);
+  const score = useMemo(() => {
+    const complete = completeRatings(ratings);
+    return complete ? scoreWorkload({ instrument: 'surg-tlx', ratings: complete, ...(weights ? { weights } : {}), completedAt: 0 }) : null;
+  }, [ratings, weights]);
 
   if (stage !== 'debrief' || !session) {
     return (
@@ -89,13 +101,25 @@ export default function DebriefScreen() {
       }
     });
 
-  const submit = () =>
+  const submit = async () => {
+    if (missing.length > 0) {
+      // Never store midpoint defaults as ratings: either all six are rated or the workload is left out.
+      const names = missing.map((id) => DIM_LABEL.get(id) ?? id).join(', ');
+      const ok = await confirmAsync({
+        title: 'Workload ratings incomplete',
+        message: `Not rated yet: ${names}. The workload score needs all six ratings. Save this debrief without the workload ratings?`,
+        confirmLabel: 'Save without workload',
+        cancelLabel: 'Rate the rest',
+      });
+      if (!ok) return;
+    }
     void finish(
       buildPostOpReport(
         { ratings, weights, performance, perceivedStress, sleepHours, caffeine, outcome, notes },
         Date.now(),
       ),
     );
+  };
 
   const skip = async () => {
     const ok = await confirmAsync({
@@ -127,7 +151,7 @@ export default function DebriefScreen() {
         style={styles.flex}
         loading={busy === 'submit'}
         disabled={busy != null}
-        onPress={submit}
+        onPress={() => void submit()}
         testID="debrief-submit"
       />
     </View>
@@ -158,7 +182,7 @@ export default function DebriefScreen() {
 
       <SectionHeader title="Workload (SURG-TLX)" />
       <AppText variant="caption" tone="faint">
-        Rate each demand from very low to very high. Use the whole scale.
+        Tap each scale to rate the demand from very low to very high. Use the whole scale.
       </AppText>
       {SURG_TLX_DIMENSIONS.map((dim) => (
         <Card key={dim.id} style={styles.dimCard}>
@@ -170,6 +194,7 @@ export default function DebriefScreen() {
             label={dim.label}
             value={ratings[dim.id]}
             onChange={(v) => setRatings((r) => ({ ...r, [dim.id]: v }))}
+            unansweredText="Not rated"
             min={0}
             max={100}
             step={5}
@@ -182,16 +207,26 @@ export default function DebriefScreen() {
       ))}
 
       <Card>
-        <View style={styles.scoreRow} accessible accessibilityLabel={`Workload score ${formatNumber(score.weighted ?? score.raw, 1)} out of 100${score.weighted != null ? ', weighted' : ''}`}>
+        <View
+          style={styles.scoreRow}
+          accessible
+          accessibilityLabel={
+            score
+              ? `Workload score ${formatNumber(score.weighted ?? score.raw, 1)} out of 100${score.weighted != null ? ', weighted' : ''}`
+              : `Workload score not available yet: ${6 - missing.length} of 6 rated`
+          }
+        >
           <AppText variant="bodyStrong">Workload score</AppText>
           <AppText variant="title" tabular testID="debrief-score">
-            {formatNumber(score.weighted ?? score.raw, 1)}
+            {score ? formatNumber(score.weighted ?? score.raw, 1) : '—'}
           </AppText>
         </View>
         <AppText variant="caption" tone="faint">
-          {score.weighted != null
-            ? `Weighted by your pairwise choices (unweighted ${formatNumber(score.raw, 1)}).`
-            : 'Mean of the six ratings (0–100).'}
+          {!score
+            ? `Rate all six demands to see the score (${6 - missing.length} of 6 rated).`
+            : score.weighted != null
+              ? `Weighted by your pairwise choices (unweighted ${formatNumber(score.raw, 1)}).`
+              : 'Mean of the six ratings (0–100).'}
         </AppText>
       </Card>
 
@@ -236,40 +271,47 @@ export default function DebriefScreen() {
       <Card title="Your performance" subtitle="How well did you perform, overall?">
         <Slider
           label="Self-rated performance"
-          value={performance ?? 5}
+          value={performance}
           onChange={setPerformance}
+          onClear={() => setPerformance(null)}
+          unansweredText="Not rated"
           min={0}
           max={10}
           step={1}
           lowLabel="Very poor"
           highLabel="Excellent"
-          formatValue={(v) => (performance == null ? 'Not rated' : `${v} / 10`)}
+          formatValue={(v) => `${v} / 10`}
           testID="debrief-performance"
         />
       </Card>
       <Card title="Perceived stress" subtitle="How stressed did you feel during the case?">
         <Slider
           label="Perceived stress"
-          value={perceivedStress ?? 5}
+          value={perceivedStress}
           onChange={setPerceivedStress}
+          onClear={() => setPerceivedStress(null)}
+          unansweredText="Not rated"
           min={0}
           max={10}
           step={1}
           lowLabel="None"
           highLabel="Extreme"
-          formatValue={(v) => (perceivedStress == null ? 'Not rated' : `${v} / 10`)}
+          formatValue={(v) => `${v} / 10`}
           testID="debrief-stress"
         />
       </Card>
       <Card title="Last night’s sleep">
         <Slider
           label="Hours slept last night"
-          value={sleepHours ?? 7}
+          value={sleepHours}
           onChange={setSleepHours}
+          onClear={() => setSleepHours(null)}
           min={0}
           max={12}
           step={0.5}
-          formatValue={(v) => (sleepHours == null ? 'Not answered' : `${v} h`)}
+          startValue={7}
+          formatValue={(v) => `${v} h`}
+          testID="debrief-sleep"
         />
       </Card>
       <Card title="Caffeine in the 2 hours before the case?">

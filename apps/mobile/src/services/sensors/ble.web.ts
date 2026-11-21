@@ -15,7 +15,7 @@
 import { parseBatteryLevel, parseBodySensorLocation } from '@surgeonpulse/core';
 import type { SensorInfo } from '@surgeonpulse/core';
 import { backoffDelayMs } from './backoff';
-import { measurementToData } from './measurement';
+import { BATTERY_REFRESH_MS, measurementToData } from './measurement';
 import type { DiscoveredDevice, HeartRateSource, SensorListener, SensorState, SensorStatus, SourceChoice } from './types';
 
 /** The source choice this platform's BLE implementation provides. */
@@ -88,6 +88,9 @@ export function createBleSource(options: WebBleSourceOptions = {}): HeartRateSou
   let started = false;
   let intentionalDisconnect = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let batteryTimer: ReturnType<typeof setInterval> | null = null;
+  let lastState: SensorState = 'idle';
+  let lastMessage: string | undefined;
   let attempt = 0;
   let streaming = false;
   let battery: number | undefined;
@@ -95,6 +98,8 @@ export function createBleSource(options: WebBleSourceOptions = {}): HeartRateSou
   let lastSampleAt: number | undefined;
 
   function emit(state: SensorState, message?: string): void {
+    lastState = state;
+    lastMessage = message;
     const status: SensorStatus = { state };
     if (message !== undefined) status.message = message;
     if (device?.name) status.deviceName = device.name;
@@ -152,14 +157,38 @@ export function createBleSource(options: WebBleSourceOptions = {}): HeartRateSou
     } catch {
       // optional characteristic
     }
+    battery = (await readBattery(server)) ?? battery;
+    return out;
+  }
+
+  async function readBattery(server: WbServer): Promise<number | undefined> {
     try {
       const svc = await server.getPrimaryService('battery_service');
       const ch = await svc.getCharacteristic('battery_level');
-      battery = parseBatteryLevel(dataViewBytes(await ch.readValue()));
+      return parseBatteryLevel(dataViewBytes(await ch.readValue()));
     } catch {
-      // optional service
+      return undefined; // optional service
     }
-    return out;
+  }
+
+  function stopBatteryRefresh(): void {
+    if (batteryTimer !== null) clearInterval(batteryTimer);
+    batteryTimer = null;
+  }
+
+  /** Re-read the battery level periodically while started, so a strap running flat is visible in time. */
+  function startBatteryRefresh(): void {
+    stopBatteryRefresh();
+    batteryTimer = setInterval(() => {
+      const target = device;
+      const server = target?.gatt;
+      if (!started || !streaming || !server?.connected) return;
+      void readBattery(server).then((level) => {
+        if (level === undefined || level === battery || !started || device !== target) return;
+        battery = level;
+        emit(lastState, lastMessage);
+      });
+    }, BATTERY_REFRESH_MS);
   }
 
   async function connectGatt(target: WbDevice): Promise<WbServer> {
@@ -199,9 +228,10 @@ export function createBleSource(options: WebBleSourceOptions = {}): HeartRateSou
     const target = device;
     if (!started || intentionalDisconnect || !target) return;
     try {
-      await connectGatt(target);
+      const server = await connectGatt(target);
       if (!started || intentionalDisconnect) return;
       await subscribe();
+      battery = (await readBattery(server)) ?? battery;
       attempt = 0;
       emit('connected');
     } catch {
@@ -272,6 +302,7 @@ export function createBleSource(options: WebBleSourceOptions = {}): HeartRateSou
       listener = next;
       started = true;
       attempt = 0;
+      startBatteryRefresh();
       try {
         await subscribe();
         emit('connected');
@@ -283,6 +314,7 @@ export function createBleSource(options: WebBleSourceOptions = {}): HeartRateSou
     async stop() {
       started = false;
       clearReconnect();
+      stopBatteryRefresh();
       attempt = 0;
       streaming = false;
       const ch = measurement;

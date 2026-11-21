@@ -51,6 +51,8 @@ fixtures and fails if `fixtures/` changes.
 | `edge-window` | Hand-built. Samples, RR and events before `startedAt` and after `endedAt` (window clipping), unaligned sample times |
 | `edge-sparse` | One HR sample, 12 RR intervals, no events, no `endedAt` |
 | `edge-empty` | No data at all, zero-length window |
+| `edge-watch` | Hand-built. Health Connect at about one sample per minute (source-aware gap rule for coverage, dwell and episodes), `contact: false` samples, `tzOffsetMin`, sleep/caffeine/outcome covariates and a `demo` tag (`simulated: true`) |
+| `edge-strap` | Hand-built. 1 Hz strap with a single spike (robust `peakHr`), a `contact: false` block, four 5-minute stress-index windows, a 40-s phase without HRV and an irregular-rhythm phase above the 10 % artefact limit |
 
 ## How the comparison works
 

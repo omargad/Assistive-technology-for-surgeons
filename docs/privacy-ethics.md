@@ -83,15 +83,18 @@ Where it is applied:
 | --- | --- |
 | App: **Export session (JSON)**, **Export all sessions (JSON)** | Defaults |
 | App: per-session CSVs (heart rate, RR intervals, events) | Defaults (the session is de-identified before the CSV is written) |
-| App: research upload (`POST /api/v1/sessions`) | Defaults |
-| Server: on receipt of every upload | Defaults again (defence in depth, whatever the client sent) |
-| Server: `GET /api/v1/export` | Defaults |
+| App: **Export summaries (CSV)** | Each cached summary gets the de-identified procedure name and specialty. Demo and simulator sessions are left out, and the app says how many |
+| App: research upload (`POST /api/v1/sessions`) | Defaults. Simulator and demo sessions are never uploaded |
+| App: any of the above | A session whose participant code is not a pseudonymous study code is left out (and counted), because de-identification cannot repair a code |
+| Server: on receipt of every upload | Defaults again (defence in depth, whatever the client sent). Also keeps a specialty only if it is a catalogue specialty and `sensor.location` only if it is a standard body-sensor location; rejects simulated and demo sessions unless `ACCEPT_SIMULATED=true`, and ids that are not short machine identifiers |
+| Server: `GET /api/v1/export`, `GET /api/v1/export/summaries.csv` | Defaults; with `?shiftDates=true`, each participant's timestamps move by a secret, consistent number of whole weeks (1–52, earlier or later; weekday and time of day kept) |
 | Dashboard: **Download de-identified bundle** | Notes and sensor ids always removed; **Shift dates randomly per participant** on by default (whole weeks, up to 52 by default, the same shift for all of a participant's sessions, never saved); **Remove birth years** on by default; **Remove timezone offsets** off by default |
 
 With the defaults, **real dates and local times are kept**, along with birth year, training level, specialty, years of
 experience, procedure and the participant code. These are quasi-identifiers. A study that must hide operating dates
-should export through the dashboard's de-identified bundle with date shifting and timezone removal turned on, or
-agree a time-shift procedure for server exports.
+should share files made with the server's `?shiftDates=true` exports or the dashboard's de-identified bundle with date
+shifting and timezone removal turned on. The app's own uploads and JSON exports keep real dates, because they go to
+the research team (the data custodian).
 
 All CSV exporters also neutralise spreadsheet formula injection: a text value beginning with `=`, `+`, `-`, `@`,
 tab or carriage return is written with a leading `'` so that Excel, LibreOffice or Google Sheets show it as text.
@@ -112,32 +115,46 @@ From the [server README](../apps/server/README.md#privacy-and-security):
 - **Transport.** The app accepts only `https://` server addresses, except `localhost` and private LAN addresses for
   testing. The server is meant to run behind a TLS reverse proxy on university infrastructure, and makes no outbound
   connections.
+- **Participant codes** are stored in upper case and matched case-insensitively, so `sp-014` and `SP-014` are one
+  participant.
+- **Withdrawn consent is honoured on upload:** a bundle whose profile records withdrawn consent is refused (409) and
+  nothing is stored.
+- **Synthetic data is rejected:** simulated and demo sessions are refused unless the server runs with
+  `ACCEPT_SIMULATED=true` (for test servers), so study exports contain real recordings only.
 - **Rate limits**: 30 uploads per minute and 10 authentication failures per minute per client IP.
-- **Secure delete.** The SQLite database runs with `secure_delete`, so deleted rows are overwritten in the file.
-  Backups taken earlier still contain the deleted data.
+- **Secure delete.** The SQLite database runs with `secure_delete`, so deleted rows are overwritten in the file, and
+  after every withdrawal or session deletion the server checkpoints and truncates the write-ahead log
+  (`PRAGMA wal_checkpoint(TRUNCATE)`), which `secure_delete` does not cover. Backups taken earlier still contain the
+  deleted data.
+- **Date-shifted exports** (`?shiftDates=true`) for files that leave the research team. The shift key is kept in the
+  server database; the shift itself is never returned or audited.
 - Security headers (`no-store`, a restrictive Content-Security-Policy, `X-Frame-Options: DENY` and others) and CORS
   off unless exact origins are configured.
 
 ### 6. Local-first apps
 
-- **Mobile app.** Data stay on the device (SQLite `surgeonpulse.db` on iOS/Android, browser `localStorage` on the
-  web) until the participant exports or uploads them. Uploads go only to the server configured with the participant's
-  enrolment token. The app has no analytics or tracking. The enrolment token is stored only in the app's settings and
-  is never logged or exported.
+- **Mobile app.** Data stay on the device (SQLite `surgeonpulse.db` on iOS/Android, with `secure_delete` on every
+  write transaction; browser `localStorage` on the web) until the participant exports or uploads them. Uploads go only
+  to the server configured with the participant's enrolment token. The app has no analytics or tracking. The enrolment
+  token is kept in `expo-secure-store` on iOS and Android (Keychain / Keystore, `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`,
+  so it is not carried in backups) and under its own `localStorage` key on the web (browsers have no secure store); it
+  is never logged or exported. Android app backup is off (`allowBackup: false`).
 - **Dashboard.** Files are read into the browser tab's memory and never uploaded. Closing or reloading the tab clears
   them. The only network request is to a research server the user configures. The server URL is remembered in
   `localStorage`; the admin token stays in memory unless the user ticks "Remember the token on this device".
   In the participant feedback view, cohort comparisons show only an anonymised cohort median, never another
-  participant's code.
+  participant's code. The median leaves out the participant being viewed and is shown only for a phase with at least
+  5 other participants. The long events CSV never contains event notes.
 
 ### 7. Withdrawal and deletion paths
 
 | Path | Who | What happens | What does not happen |
 | --- | --- | --- | --- |
-| **Settings → Privacy & consent → Withdraw consent** (app) | Participant | Records the withdrawal date on the device, turns off **Upload automatically** and disables **Upload sessions now** | Does **not** contact the server and does **not** delete data on the device. The confirmation text tells the participant to contact the research team to remove uploaded data. |
+| **Settings → Privacy & consent → Withdraw consent** (app) | Participant | Records the withdrawal date on the device, turns off **Upload automatically** and blocks every further upload (bulk, automatic and the session page's upload, which is hidden). If a study server is configured, it offers **Also delete your data on the study server?**, which calls `POST /api/v1/me/withdraw` and then forgets the token | Does **not** delete data on the device. If the participant declines the server deletion (or the server can't be reached), the app says so and the research team removes uploaded data on request. |
 | `POST /api/v1/me/withdraw` with the participant's enrolment token | Participant (or researcher with the participant's token) | Deletes all of the participant's sessions on the server, revokes all their tokens, clears the profile back to the bare code and retires the code (it cannot be re-enrolled; a re-consenting participant gets a new code) | Backups taken before the withdrawal still contain the data |
 | `DELETE /api/v1/admin/participants/:code` | Researcher | Same effect as the participant's own withdrawal | As above |
-| **Delete session** (session page) / **Delete all data** (Settings → Data) | Participant | Deletes the session(s): heart rate, RR, events and debrief | Keeps the profile (code, consent record), settings and enrolment token. Uninstalling the app (or clearing the browser's site data on the web) removes everything. |
+| **Delete session** (session page) | Participant | Deletes the session: heart rate, RR, events and debrief | Not offered for the case being recorded |
+| **Delete all data** (Settings → Data) | Participant | Deletes every session, the profile and consent record, the server URL and the enrolment token, then restarts onboarding | Not possible while a case is being recorded. Data already uploaded is not affected. Other settings (e.g. display preferences) stay; uninstalling the app (or clearing the browser's site data) removes everything. |
 | **Clear all data** (dashboard Data page) or closing the tab | Researcher | Removes data from the browser's memory | Does not affect files downloaded earlier |
 
 The audit log keeps the participant code, the action and the counts of a withdrawal.
@@ -146,10 +163,10 @@ The audit log keeps the participant code, the action and the counts of a withdra
 
 | Location | What is stored | Protection | How it is removed |
 | --- | --- | --- | --- |
-| Participant's phone (app) | Full sessions: HR samples, RR intervals, events **with notes**, debrief **with notes**, procedure (including any custom name), sensor name and id, real timestamps and time-zone offset; profile (code, optional training level, specialty, years of experience, birth year, resting and max HR, consent record); settings including server URL and enrolment token. Only a summary of the resting baseline is kept, not its raw samples. | Device security (passcode, encryption by the OS); app sandbox | Delete session / Delete all data (sessions only); uninstall the app for everything |
-| Browser (app web build) | As above, in `localStorage` (keys `surgeonpulse.sessions.v1`, `surgeonpulse.settings.v1`) | Browser profile; anyone with access to the browser profile can read it | Clear site data |
+| Participant's phone (app) | Full sessions: HR samples, RR intervals, events **with notes**, debrief **with notes**, procedure (including any custom name), sensor name and id, real timestamps and time-zone offset; profile (code, optional training level, specialty, years of experience, birth year, resting and max HR, consent record); settings including the server URL; the enrolment token (secure store). Only a summary of the resting baseline is kept, not its raw samples. | Device security (passcode, encryption by the OS); app sandbox; SQLite `secure_delete`; token in Keychain / Keystore (this device only); Android backup off. iOS device and iCloud backups include the sessions | Delete session; Delete all data (sessions, profile, consent, server URL and token); uninstall the app for everything |
+| Browser (app web build) | As above, in `localStorage` (keys `surgeonpulse.sessions.v1`, `surgeonpulse.settings.v1`, and `surgeonpulse.researchToken.v1` for the token) | Browser profile; anyone with access to the browser profile can read it | Delete all data; clear site data |
 | Exported files (JSON/CSV) | De-identified sessions (see options above) | Wherever the participant or researcher saves or shares them (the system share sheet on phones) | Manual deletion; outside SurgeonPulse's control |
-| Research server (SQLite file) | De-identified sessions and their summaries; participant profiles as uploaded by the app (training level, specialty, years of experience, birth year, resting/max HR, consent version and dates); enrolments (hashed tokens, labels, dates); audit log | University-hosted server, TLS proxy, admin token, `secure_delete`, file mode 0700 | Withdrawal endpoints; `DELETE /api/v1/sessions/:id`; backups under the backup policy |
+| Research server (SQLite file) | De-identified sessions and their summaries; participant profiles as uploaded by the app (training level, specialty, years of experience, birth year, resting/max HR, consent version and dates); enrolments (hashed tokens, labels, dates); audit log; the date-shift key | University-hosted server, TLS proxy, admin token, `secure_delete` plus a WAL checkpoint after each erasure, file mode 0700 | Withdrawal endpoints; `DELETE /api/v1/sessions/:id`; backups under the backup policy |
 | Server backups | Copies of the SQLite file | As the university's backup policy requires; must be encrypted | Expiry under the retention schedule |
 | Dashboard (browser memory) | Whatever the researcher loads | Browser session; nothing persisted except the server URL (and the admin token if "Remember" is ticked) | Clear all data, close the tab |
 | Research team's analysis storage | Exports, Python/R outputs | University research data storage | Retention schedule |
@@ -179,19 +196,24 @@ flowchart LR
 These are behaviours of the current code that the research team should know about, plan around, or ask the
 developers to change before the study starts:
 
-- **Withdrawal in the app is local only.** It does not call the server's withdrawal endpoint; the research team must
-  action server-side deletion. In addition, the **Upload to study server** action on an individual session page is
-  not disabled after the participant withdraws (only automatic and bulk upload are).
-- **Delete all data keeps the profile, consent record and enrolment token** on the device.
-- **Summaries CSV from the app** (**Settings → Data → Export summaries (CSV)**) is built from cached summaries and is
-  not passed through de-identification, so a free-text custom procedure name would appear in `procedure_name`. Other
-  app exports are de-identified.
-- **Default exports keep real dates and time-zone offsets.** Only the dashboard's de-identified bundle shifts dates.
-- **Device storage** (SQLite on the phone) is not configured with `secure_delete`, so deleted data may persist in free
-  pages of the file until overwritten. Uninstalling the app removes the file.
-- **Live simulator sessions** (`sensor.source: "simulated"`) are not blocked from upload; only demo-tagged sessions
-  are. Filter them out in analysis.
-- **The live screen shows the surgeon's heart rate** to everyone in the theatre; there is no option to hide it.
+- **App uploads and JSON exports keep real dates and time-zone offsets** (and birth year). Files shared beyond the
+  research team should come from the server's `?shiftDates=true` exports or the dashboard's de-identified bundle. The
+  bundle's `deidentified: true` label does not say which options were applied.
+- **Backups.** iOS device and iCloud backups include the phone's sessions (excluding them needs a native change).
+  Android app backup is off, but Android 12+ device-to-device transfer can still copy the app's data.
+- **The web build keeps the enrolment token in `localStorage`** (under its own key). On a shared computer, use
+  **Delete all data** before leaving.
+- **Plain HTTP is accepted for private LAN addresses** (10.x, 192.168.x, `*.local`) for testing, so a misconfigured
+  study server on hospital Wi-Fi would receive tokens and data unencrypted. Use HTTPS for every real deployment.
+- **Shared rate limits.** Phones behind one hospital NAT share the server's per-IP limits, and an address locked out
+  after repeated authentication failures also delays requests with valid tokens for a short time.
+- **The live screen shows the surgeon's heart rate** to everyone in the theatre by default. Settings → **Show heart
+  rate on the live screen** can hide it (it is still recorded), but there is no study-level blinded arm, and the
+  consent text does not yet mention that the theatre team can see the number.
+- **Android has no foreground service**: recording pauses if the app leaves the foreground or the screen locks (the
+  app saves what it has and tells the team afterwards).
+- **Export files on phones** stay in the app's cache until the next export (files older than an hour are then
+  deleted), because the receiving app may still be reading them.
 
 ## Australian governance landscape
 

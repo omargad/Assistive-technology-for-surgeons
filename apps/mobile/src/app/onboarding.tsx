@@ -163,7 +163,7 @@ export default function OnboardingScreen() {
           </Card>
           <Card icon="shield-checkmark-outline" title="How it is protected">
             <Bullet text="You are identified only by a study code given by the research team." />
-            <Bullet text="Data stays on this device until you export it or upload it to the study server." />
+            <Bullet text="Data stays on this device (and, on iPhone and iPad, its device backup) until you export it or upload it to the study server." />
             <Bullet text="Exports are de-identified by default (free-text notes and device ids removed)." />
             <Bullet text="Taking part is voluntary. You can stop at any time and delete your data." />
           </Card>

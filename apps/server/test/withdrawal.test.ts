@@ -6,11 +6,59 @@ import { databasePath } from '../src/db';
 import { ADMIN, ADMIN_TOKEN, bearer, bundleJson, createTestApp, enrol, makeTempDir, removeDir, simSession, upload } from './helpers';
 import type { TestContext } from './helpers';
 
+/** Database file plus its WAL (if any), as one latin1 string, read while the server is still running. */
+function diskBytes(dataDir: string): string {
+  const main = databasePath(dataDir);
+  let wal = '';
+  try {
+    wal = readFileSync(`${main}-wal`, 'latin1');
+  } catch {
+    // no WAL file
+  }
+  return readFileSync(main, 'latin1') + wal;
+}
+
 describe('withdrawal erases data from the database file', () => {
+  // PRIV-2: secure_delete does not cover the WAL, which kept the original INSERT frames until shutdown.
+  it('leaves no copy of withdrawn or deleted sessions in the WAL file while the server runs', async () => {
+    const dataDir = await makeTempDir();
+    const app = buildApp(loadConfig({ ADMIN_TOKEN, DATA_DIR: dataDir, LOG_LEVEL: 'silent', ACCEPT_SIMULATED: 'true' }));
+    try {
+      const marker = 'WAL-RESIDUE-MARKER-91c2';
+      const mk = (code: string, seed: number) => {
+        const s = simSession(code, seed);
+        return { ...s, app: { ...s.app, version: marker } }; // app.version survives de-identification
+      };
+      const leaving = await enrol(app, 'SP-060');
+      const staying = await enrol(app, 'SP-061');
+      const withdrawn = [mk('SP-060', 1), mk('SP-060', 2)];
+      const deleted = mk('SP-061', 3);
+      expect((await upload(app, leaving.token, bundleJson(withdrawn))).statusCode).toBe(200);
+      expect((await upload(app, staying.token, bundleJson([deleted]))).statusCode).toBe(200);
+      expect(diskBytes(dataDir)).toContain(marker);
+
+      const res = await app.inject({ method: 'POST', url: '/api/v1/me/withdraw', headers: bearer(leaving.token) });
+      expect(res.json()).toEqual({ deletedSessions: 2 });
+      const del = await app.inject({ method: 'DELETE', url: `/api/v1/sessions/${deleted.id}`, headers: ADMIN });
+      expect(del.statusCode).toBe(204);
+
+      const bytes = diskBytes(dataDir);
+      expect(bytes).not.toContain(marker);
+      expect(bytes).not.toContain('"samples":[');
+      for (const s of withdrawn) expect(bytes).not.toContain(s.id);
+      // The deleted session's random id stays only in its audit row (`session.delete` target).
+      const audit = await app.inject({ method: 'GET', url: '/api/v1/admin/audit', headers: ADMIN });
+      expect(audit.body).toContain(deleted.id);
+    } finally {
+      await app.close();
+      await removeDir(dataDir);
+    }
+  });
+
   it('leaves no recoverable session content in free pages (secure_delete)', async () => {
     const dataDir = await makeTempDir();
     try {
-      const app = buildApp(loadConfig({ ADMIN_TOKEN, DATA_DIR: dataDir, LOG_LEVEL: 'silent' }));
+      const app = buildApp(loadConfig({ ADMIN_TOKEN, DATA_DIR: dataDir, LOG_LEVEL: 'silent', ACCEPT_SIMULATED: 'true' }));
       const { token } = await enrol(app, 'SP-050');
       const marker = 'UNIQUE-PROCEDURE-MARKER-7f3a';
       const s = simSession('SP-050', 1, { procedure: { name: marker, specialty: 'General surgery' } });

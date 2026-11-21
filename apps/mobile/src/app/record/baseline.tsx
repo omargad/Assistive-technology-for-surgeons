@@ -1,6 +1,6 @@
 /**
  * Resting baseline: a 1–5 minute countdown (default from settings) while the
- * surgeon sits or stands quietly, with live heart rate. Finishes
+ * surgeon sits quietly, with live heart rate. Finishes
  * automatically; the result is shown before recording starts. Skippable.
  */
 import { useEffect, useState } from 'react';
@@ -21,6 +21,7 @@ import { StatGrid, StatTile } from '@/components/StatTile';
 import { useBusy } from '@/hooks/useBusy';
 import { useElapsed } from '@/hooks/useNow';
 import { useRecording } from '@/state/recording';
+import { MIN_MEASURED_BASELINE_SEC } from '@/state/recordingStore';
 import { useSettings } from '@/state/settings';
 import { formatNumber, useStyles, useTheme, type Theme } from '@/theme';
 
@@ -80,7 +81,15 @@ export default function BaselineScreen() {
     </View>
   ) : running ? (
     <View style={styles.row}>
-      <Button label="Finish early" onPress={() => useRecording.getState().finishBaseline()} style={styles.flex} />
+      <Button
+        label="Finish early"
+        // A baseline shorter than a minute is not used (RV-6), so finishing early is offered only after that.
+        disabled={elapsed < MIN_MEASURED_BASELINE_SEC * 1000}
+        accessibilityHint={`Available after ${MIN_MEASURED_BASELINE_SEC} seconds`}
+        onPress={() => useRecording.getState().finishBaseline()}
+        style={styles.flex}
+        testID="baseline-finish-early"
+      />
       <Button label="Skip baseline" variant="ghost" loading={busy === 'record'} onPress={() => void skip()} style={styles.flex} />
     </View>
   ) : (
@@ -100,8 +109,9 @@ export default function BaselineScreen() {
   return (
     <Screen edges={['left', 'right', 'bottom']} footer={footer} testID="record-baseline">
       <AppText variant="body" tone="muted">
-        Sit or stand quietly and breathe normally — ideally before scrubbing. This resting reference makes your
-        intra-operative changes meaningful.
+        Sit quietly and breathe normally, the same way before every case — ideally before scrubbing. This resting
+        reference makes your intra-operative changes meaningful. Standing raises heart rate, so a standing baseline
+        is not comparable with a seated one. Record at least a minute; shorter baselines are not used.
       </AppText>
 
       <View style={styles.center}>
@@ -112,10 +122,10 @@ export default function BaselineScreen() {
             accessibilityRole="timer"
             accessibilityLabel={running ? `${Math.ceil(remaining / 1000)} seconds remaining` : undefined}
           >
-            {ready ? 'Done' : formatClock(remaining).slice(3)}
+            {ready ? (baseline ? 'Done' : '—') : formatClock(remaining).slice(3)}
           </AppText>
           <AppText variant="label" tone="muted">
-            {running ? 'remaining' : ready ? 'baseline recorded' : 'baseline length'}
+            {running ? 'remaining' : ready ? (baseline ? 'baseline recorded' : 'no baseline') : 'baseline length'}
           </AppText>
         </ProgressRing>
         <View style={styles.liveHr} accessible accessibilityLabel={currentBpm != null ? `Current heart rate ${Math.round(currentBpm)} beats per minute` : 'Waiting for heart rate'}>
@@ -147,10 +157,13 @@ export default function BaselineScreen() {
         <Banner
           tone="warning"
           title="No baseline captured"
-          message="Not enough heart-rate data arrived. You can redo it, or start without one (your profile resting HR will be used if set)."
+          message={
+            error ??
+            'Not enough heart-rate data arrived. You can redo it, or start without one (your profile resting HR will be used if set).'
+          }
         />
       ) : null}
-      {error ? <Banner tone="danger" message={error} /> : null}
+      {error && !(ready && !baseline) ? <Banner tone="danger" message={error} /> : null}
     </Screen>
   );
 }

@@ -29,7 +29,7 @@
     "source": "measured"
   },
   "meanHrDelta": 7.330555555555549,
-  "peakHrDelta": 27.86,
+  "peakHrDelta": 24.86,
   "maxHr": null,
   "zones": [
     {
@@ -202,5 +202,13 @@
     "longestGapSec": 0,
     "rrArtifactRatio": null,
     "sampleRateHz": 1
-  }
+  },
+  "peakHr": 93,
+  "sensorSource": "simulated",
+  "simulated": true,
+  "sleepHours": 7,
+  "caffeine": true,
+  "outcome": "as-planned",
+  "maxGapMs": 5000,
+  "analyticsVersion": "2"
 }

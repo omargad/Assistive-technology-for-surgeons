@@ -31,7 +31,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import { BleManager, State } from 'react-native-ble-plx';
 import type { Subscription } from 'react-native-ble-plx';
 import { backoffDelayMs } from './backoff';
-import { measurementToData, normalizeUuid } from './measurement';
+import { BATTERY_REFRESH_MS, measurementToData, normalizeUuid } from './measurement';
 import type { DiscoveredDevice, HeartRateSource, SensorListener, SensorState, SensorStatus, SourceChoice } from './types';
 
 /** The source choice this platform's BLE implementation provides. */
@@ -130,6 +130,26 @@ function adapterMessage(state: State): string {
   }
 }
 
+/** Reconnect status while the adapter itself is unavailable (Bluetooth switched off mid-case, permission withdrawn). */
+function adapterLostMessage(state: State): string | undefined {
+  switch (state) {
+    case State.PoweredOff:
+      return 'Bluetooth is off. Turn it on to resume heart-rate recording.';
+    case State.Unauthorized:
+      return 'Bluetooth permission was withdrawn. Allow it in Settings to resume heart-rate recording.';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * BleErrorCode values (installed `react-native-ble-plx/src/index.d.ts`) that a monitor reports when its
+ * subscription is cancelled or the link drops: OperationCancelled (2), DeviceDisconnected (201) and
+ * DeviceNotConnected (205). The disconnect watcher handles those, so they are not shown as errors.
+ * (Numbers, not the enum, so the module also works with a partial mock.)
+ */
+const MONITOR_CANCEL_CODES: ReadonlySet<number> = new Set([2, 201, 205]);
+
 /**
  * Resolve with the adapter state once it settles: immediately for
  * PoweredOn / Unauthorized / Unsupported, after a short grace period for
@@ -189,6 +209,9 @@ export function createBleSource(options: BleSourceOptions = {}): HeartRateSource
   let monitorSub: Subscription | null = null;
   let disconnectSub: Subscription | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let batteryTimer: ReturnType<typeof setInterval> | null = null;
+  let lastState: SensorState = 'idle';
+  let lastMessage: string | undefined;
   let attempt = 0;
   let streaming = false;
   let battery: number | undefined;
@@ -196,6 +219,8 @@ export function createBleSource(options: BleSourceOptions = {}): HeartRateSource
   let lastSampleAt: number | undefined;
 
   function emit(state: SensorState, message?: string): void {
+    lastState = state;
+    lastMessage = message;
     const status: SensorStatus = { state };
     if (message !== undefined) status.message = message;
     if (connection) status.deviceName = connection.name;
@@ -251,18 +276,43 @@ export function createBleSource(options: BleSourceOptions = {}): HeartRateSource
     reconnectTimer = null;
   }
 
+  function stopBatteryRefresh(): void {
+    if (batteryTimer !== null) clearInterval(batteryTimer);
+    batteryTimer = null;
+  }
+
+  /** Re-read the battery level periodically while started, so a strap running flat is visible in time. */
+  function startBatteryRefresh(): void {
+    stopBatteryRefresh();
+    batteryTimer = setInterval(() => {
+      const conn = connection;
+      if (!started || !conn || !streaming) return;
+      void readBattery(conn.id).then((level) => {
+        if (level === undefined || level === battery || !started || connection !== conn) return;
+        battery = level;
+        emit(lastState, lastMessage);
+      });
+    }, BATTERY_REFRESH_MS);
+  }
+
   function subscribe(id: string): void {
     removeMonitor();
     streaming = false;
+    let self: Subscription | null = null;
     try {
-      monitorSub = getManager().monitorCharacteristicForDevice(
+      self = getManager().monitorCharacteristicForDevice(
         id,
         HEART_RATE_SERVICE,
         HEART_RATE_MEASUREMENT,
         (error, characteristic) => {
           try {
             if (error) {
-              // Disconnect-related errors are handled by the disconnect watcher.
+              // A removed subscription reports its cancellation afterwards, and a link loss reports
+              // DeviceDisconnected: both are handled by the disconnect watcher (which may already be
+              // reconnecting), so only an error on the live subscription is shown.
+              const code = (error as { errorCode?: unknown }).errorCode;
+              if (self === null || monitorSub !== self) return;
+              if (typeof code === 'number' && MONITOR_CANCEL_CODES.has(code)) return;
               if (started && !intentionalDisconnect && connection) {
                 emit('error', 'Heart-rate notifications were interrupted.');
               }
@@ -284,6 +334,7 @@ export function createBleSource(options: BleSourceOptions = {}): HeartRateSource
           }
         },
       );
+      monitorSub = self;
     } catch {
       emit('error', 'Could not subscribe to heart-rate notifications.');
     }
@@ -310,10 +361,10 @@ export function createBleSource(options: BleSourceOptions = {}): HeartRateSource
     }
   }
 
-  function scheduleReconnect(): void {
+  function scheduleReconnect(reason?: string): void {
     clearReconnect();
     attempt += 1;
-    emit('reconnecting', `Connection lost. Reconnecting (attempt ${attempt})…`);
+    emit('reconnecting', reason ?? `Connection lost. Reconnecting (attempt ${attempt})…`);
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       void tryReconnect();
@@ -326,7 +377,11 @@ export function createBleSource(options: BleSourceOptions = {}): HeartRateSource
     try {
       const manager = getManager();
       const state = await manager.state();
-      if (state !== State.PoweredOn) throw new Error(adapterMessage(state));
+      if (state !== State.PoweredOn) {
+        // Say why (e.g. Bluetooth switched off) instead of a generic reconnect loop; keep retrying.
+        if (started && !intentionalDisconnect) scheduleReconnect(adapterLostMessage(state));
+        return;
+      }
       await manager.connectToDevice(conn.id, { timeout: CONNECT_TIMEOUT_MS });
       await manager.discoverAllServicesAndCharacteristicsForDevice(conn.id);
       if (!started || intentionalDisconnect) return;
@@ -465,12 +520,14 @@ export function createBleSource(options: BleSourceOptions = {}): HeartRateSource
       started = true;
       attempt = 0;
       subscribe(connection.id);
+      startBatteryRefresh();
       emit('connected');
     },
 
     async stop() {
       started = false;
       clearReconnect();
+      stopBatteryRefresh();
       removeMonitor();
       streaming = false;
       attempt = 0;

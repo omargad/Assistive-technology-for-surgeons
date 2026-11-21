@@ -23,6 +23,15 @@ export function isValidBpm(bpm: number): boolean {
   return Number.isFinite(bpm) && bpm >= HR_VALID_MIN_BPM && bpm <= HR_VALID_MAX_BPM;
 }
 
+/**
+ * True when a heart-rate sample can be used by the analytics: a valid bpm ({@link isValidBpm}) recorded while the
+ * sensor did not report lost skin contact. `contact: false` means the sensor supports contact detection and had
+ * no skin contact, so the value it sent is stale or noise; `contact: undefined` (not supported) is accepted.
+ */
+export function isValidSample(s: Pick<HeartRateSample, 'bpm' | 'contact'>): boolean {
+  return isValidBpm(s.bpm) && s.contact !== false;
+}
+
 /** A period without heart-rate samples, see {@link detectGaps}. */
 export interface HrGap {
   start: EpochMs;
@@ -55,7 +64,8 @@ export interface ResampledHrPoint {
 /**
  * Summary statistics of heart-rate samples.
  *
- * Samples whose `bpm` is not finite or lies outside [25, 250] are ignored. Statistics are computed over sample
+ * Samples whose `bpm` is not finite or lies outside [25, 250], and samples recorded without skin contact
+ * (`contact: false`), are ignored ({@link isValidSample}). Statistics are computed over sample
  * values (not time-weighted); `sd` is the sample SD (n − 1, 0 for one sample) and `p95` uses
  * {@link percentile}(…, 95) (NumPy "linear").
  *
@@ -66,7 +76,7 @@ export function hrStats(samples: readonly HeartRateSample[]): HrStats | null {
   let min = Number.POSITIVE_INFINITY;
   let max = Number.NEGATIVE_INFINITY;
   for (const s of samples) {
-    if (!isValidBpm(s.bpm)) continue;
+    if (!isValidSample(s)) continue;
     values.push(s.bpm);
     if (s.bpm < min) min = s.bpm;
     if (s.bpm > max) max = s.bpm;
@@ -114,7 +124,7 @@ export function detectGaps(samples: readonly HeartRateSample[], maxGapMs = 5000)
  * Resamples heart rate onto a regular grid for charting.
  *
  * Bucket `k` covers `[start + k·intervalMs, start + (k+1)·intervalMs)` and its `t` is the bucket start. Its
- * value is the mean bpm of the valid samples (see {@link isValidBpm}) in the bucket, or `null` when the bucket is
+ * value is the mean bpm of the valid samples (see {@link isValidSample}) in the bucket, or `null` when the bucket is
  * empty, so data gaps break a chart line. Buckets run from `start` (default: first sample t) up to and including
  * the bucket that contains `end` (default: last sample t).
  *
@@ -150,7 +160,7 @@ export function resampleHr(
   const sums = new Array<number>(count).fill(0);
   const counts = new Array<number>(count).fill(0);
   for (const s of samples) {
-    if (!Number.isFinite(s.t) || !isValidBpm(s.bpm)) continue;
+    if (!Number.isFinite(s.t) || !isValidSample(s)) continue;
     const k = Math.floor((s.t - start) / intervalMs);
     if (k < 0 || k >= count) continue;
     sums[k]! += s.bpm;
@@ -162,4 +172,41 @@ export function resampleHr(
     out[k] = { t: start + k * intervalMs, bpm: c > 0 ? sums[k]! / c : null };
   }
   return out;
+}
+
+/** Half-width of the rolling-median window of {@link robustPeakHr} (ms): an 11-s window at 1 Hz. */
+export const PEAK_HR_HALF_WINDOW_MS = 5000;
+
+/**
+ * Robust peak heart rate: the largest rolling median of the valid samples ({@link isValidSample}, sorted by t).
+ * For each sample the median of the valid samples with `|t − tᵢ| ≤ halfWindowMs` is taken; the result is the
+ * largest of these medians. A single spike (e.g. diathermy interference on a chest strap) therefore cannot become
+ * the peak, while a rise that lasts a few seconds can. With sparse data (one sample per window) it equals the
+ * maximum.
+ *
+ * @returns `null` without a valid sample.
+ */
+export function robustPeakHr(
+  samples: readonly HeartRateSample[],
+  halfWindowMs: number = PEAK_HR_HALF_WINDOW_MS,
+): number | null {
+  const valid: HeartRateSample[] = [];
+  for (const s of samples) if (isValidSample(s) && Number.isFinite(s.t)) valid.push(s);
+  if (valid.length === 0) return null;
+  valid.sort((a, b) => a.t - b.t);
+  const half = Number.isFinite(halfWindowMs) && halfWindowMs > 0 ? halfWindowMs : 0;
+  let best = Number.NEGATIVE_INFINITY;
+  let lo = 0;
+  let hi = 0;
+  for (let i = 0; i < valid.length; i++) {
+    const t = valid[i]!.t;
+    while (valid[lo]!.t < t - half) lo++;
+    if (hi < i) hi = i;
+    while (hi + 1 < valid.length && valid[hi + 1]!.t <= t + half) hi++;
+    const window: number[] = [];
+    for (let j = lo; j <= hi; j++) window.push(valid[j]!.bpm);
+    const m = median(window)!;
+    if (m > best) best = m;
+  }
+  return best;
 }

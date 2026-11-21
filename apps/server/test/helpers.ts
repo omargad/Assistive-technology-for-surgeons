@@ -39,13 +39,17 @@ export async function removeDir(dir: string): Promise<void> {
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 }
 
-/** Build an app on a fresh temporary data directory. */
+/**
+ * Build an app on a fresh temporary data directory. The suite uploads core-simulator sessions as
+ * stand-ins for real ones, so `ACCEPT_SIMULATED` defaults to `true` here (pass `'false'` to test the
+ * production default).
+ */
 export async function createTestApp(
   env: Record<string, string> = {},
   options: Omit<BuildAppOptions, 'now'> = {},
 ): Promise<TestContext> {
   const dataDir = await makeTempDir();
-  const config = loadConfig({ ADMIN_TOKEN, DATA_DIR: dataDir, LOG_LEVEL: 'silent', ...env });
+  const config = loadConfig({ ADMIN_TOKEN, DATA_DIR: dataDir, LOG_LEVEL: 'silent', ACCEPT_SIMULATED: 'true', ...env });
   const clock = { now: T0 };
   const app = buildApp(config, { ...options, now: () => clock.now });
   await app.ready();

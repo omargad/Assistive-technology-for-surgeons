@@ -38,10 +38,11 @@ Contents:
 | Item | Rule |
 | --- | --- |
 | Time | UTC epoch milliseconds. Durations in the outputs are in seconds unless the name says otherwise. |
-| Valid heart-rate sample | `isValidBpm(bpm)`: a finite number within **[25, 250] bpm**, inclusive. Anything else (for example `0` sent by a strap without skin contact) is ignored by every HR metric. |
+| Valid heart-rate sample | `isValidSample(s)`: `isValidBpm(bpm)` (a finite number within **[25, 250] bpm**, inclusive) **and** not recorded with `contact: false` (the sensor supports contact detection and reported no skin contact, so the value is stale or noise; a missing `contact` is accepted). Anything else is ignored by every HR metric (statistics, resampling, zones, episodes, coverage, robust peak and the watch gap rule). |
 | Missing data | Functions return `null` when there is not enough data. No output is ever `NaN` or `Infinity`. |
 | Rounding | Halves round up (JavaScript `Math.round`). The Python port uses `floor(x + 0.5)` to match. |
-| Gap threshold | `maxGapMs` defaults to **5000 ms**. Two consecutive samples further apart than this are treated as a data gap. A `NaN` value also means 5000. |
+| Gap threshold | `maxGapMs = effectiveMaxGapMs(session)`: **5000 ms** for live sensors. For Apple Health and Health Connect sessions (sparse watch data) it is **1.5 × the median spacing** between consecutive valid samples, kept between 5 s and 15 min (5 s when there is no spacing). Two consecutive samples further apart than this are treated as a data gap. A `NaN` value means "use the default". The value used is stored as `summary.maxGapMs`. |
+| Analytics version | `ANALYTICS_VERSION` (currently `'2'`) is stored in every summary (`analyticsVersion`, CSV `analytics_version`) and bumped whenever a definition on this page changes. The server and the app recompute stored summaries from an older version. Do not pool rows with different versions. |
 | Session end | `sessionEnd(session)` = `endedAt`, else the latest sample, RR or event time, else `startedAt`. |
 
 ## Heart-rate statistics
@@ -67,9 +68,17 @@ The whole-session values appear in the summary as `hr` and in the summary CSV as
 `hr_max`, `hr_sd` and `hr_p95`. Per-phase values use the samples with `start ≤ t < end` of each phase.
 
 **Interpretation.** Mean heart rate reflects the combined physical, thermal and psychological load of the case.
-`p95` is a more robust "peak" than `max`, which a single spurious sample can set. Compare a surgeon with their own
+`max` can be set by a single spurious sample; use the robust peak below (or `p95`). Compare a surgeon with their own
 baseline and their own earlier sessions rather than with other surgeons: resting heart rate and heart-rate reactivity
 differ a lot between people.
+
+### Robust peak heart rate
+
+`robustPeakHr(samples, halfWindowMs = 5000)`: for each valid sample (sorted by `t`), the median of the valid samples
+within ±5 s; the result is the largest of these medians (an 11-second rolling median at 1 Hz), or `null` without valid
+samples. One spike cannot become the peak; with one sample per window (sparse watch data) it equals the maximum. It is
+`summary.peakHr` (CSV `peak_hr`), the cross-session metric `peakHr` and the basis of `peakHrDelta`. `hr.max` stays the
+raw maximum.
 
 ## Time weighting (dwell time)
 
@@ -82,12 +91,12 @@ dwell[last]   = min(median(dwell[0 … last−1]), maxGapMs)          (0 when th
 negative dwell → 0
 ```
 
-The cap means that time inside a data gap is never credited to any zone. With the default 5000 ms cap, a 60-second
-dropout contributes only 5 seconds to the zone of the sample before it.
+The cap means that time inside a data gap is never credited to any zone. With the 5000 ms cap used for live sensors,
+a 60-second dropout contributes only 5 seconds to the zone of the sample before it.
 
 ## Data quality
 
-Function: `dataQuality(session, maxGapMs = 5000)` in [`analytics/summary.ts`](../packages/core/src/analytics/summary.ts).
+Function: `dataQuality(session, maxGapMs = effectiveMaxGapMs(session))` in [`analytics/summary.ts`](../packages/core/src/analytics/summary.ts).
 Output type `DataQuality`, stored as `summary.quality`.
 
 | Field | Definition |
@@ -103,7 +112,8 @@ Where the flags appear:
 | Where | Rule | Source |
 | --- | --- | --- |
 | Dashboard Overview, "data-quality flags" | coverage `< 0.8` or `rrArtifactRatio > 0.05` | [`apps/dashboard/src/lib/quality.ts`](../apps/dashboard/src/lib/quality.ts) |
-| Insight `data-quality` | latest session coverage `< 0.8` | [Insight rule 5](#insight-rules) |
+| Insight `data-quality` | latest session coverage `< 0.8` (not for simulated sessions; watch advice for health-store sources) | [Insight rule 5](#insight-rules) |
+| HRV and stress index blanked | `rrArtifactRatio > 0.1` (`MAX_HRV_ARTIFACT_RATIO`) | [Time-domain HRV](#time-domain-hrv) |
 | Summary CSV | `coverage_pct = coverage × 100`, `rr_artifact_pct = ratio × 100` | [Data model](data-model.md#summary-csv) |
 
 **Interpretation and caveats.**
@@ -111,10 +121,14 @@ Where the flags appear:
 - Low coverage at the start of a case is common with chest straps: dry electrodes conduct poorly until the skin
   warms or sweats. Moistening the electrodes before scrubbing helps.
 - The 5-second gap threshold assumes roughly 1 Hz data from a Bluetooth strap. Heart rate imported from Apple Health
-  or Health Connect is often sampled less densely than that, so coverage and the absolute seconds in each zone come
-  out low for those sessions even when the watch worked as intended. Fractions and means are less affected.
-- A high artefact ratio (more than about 5 %) makes HRV unreliable, even after cleaning. Treat RMSSD and the stress
-  index from such sessions with caution.
+  or Health Connect is often sampled less densely than that, so for those sessions the gap threshold follows the
+  session's own sample spacing (see [Conventions](#conventions)). Coverage, dwell time and episode runs from watch
+  data are still not directly comparable with strap data; analyse sources separately or use `sensor_source` as a
+  covariate.
+- Samples recorded with `contact: false` count as uncovered time, so poor skin contact lowers coverage.
+- A high artefact ratio makes HRV unreliable, even after cleaning. Above 10 % core leaves whole-session HRV, the stress
+  index, phase HRV and baseline RMSSD/SDNN `null`; between about 5 % and 10 % (the dashboard's flag) treat RMSSD and
+  the stress index with caution.
 
 ## RR artefact cleaning
 
@@ -185,22 +199,30 @@ maths on one clean, contiguous series), in [`analytics/rr.ts`](../packages/core/
 
 | Use | Function call | Minimum valid intervals |
 | --- | --- | --- |
-| Whole session (`summary.hrv`, CSV `rmssd`, `sdnn`, `pnn50`, `mean_rr`) | cleaned once, then the `computeHrv` steps | 30 |
-| Each operative phase (`phases[].hrv`, CSV `<phase>_rmssd`) | `computeHrv(slice, { minIntervals: 20 })` on `[start, end)` | 20 |
+| Whole session (`summary.hrv`, CSV `rmssd`, `sdnn`, `pnn50`, `mean_rr`; `hrv_n` = valid intervals) | cleaned once, then the `computeHrv` steps | 30 |
+| Each operative phase (`phases[].hrv`, CSV `<phase>_rmssd`) | `computeHrv(slice, { minIntervals: 20 })` on `[start, end)`; `null` for a phase shorter than **60 s** (`MIN_PHASE_HRV_SEC`) | 20 |
 | Resting baseline (`baseline.rmssd`, `baseline.sdnn`) | `computeHrv(slice, { minIntervals: 20 })` | 20 |
 | Rolling windows | see [Rolling HRV](#rolling-hrv) | 20 |
+
+**Artefact gate.** When more than **10 %** of the intervals were removed by cleaning (`MAX_HRV_ARTIFACT_RATIO = 0.1`),
+the HRV describes the cleaning more than the heart (poor contact, frequent ectopy or an irregular rhythm), so it is
+`null`: for the whole session (`summary.hrv` and `summary.stressIndex`), for a phase (its own slice's ratio) and for the
+baseline's RMSSD and SDNN. The app's session page then says "Not shown: too many irregular beats or artefacts".
 
 Note that each phase slice is cleaned on its own, so a beat at a phase boundary is judged only against neighbours
 inside that phase.
 
 ### Interpretation and caveats
 
-- **RMSSD** mainly reflects beat-to-beat (vagal, parasympathetic) modulation of heart rate. It usually falls under
-  acute stress and with fatigue, and rises with rest and recovery. It is the most robust of these measures for short
-  recordings.
+- **RMSSD** mainly reflects beat-to-beat (vagal, parasympathetic) modulation of heart rate. At rest it usually falls
+  under acute stress and with fatigue, and rises with rest and recovery. It is the most robust of these measures for
+  short recordings.
 - **SDNN** reflects all sources of variability in the recording, and **it grows with recording length**. A
   whole-session SDNN over a 3-hour case is not comparable with one over a 40-minute case, nor with published 5-minute
-  norms (Task Force, 1996; Shaffer & Ginsberg, 2017). Prefer RMSSD, per-phase values or rolling windows for comparisons.
+  norms (Task Force, 1996; Shaffer & Ginsberg, 2017). The cross-session metric is labelled "SDNN (depends on case
+  length)" and has no "better" direction. Prefer RMSSD, per-phase values or rolling windows for comparisons.
+- **Intra-operative HRV is not a fatigue or recovery measure** on its own: during a case it mostly reflects heart rate
+  and arousal.
 - **pNN50** depends strongly on heart rate. At the elevated heart rates typical of operating, it is often close to
   zero, which limits its usefulness here.
 - **Short windows.** The 20- and 30-interval minimums only guarantee that a number can be computed. Values from
@@ -249,8 +271,12 @@ is comparable between windows of one session (equal length), but not with longer
 ## Baevsky stress index
 
 Function: `baevskyStressIndex(intervalsMs, binMs = 50)` in [`analytics/rr.ts`](../packages/core/src/analytics/rr.ts).
-Stored as `summary.stressIndex` and CSV `stress_index`. The summary passes the **valid** RR intervals of the whole
-session (after [cleaning](#rr-artefact-cleaning)).
+The summary value (`summary.stressIndex`, CSV `stress_index`) is `windowedStressIndex(rr, valid)`: the **valid** RR
+intervals (after [cleaning](#rr-artefact-cleaning)) are split into 5-minute windows from the first valid interval; a
+window is used when its intervals add up to at least 4 minutes and give a non-null index; the result is the **median**
+of the used windows' indices, or `null` when no window qualifies (less than 4 minutes of clean beats). It is also
+`null` when more than 10 % of the session's intervals are artefacts. This keeps the value comparable between short
+and long cases (about 123–132 for the same simulated physiology over 30–240 minutes).
 
 ```
 histogram bins: [floor(x / binMs) · binMs, + binMs)        binMs = 50 ms
@@ -268,12 +294,12 @@ which Baevsky and colleagues associate with sympathetic activation and stress. H
 
 **Caveats.**
 
-- The value depends on the bin width and on the recording length. Over a long case, slow drift in heart rate widens
-  the histogram (`MxDMn` grows) and lowers the index, so values from sessions of different lengths are not directly
-  comparable.
+- The value depends on the bin width and on the recording length. Over a long recording, slow drift in heart rate
+  widens the histogram (`MxDMn` grows) and lowers the index; that is why the summary uses the median of 5-minute
+  windows rather than one whole-case histogram.
 - `MxDMn` uses the extreme valid intervals, so one artefact that passes cleaning can change it noticeably.
-- Some software reports the square root of this quantity (for example Kubios HRV), so check which form a published
-  value uses before comparing.
+- This is the raw Baevsky SI. Some software reports its square root (for example Kubios HRV), so check which form a
+  published value uses before comparing.
 
 ## Maximum heart rate and zones
 
@@ -283,8 +309,9 @@ Functions in [`analytics/zones.ts`](../packages/core/src/analytics/zones.ts).
 
 `summary.maxHr` is the first **valid** (25–250 bpm) value of:
 
-1. `SummaryOptions.maxHr` (the mobile app passes the participant profile's `maxHr` when one is set);
-2. `participantSnapshot.maxHr` stored with the session;
+1. `SummaryOptions.maxHr` (an explicit override; the apps and the server do not pass one, so the same session gives
+   the same numbers everywhere);
+2. `participantSnapshot.maxHr` stored with the session (a measured maximum from the profile at recording time);
 3. the Tanaka estimate `estimateMaxHr(birthYear, atYear)` when `participantSnapshot.birthYear` is known.
 
 ```
@@ -323,7 +350,7 @@ year.
 `summary.zones` uses the **baseline-relative** zones when a baseline exists (measured, manual or from the profile's
 resting HR), otherwise the **%HRmax** zones when `maxHr` is known, otherwise none (`[]`).
 
-`timeInZones(samples, zones, maxGapMs = 5000)` gives, for each zone in order, `seconds` (Σ [dwell](#time-weighting-dwell-time)
+`timeInZones(samples, zones, maxGapMs = 5000)` (the summary passes its `maxGapMs`) gives, for each zone in order, `seconds` (Σ [dwell](#time-weighting-dwell-time)
 of the valid samples in it, using the first zone with `minBpm ≤ bpm < maxBpm`) and `fraction = seconds / Σ seconds`
 (0 when the total is 0). Zones with no time are included.
 
@@ -351,13 +378,17 @@ Function: `computeBaseline(samples, rr, start, end)` in
 - Uses the data with `start ≤ t < end`.
 - `restingHr` = `hrStats(...).mean` of that window. The function returns `null` when the window has no valid sample.
 - `rmssd` and `sdnn` come from `computeHrv(slice, { minIntervals: 20 })` and are omitted when that returns `null`.
+- `rmssd` and `sdnn` are also omitted when more than 10 % of the window's intervals are artefacts.
 - `source` = `'measured'`.
 
 **How the app captures it.** On the baseline screen the app buffers heart rate from the connected sensor for the
 chosen duration: **180 s by default**, adjustable from 60 to 300 s in Settings (the recording store clamps any value
-to 10–600 s). The surgeon can skip it. The baseline samples are **not** stored in the session's `samples` array. Only the
+to 10–600 s). The instructions ask for a seated baseline taken the same way before every case. **Windows shorter
+than 60 s (`MIN_MEASURED_BASELINE_SEC`) are not stored** (**Finish early** is enabled only after 60 s), and the app
+says why. The surgeon can skip it. The baseline samples are **not** stored in the session's `samples` array. Only the
 resulting `Baseline` record (window, resting HR, RMSSD, SDNN) is kept. If there is not enough data, the app says so and
-the summary falls back to the profile.
+the summary falls back to the profile. The summary CSV records `baseline_source` (`measured`, `manual` or `profile`) and
+`baseline_duration_s` (0 for a profile baseline).
 
 **Fallback.** When a session has no valid measured baseline but the participant snapshot has a valid `restingHr`, the
 summary uses `{ source: 'profile', restingHr, startedAt, endedAt: startedAt }`. Otherwise `summary.baseline` is `null`
@@ -368,7 +399,7 @@ and every delta is `null`.
 - The baseline is usually taken just before the case, when anticipation can already raise heart rate. It is a
   "pre-case reference", not a true resting value.
 - Record it in a consistent posture. Standing raises heart rate and lowers HRV compared with sitting, so a seated
-  baseline followed by a standing case inflates every delta.
+  baseline followed by a standing case inflates every delta. The app does not record the posture.
 - A 3-minute window is shorter than the 5 minutes conventionally used for short-term HRV, so baseline RMSSD and SDNN
   are approximate.
 - Recent caffeine, poor sleep, illness, dehydration and heat all shift resting heart rate. The debrief records sleep
@@ -379,13 +410,13 @@ and every delta is `null`.
 | Summary field | CSV column | Definition |
 | --- | --- | --- |
 | `meanHrDelta` | `mean_hr_delta` | `hr.mean − baseline.restingHr` |
-| `peakHrDelta` | `peak_hr_delta` | `hr.max − baseline.restingHr` |
+| `peakHrDelta` | `peak_hr_delta` | `peakHr − baseline.restingHr`, where `peakHr` is the [robust peak](#robust-peak-heart-rate) (CSV `peak_hr`) |
 | `phases[].meanHrDelta` | `<phase>_hr_delta` | phase `hr.mean − baseline.restingHr` |
 | `baseline.restingHr` | `baseline_hr` | resting HR actually used (measured or profile) |
 
 Each is `null` when either side is missing. Deltas are the main reactivity measure in SurgeonPulse, because they
-remove much of the between-person difference in resting heart rate. `peakHrDelta` uses the single highest sample, so
-it is sensitive to artefacts. Use `hr_p95` minus `baseline_hr` for a more robust peak.
+remove much of the between-person difference in resting heart rate. `peakHrDelta` uses the 11-second rolling-median
+peak, so a single spurious sample does not set it; posture and physical effort still raise it.
 
 ## Phase segmentation
 
@@ -417,7 +448,8 @@ Per-phase summary fields (`PhaseSummary`): `durationSec = (end − start) / 1000
 
 **Caveats.** Phases are only as accurate as the taps that mark them. During a case a circulating nurse or researcher
 usually logs them (`loggedBy: 'team'`). Events can be corrected afterwards in the app's event editor. Short phases
-rarely reach 20 valid RR intervals, so their HRV is often `null`.
+rarely reach 20 valid RR intervals, and phases shorter than 60 s get no HRV at all, so short-phase HRV is often
+`null`.
 
 ## Stress episodes
 
@@ -440,7 +472,7 @@ threshold = baseline.restingHr + 20        when the summary has a baseline (meas
 
 | Step | Rule | Default |
 | --- | --- | --- |
-| 1. Runs | Maximal runs of consecutive valid samples with `bpm ≥ threshold`. A run breaks on a valid sample below the threshold, or on a gap of more than 5000 ms between consecutive valid samples. Invalid samples are skipped. A run starts at its first sample and ends at its last. | gap 5000 ms (fixed) |
+| 1. Runs | Maximal runs of consecutive valid samples with `bpm ≥ threshold`. A run breaks on a valid sample below the threshold, or on a gap of more than `maxSampleGapMs` between consecutive valid samples. Invalid samples (including `contact: false`) are skipped. A run starts at its first sample and ends at its last. | `maxSampleGapMs` 5000 ms; the summary passes its `maxGapMs` (wider for watch sessions) |
 | 2. Merge | Runs separated by `≤ mergeGapMs` (earlier end to later start) are merged. | `mergeGapMs` 30000 ms |
 | 3. Keep | Merged episodes with `end − start ≥ minDurationMs` are kept. | `minDurationMs` 60000 ms |
 | 4. Describe | `peakBpm`/`peakT`: the highest above-threshold sample (first occurrence wins). `meanBpm`: mean of the above-threshold samples. `phase`: `phaseAt(segments, peakT)`. `relatedEventIds`: ids of all events (phases and markers) with `start − 120000 ≤ t ≤ end`, in time order. `durationSec = (end − start) / 1000`. | look-back 2 min (fixed) |
@@ -455,6 +487,7 @@ Summary fields: `episodes`; CSV `episode_count` and `episode_minutes = Σ durati
 - `relatedEventIds` shows **temporal** association only. An event inside the 2-minute look-back is not necessarily the
   cause.
 - When the baseline comes from a profile resting HR that is out of date, the threshold is shifted accordingly.
+- Posture and physical effort raise heart rate as much as stress does; the app's episodes card says so.
 
 ## Workload: SURG-TLX and NASA-TLX
 
@@ -489,13 +522,17 @@ weighted      = Σ (dimensions[d] · weight[d]) / 15
 `weighted` is computed only when a weight exists for every dimension, each weight is an integer from 0 to 5, and the
 weights sum to 15 (the tallies from the 15 pairwise comparisons that `tlxPairs` lists). Otherwise it is `null`.
 
-The cross-session metric `workload` uses `weighted` when present, otherwise `raw`. CSV: `workload_instrument`,
-`workload_raw`, `workload_weighted`.
+The cross-session metric `workload` is **always the raw score** ("Workload (raw TLX)"), so sessions with and without
+the optional weighting step stay comparable. CSV: `workload_instrument`, `workload_raw`, `workload_weighted`.
+
+The app saves `postOp.workload` only when all six SURG-TLX items were rated: the sliders start unanswered, and a debrief
+saved with unrated items has no workload (the app asks first). A missing rating is never scored as 0 or 50.
 
 **Other self-report items** from the debrief, stored in `postOp`: `performance` (self-rated, 0 very poor to 10
 excellent), `perceivedStress` (0 none to 10 extreme), `sleepHours` (hours slept the night before), `caffeine` (within
-2 hours before the case) and `outcome` (`as-planned`, `minor-deviation`, `major-deviation`). `performance` and
-`perceivedStress` are copied into the summary and CSV. The others are in the session JSON.
+2 hours before the case) and `outcome` (`as-planned`, `minor-deviation`, `major-deviation`). All five are copied into
+the summary (`null` when unanswered) and the CSV (`performance`, `perceived_stress`, `sleep_hours`, `caffeine` as 1/0,
+`outcome`).
 
 **Caveats.** Raw and weighted TLX scores are not interchangeable; report which one you analyse. Ratings collected
 after the case are retrospective and can be coloured by the outcome. SURG-TLX and NASA-TLX scores should not be pooled
@@ -510,16 +547,16 @@ dashboard's Analysis page and the Python `aggregate` / `learning_curve` helpers.
 | Key | Label | Unit | Higher is better | Value |
 | --- | --- | --- | --- | --- |
 | `meanHr` | Mean heart rate | bpm | depends | `hr.mean` |
-| `peakHr` | Peak heart rate | bpm | depends | `hr.max` |
+| `peakHr` | Peak heart rate | bpm | depends | `peakHr` ([robust peak](#robust-peak-heart-rate)), else `hr.max` for summaries stored without it |
 | `meanHrDelta` | Mean HR above baseline | bpm | no | `meanHrDelta` |
 | `peakHrDelta` | Peak HR above baseline | bpm | no | `peakHrDelta` |
 | `rmssd` | RMSSD | ms | yes | `hrv.rmssd` |
-| `sdnn` | SDNN | ms | yes | `hrv.sdnn` |
-| `stressIndex` | Stress index (Baevsky) | (none) | no | `stressIndex` |
+| `sdnn` | SDNN (depends on case length) | ms | depends | `hrv.sdnn` |
+| `stressIndex` | Stress index (Baevsky, 5-min median) | (none) | no | `stressIndex` |
 | `highIntensityPct` | Time ≥ 70 % of max HR | % | no | `highIntensityFraction × 100` |
 | `episodeCount` | Stress episodes | (none) | no | number of episodes |
 | `episodeMinutes` | Time in stress episodes | min | no | `Σ episode durationSec / 60` |
-| `workload` | Workload (TLX) | /100 | no | `workload.weighted ?? workload.raw` |
+| `workload` | Workload (raw TLX) | /100 | no | `workload.raw` |
 | `performance` | Self-rated performance | /10 | yes | `performance` |
 | `perceivedStress` | Perceived stress | /10 | no | `perceivedStress` |
 | `durationMin` | Duration | min | depends | `durationSec / 60` |
@@ -543,6 +580,12 @@ the session in the `metricSeries` output** (sessions with a value, in time order
 `pearsonCorrelation(points)` gives Pearson's r, clamped to [−1, 1], or `null` with fewer than 2 points or when either
 variable has no variance.
 
+`trendEvidence(points)` adds a slope t-test to `linearTrend`: `t = sign(slope) · √(r² · (n − 2) / (1 − r²))`, and
+`significant = |t| ≥ tCritical95(n − 2)` (two-sided p < 0.05; `null` t with fewer than 3 points). `tCritical95(df)` is
+Student's two-sided 5 % critical value from a fixed table, so every platform gives the same answer. Sessions are
+assumed independent. The app's trend chart uses it and says "no clear trend (the changes could be ordinary variation
+between sessions)" unless the slope is significant.
+
 ## Insight rules
 
 Function: `generateInsights(summaries, context?)` in [`analytics/trends.ts`](../packages/core/src/analytics/trends.ts).
@@ -552,28 +595,30 @@ rules run in this order, and each produces at most one insight:
 
 | # | `id` | Kind | Needs | Fires when |
 | --- | --- | --- | --- | --- |
-| 1 | `peak-phase` | info | ≥ 3 sessions with at least one phase that has HR data | One phase has the highest phase mean HR in **≥ 50 %** of those sessions. Within a session each segment is compared on its own, and a tie goes to the earlier segment in time. A tie in the count goes to the earlier phase in `PHASE_ORDER`. |
-| 2 | `hr-trend` | positive / attention | ≥ 5 sessions with `meanHrDelta`; if there are fewer, ≥ 5 with `meanHr` | OLS slope of the metric against session order (the index among all summaries) is **≤ −0.5 bpm/session** (positive: "settling with experience") or **≥ +0.5 bpm/session** (attention). No insight in between. `meanHr` is used only when fewer than 5 sessions have `meanHrDelta`. |
-| 3 | `hrv-trend` | attention / positive | ≥ 5 sessions with RMSSD | Mean RMSSD of the last 3 sessions versus the mean of the earlier ones: change **≤ −15 %** gives attention (suggests rest and recovery); **≥ +15 %** gives positive. Skipped when the earlier mean is not positive. |
-| 4 | `workload-hr` | info | ≥ 5 sessions with both `workload` and `meanHrDelta` | **\|Pearson r\| ≥ 0.5** between workload and HR rise above baseline. |
-| 5 | `data-quality` | attention | ≥ 1 session | The latest session's coverage is **< 0.8**. The card gives a sensor-fit tip. |
+| 1 | `peak-phase` | info | ≥ 3 sessions with at least one phase that has HR data | One phase has the highest phase mean HR in **≥ 50 %** of those sessions. Within a session the segments of a repeated phase are combined into one duration-weighted mean (a single segment is used as is). A tie within a session, and a tie in the count, go to the earlier phase in `PHASE_ORDER`. |
+| 2 | `hr-trend` | positive / attention | ≥ **8** sessions with `meanHrDelta` (else `meanHr`) | `trendEvidence` against session order is **significant (p < 0.05)** and \|slope\| ≥ **0.5 bpm/session**. Falling gives positive ("lower in recent sessions"), rising gives attention ("higher in recent sessions"). The text names other influences (case mix, workload, baseline conditions, sleep, caffeine) and never attributes a cause. |
+| 3 | `hrv-trend` | info | ≥ **8** sessions with RMSSD | Mean RMSSD of the last 3 sessions versus the earlier ones changes by **≥ 15 %** and **Welch's t-test** is significant (\|t\| ≥ `tCritical95` of the Welch–Satterthwaite df). The text says intra-operative HRV mostly reflects heart rate and arousal during the case and is not a fatigue or recovery measure; it gives no rest advice. |
+| 4 | `workload-hr` | info | ≥ **10** sessions with both raw workload and `meanHrDelta` | **\|Pearson r\| ≥ 0.5** and r differs from 0 at p < 0.05 (`t = \|r\|·√(n−2)/√(1−r²) ≥ tCritical95(n−2)`). The text gives r, n and p < 0.05 and says correlation is not causation. |
+| 5 | `data-quality` | attention | ≥ 1 session | The latest session's coverage is **< 0.8** and it is not a simulated session. The tip matches the source (watch advice for Apple Health / Health Connect, strap fit otherwise). |
 | 6 | `episodes-after-markers` | info | `context.sessions`, and ≥ 3 episodes in total | **≥ 50 %** of episodes have a related `complication` or `interruption` marker among their `relatedEventIds`. |
 
 Every insight lists the supporting session ids in `evidence`. Rule 6 needs the full sessions, because a summary stores
-only the ids of related events, not their kinds. The dashboard's participant feedback view passes the sessions. The
-mobile app's Insights tab currently calls `generateInsights(summaries)` without them, so **rule 6 never fires in the
-app**.
+only the ids of related events, not their kinds. The dashboard's participant feedback view and the app's Insights tab
+(which builds signal-free sessions from the stored events) both pass them. In the app, Insights uses the participant's
+own sessions only; demo and simulator sessions are shown in a separate, labelled view.
 
-**Caveats.** These are deterministic heuristics on small numbers of sessions. They are not statistical tests: with 5
-sessions, a slope of 0.5 bpm per session or an r of 0.5 can easily arise by chance. The thresholds are project defaults.
-Treat each insight as a prompt for a conversation or a debrief.
+**Caveats.** These are deterministic heuristics. Rules 2–4 require enough sessions and a two-sided p < 0.05 test so
+that ordinary session-to-session variation rarely produces feedback, but they assume independent sessions, and
+Welch's test for rule 3 is slightly liberal with only 3 recent sessions (about 7 % false positives in simulation). The
+thresholds are project defaults. Treat each insight as a prompt for a conversation or a debrief.
 
 ## Cohort aggregation
 
 Function: `aggregateMetric(summaries, key, groupBy)` in [`analytics/trends.ts`](../packages/core/src/analytics/trends.ts).
 
-- Group keys: `participant`, `procedure`, `specialty`, `approach`, `role`, `trainingLevel`, `urgency`, `month` (UTC
-  `YYYY-MM` of `startedAt`) and `none` (one group called `All`).
+- Group keys: `participant`, `procedure`, `specialty`, `approach`, `role`, `trainingLevel`, `urgency`, `month` (the
+  **local** `YYYY-MM` of `startedAt + tzOffsetMin` when the summary has a time-zone offset, else UTC, so a Melbourne
+  case at 08:00 on the 1st belongs to that month) and `none` (one group called `All`).
 - Sessions whose metric value is `null` are skipped, and groups with no values are dropped. A missing or blank group
   field becomes `Unspecified`.
 - Each row gives `n`, `mean`, `sd` (sample SD, `n − 1`; 0 when `n = 1`), `median`, `min` and `max`.

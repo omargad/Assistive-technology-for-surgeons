@@ -19,6 +19,7 @@ import { SwitchRow } from '@/components/Controls';
 import { Icon } from '@/components/Icon';
 import { Screen } from '@/components/Screen';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { BeatToBeatNote } from '@/components/BeatToBeatNote';
 import { SensorStatusPill, signalLabel } from '@/components/SensorStatusPill';
 import { errorMessage, useBusy } from '@/hooks/useBusy';
 import { healthStore } from '@/services/health';
@@ -119,6 +120,7 @@ export default function SensorsModal() {
         {recording ? (
           <Card title="Recording in progress" icon="radio-button-on" tone="primary">
             <SensorStatusPill status={sensorStatus} />
+            <BeatToBeatNote />
             <AppText variant="label" tone="muted">
               The sensor reconnects automatically if the signal drops. If it stays disconnected: moisten the electrodes,
               check the strap is snug, and keep the phone within a few metres.
@@ -148,6 +150,7 @@ export default function SensorsModal() {
                 </AppText>
               ))}
             <SensorStatusPill status={sensorStatus} />
+            <BeatToBeatNote />
 
             {sourceChoice === 'ble' ? (
               <>

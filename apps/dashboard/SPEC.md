@@ -42,8 +42,9 @@ responsive, so compute progressively in chunks with `setTimeout`/`requestIdleCal
   phase table, episodes, the post-op report, data quality, and per-session exports (samples/RR/events CSV).
 - **Participants:** a list with session counts and date ranges. The detail page is the **feedback view**: insight
   cards (`generateInsights`), learning curves (`metricSeries` + `linearTrend` with a metric selector), a phase
-  profile vs the cohort median (anonymised: "cohort median" only, never other participants' codes), a workload vs
-  HR Δ scatter with Pearson r, and procedure breakdowns.
+  profile vs the cohort median (anonymised: "cohort median" only, never other participants' codes; the median leaves
+  out the viewed participant and is shown only for a phase with ≥ 5 other participants, `cohortPhaseMedians`), a
+  workload vs HR Δ scatter with Pearson r, and procedure breakdowns.
 - **Analysis:** a metric selector (METRICS) × group-by selector (GroupKey) → table (`aggregateMetric`) and bar chart
   with SD whiskers. A scatter of metric X vs metric Y (colour by group) with OLS line and r. Copyable summary text.
 - **Export:** `summariesToCsv` (filtered set), a long-format samples CSV (all filtered sessions concatenated), an

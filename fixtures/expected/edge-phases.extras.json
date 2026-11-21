@@ -33,12 +33,12 @@
     }
   ],
   "hrStats": {
-    "count": 578,
-    "mean": 85.0363321799308,
+    "count": 572,
+    "mean": 85.10664335664336,
     "median": 80,
     "min": 72,
     "max": 107,
-    "sd": 11.058708702657304,
+    "sd": 11.090654524644458,
     "p95": 104
   },
   "percentiles": [
@@ -94,17 +94,17 @@
     }
   ],
   "dataQuality2000": {
-    "coverage": 0.9683333333333334,
+    "coverage": 0.9666666666666667,
     "gapCount": 4,
     "longestGapSec": 12,
     "rrArtifactRatio": 0.004860267314702308,
-    "sampleRateHz": 0.9931153184165232
+    "sampleRateHz": 0.9844827586206897
   },
   "timeInZonesMaxHr185Gap3000": [
     {
       "id": "z1",
       "label": "Very light",
-      "seconds": 586,
+      "seconds": 585,
       "fraction": 1
     },
     {
@@ -142,8 +142,8 @@
     {
       "id": "elevated",
       "label": "Elevated",
-      "seconds": 321,
-      "fraction": 0.5413153456998314
+      "seconds": 317,
+      "fraction": 0.5345699831365935
     },
     {
       "id": "high",
@@ -154,8 +154,8 @@
     {
       "id": "very-high",
       "label": "Very high",
-      "seconds": 212,
-      "fraction": 0.357504215851602
+      "seconds": 216,
+      "fraction": 0.3642495784148398
     }
   ],
   "episodeThreshold": 85,
@@ -267,7 +267,7 @@
   "computeBaselineFirst5Min": {
     "startedAt": 1772443800000,
     "endedAt": 1772444100000,
-    "restingHr": 88.87628865979381,
+    "restingHr": 88.97569444444444,
     "source": "measured",
     "rmssd": 24.187352929402614,
     "sdnn": 92.49854676555205

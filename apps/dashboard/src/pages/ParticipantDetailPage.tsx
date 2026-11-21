@@ -30,7 +30,7 @@ import { SummaryProgress } from '../components/Filters';
 import { Card, EmptyState, KpiTile, PageHeader, SelectField, SimulatedBadge } from '../components/ui';
 import { useDocumentTitle } from '../lib/useDocumentTitle';
 import { fmtDate, fmtNumber, fmtSigned, lookup, metricLabel, plural } from '../lib/format';
-import { phaseValues } from '../lib/phaseStats';
+import { MIN_COHORT_PARTICIPANTS, cohortPhaseMedians, phaseValues } from '../lib/phaseStats';
 import { hrefs } from '../router';
 import { useDashboardState, useDerived } from '../state/hooks';
 
@@ -142,13 +142,14 @@ export function ParticipantDetailPage({ code }: { code: string }) {
 
   const model = useMemo(() => {
     const insights = generateInsights(mine, { sessions: [...mySessions.values()] });
-    // Phase profile: participant median vs the anonymised cohort median (all sessions in the loaded data).
+    // Phase profile: participant median vs the cohort median of OTHER participants' sessions, shown
+    // only for phases with enough other participants that no colleague's value can be worked out.
     const myPhases = phaseValues(mine, 'meanHrDelta');
-    const cohortPhases = phaseValues(allSummaries, 'meanHrDelta');
+    const cohortPhases = cohortPhaseMedians(allSummaries, code, 'meanHrDelta');
     const comparison: PhaseComparisonDatum[] = PHASE_ORDER.map((phase) => ({
       phase,
       you: median(myPhases.get(phase) ?? []),
-      cohort: median(cohortPhases.get(phase) ?? []),
+      cohort: cohortPhases.get(phase)?.median ?? null,
     })).filter((d) => d.you !== null || d.cohort !== null);
     const scatter: ScatterPoint[] = mine.flatMap((s) => {
       const x = metricValue(s, 'workload');
@@ -162,9 +163,10 @@ export function ParticipantDetailPage({ code }: { code: string }) {
       comparison,
       scatter,
       procedures: procedureBreakdown(mine),
-      cohortSessions: allSummaries.length,
+      cohortShown: comparison.some((d) => d.cohort !== null),
+      cohortSuppressed: comparison.some((d) => d.cohort === null),
     };
-  }, [mine, mySessions, allSummaries]);
+  }, [mine, mySessions, allSummaries, code]);
 
   const curve = useMemo<CurvePoint[]>(
     () =>
@@ -293,8 +295,10 @@ export function ParticipantDetailPage({ code }: { code: string }) {
         <Card>
           <PhaseComparisonChart data={model.comparison} summary={comparisonSummary} />
           <p className="hint">
-            The cohort median is computed over all {plural(model.cohortSessions, 'session')} in the loaded data; no other
-            participant is identified.
+            {model.cohortShown
+              ? `The cohort median uses other participants’ sessions only and is shown for a phase only when at least ${MIN_COHORT_PARTICIPANTS} other participants contribute, so no colleague’s values can be worked out. It is not adjusted for training level, procedure mix or how baselines were taken, so a difference from it reflects case mix as much as anything about you.`
+              : `Too few other participants in the loaded data for a cohort comparison (at least ${MIN_COHORT_PARTICIPANTS} are needed per phase, so no colleague’s values can be worked out).`}
+            {model.cohortShown && model.cohortSuppressed ? ' “—” marks phases below that threshold.' : ''}
           </p>
         </Card>
         <Card>

@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { summarizeSession } from '@surgeonpulse/core';
+import { ANALYTICS_VERSION, summarizeSession } from '@surgeonpulse/core';
 import type { ParticipantProfile, SessionSummary, SurgicalSession } from '@surgeonpulse/core';
 
 import { repository } from '@/services/storage';
@@ -20,9 +20,12 @@ export interface SessionDetail {
   reload: () => Promise<void>;
 }
 
-/** Summary options derived from the participant profile. */
-export function summaryOptions(profile: ParticipantProfile | null | undefined): { maxHr?: number } {
-  return typeof profile?.maxHr === 'number' ? { maxHr: profile.maxHr } : {};
+/**
+ * Summary options for a session: always empty, so the session's own `participantSnapshot` (taken when it was
+ * recorded) decides max HR, exactly as on the study server and the dashboard (RV-16).
+ */
+export function summaryOptions(_profile?: ParticipantProfile | null): { maxHr?: number } {
+  return {};
 }
 
 export function useSessionDetail(id: string | undefined): SessionDetail {
@@ -57,7 +60,8 @@ export function useSessionDetail(id: string | undefined): SessionDetail {
       setSession(loaded);
       setSummary(computed);
       const cached = items.find((i) => i.meta.id === id)?.summary ?? null;
-      if (loaded.status === 'completed' && cached == null) {
+      // Cache when missing, or when the cached summary was computed by older analytics definitions.
+      if (loaded.status === 'completed' && (cached == null || cached.analyticsVersion !== ANALYTICS_VERSION)) {
         // Fire-and-forget cache so History / Insights pick it up.
         repository
           .saveSummary(id, computed)

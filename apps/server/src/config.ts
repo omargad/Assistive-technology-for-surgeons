@@ -5,6 +5,7 @@
  * message lists every problem in plain language. Secret values (the admin
  * token) are never echoed in error messages.
  */
+import { isIP } from 'node:net';
 import path from 'node:path';
 import { z } from 'zod';
 
@@ -27,8 +28,22 @@ export interface Config {
   maxUploadMb: number;
   /** `maxUploadMb` in bytes; used as Fastify's `bodyLimit`. */
   bodyLimit: number;
-  trustProxy: boolean;
+  /**
+   * Which `X-Forwarded-For` hops to trust when working out the client IP (used by rate limiting):
+   * `false` = none (the socket peer is the client); `true` = exactly one hop, the reverse proxy
+   * directly in front of the server (the client is the right-most forwarded address it appended);
+   * a list = the addresses, CIDR ranges or presets (`loopback`, `linklocal`, `uniquelocal`) of every
+   * trusted proxy (the client is the right-most forwarded address that is not one of them).
+   * A client-supplied (left-most) forwarded address is never trusted.
+   */
+  trustProxy: boolean | string[];
   logLevel: LogLevel;
+  /**
+   * Store uploaded sessions that are simulated or demo data (`sensor.source: 'simulated'`, or tagged
+   * `simulated`/`demo`). Off by default so synthetic data never enters the research dataset; turn it
+   * on only for a demo or test server.
+   */
+  acceptSimulated: boolean;
 }
 
 /** Thrown by {@link loadConfig}; `message` is ready to print to the console. */
@@ -46,6 +61,22 @@ export class ConfigError extends Error {
 const blankToUndefined = (v: unknown): unknown => (typeof v === 'string' && v.trim() === '' ? undefined : v);
 
 const BOOLEAN_WORDS: Record<string, boolean> = { true: true, false: false, '1': true, '0': false, yes: true, no: false };
+
+/** Named address ranges accepted in `TRUST_PROXY` (as understood by Fastify's proxy-addr). */
+export const TRUST_PROXY_PRESETS: readonly string[] = ['loopback', 'linklocal', 'uniquelocal'];
+
+/** Whether `entry` is an IP address, a CIDR range (`10.0.0.0/8`, `fd00::/8`) or a preset name. */
+function isTrustedProxyEntry(entry: string): boolean {
+  if (TRUST_PROXY_PRESETS.includes(entry)) return true;
+  const slash = entry.indexOf('/');
+  const address = slash === -1 ? entry : entry.slice(0, slash);
+  const family = isIP(address);
+  if (family === 0) return false;
+  if (slash === -1) return true;
+  const prefix = entry.slice(slash + 1);
+  if (!/^\d{1,3}$/.test(prefix)) return false;
+  return Number(prefix) <= (family === 4 ? 32 : 128);
+}
 
 /** Parse one CORS origin, returning it normalised (`scheme://host[:port]`), or null when invalid. */
 function normaliseOrigin(raw: string): string | null {
@@ -121,6 +152,32 @@ const EnvSchema = z.object({
       .default(25),
   ),
   TRUST_PROXY: z.preprocess(
+    (v) => (typeof v === 'string' ? (v.trim() === '' ? undefined : v.trim()) : v),
+    z
+      .string()
+      .default('false')
+      .transform((value, ctx): boolean | string[] => {
+        const word = value.toLowerCase();
+        if (word in BOOLEAN_WORDS) return BOOLEAN_WORDS[word] === true;
+        const entries = value
+          .split(',')
+          .map((e) => e.trim())
+          .filter((e) => e !== '');
+        const bad = entries.filter((e) => !isTrustedProxyEntry(e.toLowerCase()));
+        if (entries.length === 0 || bad.length > 0) {
+          ctx.addIssue({
+            code: 'custom',
+            message:
+              'must be true, false, or a comma-separated list of proxy IP addresses, CIDR ranges or presets ' +
+              `(${TRUST_PROXY_PRESETS.join(', ')})` +
+              (bad.length > 0 ? `; not understood: ${bad.map((b) => JSON.stringify(b)).join(', ')}` : ''),
+          });
+          return false;
+        }
+        return entries.map((e) => (TRUST_PROXY_PRESETS.includes(e.toLowerCase()) ? e.toLowerCase() : e));
+      }),
+  ),
+  ACCEPT_SIMULATED: z.preprocess(
     (v) => (typeof v === 'string' ? (v.trim() === '' ? undefined : v.trim().toLowerCase()) : v),
     z
       .string()
@@ -150,6 +207,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     CORS_ORIGINS: env.CORS_ORIGINS,
     MAX_UPLOAD_MB: env.MAX_UPLOAD_MB,
     TRUST_PROXY: env.TRUST_PROXY,
+    ACCEPT_SIMULATED: env.ACCEPT_SIMULATED,
     LOG_LEVEL: env.LOG_LEVEL,
   });
   if (!parsed.success) {
@@ -171,5 +229,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     bodyLimit: Math.floor(e.MAX_UPLOAD_MB * 1024 * 1024),
     trustProxy: e.TRUST_PROXY,
     logLevel: e.LOG_LEVEL,
+    acceptSimulated: e.ACCEPT_SIMULATED,
   };
 }

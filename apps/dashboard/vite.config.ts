@@ -16,8 +16,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: ['es2022', 'chrome111', 'edge111', 'firefox114', 'safari16'],
-    // Recharts + the core analytics library form one ~600 kB chunk; that is expected.
-    chunkSizeWarningLimit: 1500,
+    // Pages are split with React.lazy (App.tsx); the shared chunk (React + the core analytics library) and the
+    // Recharts chunk each stay well under Vite's default 500 kB warning limit.
+
   },
   test: {
     environment: 'jsdom',

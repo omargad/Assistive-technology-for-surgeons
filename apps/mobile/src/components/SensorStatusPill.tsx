@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import type { BeatToBeat } from '@/hooks/useBeatToBeat';
 import type { SensorState, SensorStatus } from '@/services/sensors/types';
 import { useStyles, useTheme, type Theme } from '@/theme';
 
@@ -54,6 +55,13 @@ export function signalLabel(rssi: number | undefined): { label: string; bars: 1 
 
 export interface SensorStatusPillProps {
   status: SensorStatus;
+  /**
+   * The connection is up but no heart-rate data has arrived for a while (the live screen's
+   * "signal lost"): shown as a warning instead of "Live".
+   */
+  noData?: boolean;
+  /** Beat-to-beat (RR) status: 'missing' shows a "No RR" warning (HRV needs RR intervals). */
+  rr?: BeatToBeat | null;
   /** Hide the device name (tight layouts). */
   compact?: boolean;
   onPress?: () => void;
@@ -61,13 +69,14 @@ export interface SensorStatusPillProps {
 }
 
 /** Sensor connection status: state dot + label, device, battery and skin contact. */
-export function SensorStatusPill({ status, compact, onPress, testID }: SensorStatusPillProps) {
+export function SensorStatusPill({ status, noData, rr, compact, onPress, testID }: SensorStatusPillProps) {
   const theme = useTheme();
   const styles = useStyles(makeStyles);
   const c = theme.colors;
-  const health = healthOf(status.state);
+  const stale = !!noData && healthOf(status.state) === 'good';
+  const health: Health = stale ? 'pending' : healthOf(status.state);
   const dot = { good: c.success, pending: c.warning, bad: c.danger, off: c.textFaint }[health];
-  const label = SENSOR_STATE_LABELS[status.state];
+  const label = stale ? 'No data' : SENSOR_STATE_LABELS[status.state];
   const lowBattery = typeof status.battery === 'number' && status.battery < 20;
 
   const spoken = [
@@ -75,6 +84,7 @@ export function SensorStatusPill({ status, compact, onPress, testID }: SensorSta
     status.deviceName && !compact ? status.deviceName : null,
     typeof status.battery === 'number' ? `battery ${status.battery} percent` : null,
     status.contact === false ? 'no skin contact' : null,
+    rr === 'receiving' ? 'beat-to-beat data received' : rr === 'missing' ? 'no beat-to-beat (RR) data' : null,
     status.message ?? null,
   ]
     .filter(Boolean)
@@ -92,6 +102,14 @@ export function SensorStatusPill({ status, compact, onPress, testID }: SensorSta
           <Icon name={batteryIcon(status.battery)} size={16} color={lowBattery ? c.danger : c.textMuted} />
           <AppText variant="caption" color={lowBattery ? c.danger : c.textMuted} tabular>
             {status.battery}%
+          </AppText>
+        </View>
+      ) : null}
+      {rr === 'missing' ? (
+        <View style={styles.meta} testID={testID ? `${testID}-no-rr` : undefined}>
+          <Icon name="pulse" size={16} color={c.warning} />
+          <AppText variant="caption" tone="warning">
+            No RR
           </AppText>
         </View>
       ) : null}
@@ -115,9 +133,8 @@ export function SensorStatusPill({ status, compact, onPress, testID }: SensorSta
         accessibilityRole="button"
         accessibilityLabel={spoken}
         accessibilityHint="Opens sensor settings"
-        hitSlop={6}
         testID={testID}
-        style={({ pressed }) => [styles.pill, pressed ? styles.pressed : null]}
+        style={({ pressed }) => [styles.pill, styles.pressable, pressed ? styles.pressed : null]}
       >
         {content}
       </Pressable>
@@ -146,6 +163,8 @@ const makeStyles = (t: Theme) =>
       borderColor: t.colors.border,
       maxWidth: '100%',
     },
+    // Tappable pill: full 44-pt target (hitSlop is not applied on the web).
+    pressable: { minHeight: t.layout.minTouch },
     pressed: { opacity: 0.8 },
     dot: { width: 10, height: 10, borderRadius: 5 },
     label: { flexShrink: 1 },

@@ -34,7 +34,7 @@
     "removed": 48,
     "ratio": 0.033402922755741124
   },
-  "stressIndex": 49.1046483221046,
+  "stressIndex": null,
   "baseline": {
     "startedAt": 1767599700000,
     "endedAt": 1767600000000,
@@ -44,7 +44,7 @@
     "source": "measured"
   },
   "meanHrDelta": 7.561739130434788,
-  "peakHrDelta": 21.900000000000006,
+  "peakHrDelta": 19.900000000000006,
   "maxHr": null,
   "zones": [
     {
@@ -254,5 +254,13 @@
     "longestGapSec": 40,
     "rrArtifactRatio": 0.033402922755741124,
     "sampleRateHz": 0.9111816019032514
-  }
+  },
+  "peakHr": 88,
+  "sensorSource": "simulated",
+  "simulated": true,
+  "sleepHours": 8,
+  "caffeine": false,
+  "outcome": "as-planned",
+  "maxGapMs": 5000,
+  "analyticsVersion": "2"
 }

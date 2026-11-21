@@ -158,4 +158,32 @@ describe('HTTP hardening', () => {
     expect((await flood(proxied)).every((s) => s === 401)).toBe(true);
     expect((await flood(direct)).at(-1)).toBe(429);
   });
+
+  // SEC-1: a client must not pick its own rate-limit bucket by sending X-Forwarded-For through the proxy.
+  const failAuth = (t: TestContext, xff: string) =>
+    t.app.inject({ method: 'GET', url: '/api/v1/me', headers: { ...bearer('spk_x'), 'x-forwarded-for': xff } });
+
+  it('with TRUST_PROXY=true trusts only the proxy hop, so a spoofed X-Forwarded-For cannot dodge or aim the lockout', async () => {
+    const t = await app({ TRUST_PROXY: 'true' });
+    // The proxy (the inject socket, 127.0.0.1) appends the real client 10.0.0.5 after whatever the client sent.
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) statuses.push((await failAuth(t, `203.0.113.${i}, 10.0.0.5`)).statusCode);
+    expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
+    expect(statuses[10]).toBe(429); // rotating the spoofed value does not reset the attacker's bucket
+
+    // The attacker forges failures "from" a victim; they land in the attacker's own bucket instead.
+    const t2 = await app({ TRUST_PROXY: 'true' });
+    for (let i = 0; i < 12; i++) await failAuth(t2, '10.0.0.9, 10.0.0.5');
+    const victim = await t2.app.inject({ method: 'GET', url: '/api/v1/admin/participants', headers: { ...ADMIN, 'x-forwarded-for': '10.0.0.9' } });
+    expect(victim.statusCode).toBe(200);
+  });
+
+  it('with a TRUST_PROXY list uses the right-most forwarded address that is not a trusted proxy', async () => {
+    const t = await app({ TRUST_PROXY: 'loopback, 10.0.0.0/8' });
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) statuses.push((await failAuth(t, `198.51.100.${i}, 203.0.113.9, 10.1.2.3`)).statusCode);
+    expect(statuses[10]).toBe(429);
+    // A different client behind the same two proxies keeps its own bucket.
+    expect((await failAuth(t, '203.0.113.10, 10.1.2.3')).statusCode).toBe(401);
+  });
 });

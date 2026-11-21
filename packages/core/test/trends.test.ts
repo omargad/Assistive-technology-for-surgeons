@@ -5,8 +5,11 @@ import {
   generateInsights,
   metricSeries,
   metricValue,
+  tCritical95,
+  trendEvidence,
   type MetricKey,
 } from '../src/analytics/trends';
+import { createRng, gaussian } from '../src/sim/rng';
 import type {
   HrStats,
   HrvTimeDomain,
@@ -157,6 +160,11 @@ describe('metricValue', () => {
     ],
   });
 
+  it('uses the robust peakHr when the summary has one, else hr.max', () => {
+    expect(metricValue({ ...s, peakHr: 104 }, 'peakHr')).toBe(104);
+    expect(metricValue({ ...s, peakHr: null }, 'peakHr')).toBeNull();
+  });
+
   it('reads direct fields', () => {
     expect(metricValue(s, 'meanHr')).toBe(82);
     expect(metricValue(s, 'peakHr')).toBe(121);
@@ -177,8 +185,8 @@ describe('metricValue', () => {
     expect(metricValue(s, 'coveragePct')).toBe(85);
   });
 
-  it('uses the weighted workload, else the raw score', () => {
-    expect(metricValue(s, 'workload')).toBe(45);
+  it('always uses the raw workload score, never mixing in the weighted one (RV-18)', () => {
+    expect(metricValue(s, 'workload')).toBe(35);
     expect(metricValue(makeSummary('b', T0, { workload: workloadOf(35) }), 'workload')).toBe(35);
   });
 
@@ -248,6 +256,16 @@ describe('aggregateMetric', () => {
       ['2025-12', 1, 80],
       ['2026-01', 2, 95],
       ['2026-02', 1, 70],
+    ]);
+  });
+
+  it('groups by local month when tzOffsetMin is known (RV-7)', () => {
+    // 08:00 AEDT on 1 March 2026 is 21:00 UTC on 28 February
+    const melbourneMorning = makeSummary('m', Date.UTC(2026, 1, 28, 21, 0), { hr: hrOf(80), tzOffsetMin: 660 });
+    const utcOnly = makeSummary('u', Date.UTC(2026, 1, 28, 21, 0), { hr: hrOf(70) });
+    expect(aggregateMetric([melbourneMorning, utcOnly], 'meanHr', 'month').map((r) => [r.group, r.mean])).toEqual([
+      ['2026-02', 70],
+      ['2026-03', 80],
     ]);
   });
 
@@ -326,6 +344,29 @@ describe('generateInsights', () => {
       ];
       expect(byId(generateInsights(sums), 'peak-phase')).toBeUndefined();
     });
+    it('breaks equal per-session means by PHASE_ORDER, not by logging order (RV-15)', () => {
+      // critical logged before dissection, equal means → the session peak is dissection (earlier in PHASE_ORDER)
+      const tie = { phases: [phaseOf('critical', 0, 300, 90), phaseOf('dissection', 1, 300, 90)] };
+      const sums = [makeSummary('s1', T0, tie), makeSummary('s2', T0 + DAY, tie), makeSummary('s3', T0 + 2 * DAY, tie)];
+      expect(byId(generateInsights(sums), 'peak-phase')!.title).toContain('dissection');
+    });
+    it('combines repeated segments of a phase duration-weighted before comparing (RV-15)', () => {
+      // dissection 88 / 95 / 86 (600 s each) → 89.7 combined, below critical 91
+      const rep = {
+        phases: [
+          phaseOf('dissection', 0, 600, 88),
+          phaseOf('critical', 1, 600, 91),
+          phaseOf('dissection', 2, 600, 95),
+          phaseOf('dissection', 3, 600, 86),
+        ],
+      };
+      const sums = [makeSummary('s1', T0, rep), makeSummary('s2', T0 + DAY, rep), makeSummary('s3', T0 + 2 * DAY, rep)];
+      expect(byId(generateInsights(sums), 'peak-phase')!.title).toContain('critical');
+      // a 20-s spike segment barely moves a long phase's combined mean
+      const short = { phases: [phaseOf('dissection', 0, 2400, 85), phaseOf('dissection', 1, 20, 120), phaseOf('critical', 2, 600, 90)] };
+      const sums2 = [makeSummary('a', T0, short), makeSummary('b', T0 + DAY, short), makeSummary('c', T0 + 2 * DAY, short)];
+      expect(byId(generateInsights(sums2), 'peak-phase')!.title).toContain('critical');
+    });
     it('breaks a 50/50 tie towards the earlier operative phase', () => {
       const sums = [
         makeSummary('s1', T0, peaks(80, 95)),
@@ -340,70 +381,144 @@ describe('generateInsights', () => {
   });
 
   describe('rule 2: HR trend', () => {
-    it('is positive for a slope ≤ −0.5 bpm/session (sessions sorted chronologically first)', () => {
-      const sums = series(5, (i) => ({ meanHrDelta: 20 - 2 * i })).reverse();
+    it('is positive for a clear falling trend over ≥ 8 sessions (sorted chronologically first)', () => {
+      const sums = series(8, (i) => ({ meanHrDelta: 20 - 2 * i + (i % 2 === 0 ? 0.5 : -0.5) })).reverse();
       const ins = byId(generateInsights(sums), 'hr-trend');
       expect(ins!.kind).toBe('positive');
-      expect(ins!.evidence).toEqual(['s1', 's2', 's3', 's4', 's5']);
+      expect(ins!.evidence).toEqual(['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8']);
       expect(ins!.detail).toContain('-2 bpm per session');
+      expect(ins!.detail).toContain('p < 0.05');
+      // descriptive wording only: no claim that experience caused the change (RV-1)
+      expect(`${ins!.title} ${ins!.detail}`.toLowerCase()).not.toContain('experience');
     });
-    it('triggers exactly at −0.5', () => {
-      const sums = series(5, (i) => ({ meanHrDelta: 12 - 0.5 * i }));
-      expect(byId(generateInsights(sums), 'hr-trend')!.kind).toBe('positive');
-    });
-    it('is attention for a slope ≥ +0.5, falling back to meanHr without meanHrDelta', () => {
-      const sums = series(5, (i) => ({ hr: hrOf(70 + i) }));
+    it('is attention for a clear rising trend, falling back to meanHr without meanHrDelta', () => {
+      const sums = series(8, (i) => ({ hr: hrOf(70 + i) }));
       const ins = byId(generateInsights(sums), 'hr-trend');
       expect(ins!.kind).toBe('attention');
       expect(ins!.detail).toContain('average heart rate');
       expect(ins!.detail).toContain('+1 bpm per session');
     });
-    it('stays silent for a flat trend or fewer than 5 sessions', () => {
-      const ys = [10, 10.2, 10.1, 10.3, 10.2]; // slope 0.05
-      expect(byId(generateInsights(series(5, (i) => ({ meanHrDelta: ys[i]! }))), 'hr-trend')).toBeUndefined();
-      expect(byId(generateInsights(series(4, (i) => ({ meanHrDelta: 20 - 5 * i }))), 'hr-trend')).toBeUndefined();
+    it('stays silent for a flat trend, fewer than 8 sessions, or a slope that is not significant (RV-1)', () => {
+      const ys = [10, 10.2, 10.1, 10.3, 10.2, 10.1, 10.3, 10.2]; // slope ≈ 0.02
+      expect(byId(generateInsights(series(8, (i) => ({ meanHrDelta: ys[i]! }))), 'hr-trend')).toBeUndefined();
+      // a perfect line, but only 7 sessions
+      expect(byId(generateInsights(series(7, (i) => ({ meanHrDelta: 20 - 5 * i }))), 'hr-trend')).toBeUndefined();
+      // noise with a visible slope (−0.71 bpm/session, which the old rule reported) but t = −1.30, p > 0.05
+      const noise = [18, 12, 16, 11, 13, 19, 9, 10];
+      const fit = trendEvidence(noise.map((y, x) => ({ x, y })))!;
+      expect(Math.abs(fit.slope)).toBeGreaterThanOrEqual(0.5);
+      expect(fit.significant).toBe(false);
+      expect(byId(generateInsights(series(8, (i) => ({ meanHrDelta: noise[i]! }))), 'hr-trend')).toBeUndefined();
     });
   });
 
-  describe('rule 3: HRV recovery', () => {
+  describe('rule 3: intra-operative HRV', () => {
     const rmssd = (values: number[]): SessionSummary[] => series(values.length, (i) => ({ hrv: hrvOf(values[i]!) }));
-    it('flags a ≥ 15 % drop in the last 3 sessions as attention', () => {
-      const ins = byId(generateInsights(rmssd([40, 40, 30, 30, 30])), 'hrv-trend');
-      expect(ins!.kind).toBe('attention');
+    it('reports a clear, ≥ 15 % drop in the last 3 sessions as info, without fatigue or rest advice (RV-1)', () => {
+      const ins = byId(generateInsights(rmssd([40, 41, 39, 40, 41, 30, 31, 29])), 'hrv-trend');
+      expect(ins!.kind).toBe('info');
+      expect(ins!.title).toContain('lower');
       expect(ins!.detail).toContain('25 %');
-      expect(ins!.detail.toLowerCase()).toContain('rest and recovery');
-      expect(ins!.evidence).toHaveLength(5);
-      // exactly −15 %: earlier 40 → recent 34
-      expect(byId(generateInsights(rmssd([40, 40, 34, 34, 34])), 'hrv-trend')!.kind).toBe('attention');
+      expect(ins!.detail).toContain('p < 0.05');
+      expect(ins!.detail.toLowerCase()).not.toContain('rest and recovery');
+      expect(ins!.detail.toLowerCase()).toContain('not a measure of fatigue');
+      expect(ins!.evidence).toHaveLength(8);
     });
-    it('reports a ≥ 15 % rise as positive', () => {
-      expect(byId(generateInsights(rmssd([30, 30, 40, 40, 40])), 'hrv-trend')!.kind).toBe('positive');
+    it('reports a clear rise too', () => {
+      const ins = byId(generateInsights(rmssd([30, 31, 29, 30, 31, 40, 41, 39])), 'hrv-trend');
+      expect(ins!.title).toContain('higher');
     });
-    it('stays silent for small changes or fewer than 5 sessions with RMSSD', () => {
-      expect(byId(generateInsights(rmssd([40, 40, 38, 38, 38])), 'hrv-trend')).toBeUndefined();
-      expect(byId(generateInsights(rmssd([40, 30, 30, 30])), 'hrv-trend')).toBeUndefined();
+    it('stays silent for small, noisy or under-powered changes', () => {
+      expect(byId(generateInsights(rmssd([40, 40, 41, 39, 40, 38, 38, 38])), 'hrv-trend')).toBeUndefined();
+      // ≥ 15 % apart on average but within the session-to-session spread: not significant
+      expect(byId(generateInsights(rmssd([25, 55, 30, 50, 40, 20, 45, 37])), 'hrv-trend')).toBeUndefined();
+      // the old 5-session case
+      expect(byId(generateInsights(rmssd([40, 40, 30, 30, 30])), 'hrv-trend')).toBeUndefined();
     });
   });
 
   describe('rule 4: workload vs physiology', () => {
-    it('reports |r| ≥ 0.5 as info', () => {
-      const pos = series(5, (i) => ({ workload: workloadOf(20 + 20 * i), meanHrDelta: 5 + 5 * i }));
+    it('reports a strong, significant correlation over ≥ 10 sessions as info', () => {
+      const pos = series(10, (i) => ({ workload: workloadOf(20 + 8 * i), meanHrDelta: 5 + 2 * i }));
       const ins = byId(generateInsights(pos), 'workload-hr');
       expect(ins!.kind).toBe('info');
       expect(ins!.detail).toContain('r = 1');
-      expect(ins!.evidence).toEqual(['s1', 's2', 's3', 's4', 's5']);
-      const neg = series(5, (i) => ({ workload: workloadOf(20 + 20 * i), meanHrDelta: 25 - 5 * i }));
-      const negIns = byId(generateInsights(neg), 'workload-hr');
-      expect(negIns!.kind).toBe('info');
-      expect(negIns!.detail).toContain('r = -1');
+      expect(ins!.detail).toContain('n = 10');
+      expect(ins!.detail.toLowerCase()).toContain('does not show that one causes the other');
+      expect(ins!.evidence).toHaveLength(10);
+      const neg = series(10, (i) => ({ workload: workloadOf(20 + 8 * i), meanHrDelta: 25 - 2 * i }));
+      expect(byId(generateInsights(neg), 'workload-hr')!.detail).toContain('r = -1');
     });
-    it('stays silent for weak correlation or fewer than 5 paired sessions', () => {
-      const deltas = [10, 20, 10, 20, 10]; // r = 0 against 20…100
+    it('stays silent for weak or non-significant correlation, or fewer than 10 paired sessions', () => {
+      const deltas = [10, 20, 10, 20, 10, 20, 10, 20, 10, 20]; // r ≈ 0.17
       expect(
-        byId(generateInsights(series(5, (i) => ({ workload: workloadOf(20 + 20 * i), meanHrDelta: deltas[i]! }))), 'workload-hr'),
+        byId(generateInsights(series(10, (i) => ({ workload: workloadOf(20 + 8 * i), meanHrDelta: deltas[i]! }))), 'workload-hr'),
       ).toBeUndefined();
-      const four = series(5, (i) => ({ workload: i < 4 ? workloadOf(20 + 20 * i) : null, meanHrDelta: 5 + 5 * i }));
-      expect(byId(generateInsights(four), 'workload-hr')).toBeUndefined();
+      // a perfect correlation from only 9 pairs
+      const nine = series(10, (i) => ({ workload: i < 9 ? workloadOf(20 + 8 * i) : null, meanHrDelta: 5 + 2 * i }));
+      expect(byId(generateInsights(nine), 'workload-hr')).toBeUndefined();
+      // r = 0.60 from 10 pairs: above the old 0.5 cut-off but p > 0.05 (critical r = 0.632)
+      const xs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      const ys = [3, 1, 4, 1, 5, 9, 2, 6, 5, 8];
+      const mid = series(10, (i) => ({ workload: workloadOf(xs[i]! * 10), meanHrDelta: ys[i]! }));
+      expect(byId(generateInsights(mid), 'workload-hr')).toBeUndefined();
+    });
+    it('uses the raw TLX score even when some sessions are weighted (RV-18)', () => {
+      // raw scores track HR perfectly; weighted scores (present on alternate sessions) would break the pattern
+      const sums = series(10, (i) => ({
+        workload: workloadOf(20 + 8 * i, i % 2 === 0 ? 95 - 8 * i : null),
+        meanHrDelta: 5 + 2 * i,
+      }));
+      expect(byId(generateInsights(sums), 'workload-hr')!.detail).toContain('r = 1');
+    });
+  });
+
+  describe('false-positive rate under the null (RV-1)', () => {
+    it('rules 2–4 fire on at most ~5 % of noise-only histories', () => {
+      const rng = createRng(20261121);
+      const trials = 1500;
+      for (const n of [8, 10, 12]) {
+        let trend = 0;
+        let hrv = 0;
+        let wl = 0;
+        for (let k = 0; k < trials; k++) {
+          // no true trend, no true change and workload independent of HR
+          const sums = series(n, () => ({
+            meanHrDelta: 15 + 6 * gaussian(rng),
+            hrv: hrvOf(Math.max(5, 30 * (1 + 0.25 * gaussian(rng)))),
+            workload: workloadOf(50 + 15 * gaussian(rng)),
+          }));
+          const ins = generateInsights(sums);
+          if (byId(ins, 'hr-trend')) trend++;
+          if (byId(ins, 'hrv-trend')) hrv++;
+          if (byId(ins, 'workload-hr')) wl++;
+        }
+        // The old rules fired 46 % / 39 % / 14 % at n = 10 (and 80 % / 50 % / 39 % at n = 5).
+        expect(trend / trials).toBeLessThan(0.08);
+        expect(hrv / trials).toBeLessThan(0.08);
+        expect(wl / trials).toBeLessThan(0.08);
+      }
+    });
+  });
+
+  describe('statistical helpers', () => {
+    it('tCritical95 returns two-sided 5 % critical values (conservative between table rows)', () => {
+      expect(tCritical95(1)).toBe(12.706);
+      expect(tCritical95(6)).toBe(2.447);
+      expect(tCritical95(8.9)).toBe(2.306);
+      expect(tCritical95(35)).toBe(2.042);
+      expect(tCritical95(5000)).toBe(1.96);
+      expect(tCritical95(0)).toBeNull();
+      expect(tCritical95(Number.NaN)).toBeNull();
+    });
+    it('trendEvidence tests the slope against zero', () => {
+      expect(trendEvidence([{ x: 0, y: 1 }, { x: 1, y: 2 }])).toMatchObject({ t: null, significant: false });
+      expect(trendEvidence([0, 1, 2, 3].map((x) => ({ x, y: 2 * x })))).toMatchObject({ t: null, significant: true });
+      expect(trendEvidence([0, 1, 2, 3].map((x) => ({ x, y: 5 })))).toMatchObject({ t: 0, significant: false });
+      const e = trendEvidence([1, 3, 2, 5, 4, 6].map((y, x) => ({ x, y })))!;
+      // r² = 0.7845 → t = √(0.7845·4/0.2155) = 3.816 > 2.776 (df 4)
+      expect(e.t!).toBeCloseTo(3.816, 2);
+      expect(e.significant).toBe(true);
     });
   });
 
@@ -418,6 +533,12 @@ describe('generateInsights', () => {
       expect(ins!.evidence).toEqual(['new']);
       expect(ins!.detail).toContain('70 %');
       expect(ins!.detail.toLowerCase()).toContain('strap');
+    });
+    it('gives watch advice for health-store sessions and stays silent for simulated ones (RV-11)', () => {
+      const watch = byId(generateInsights([makeSummary('w', T0, { ...q(0.5), sensorSource: 'healthkit' })]), 'data-quality');
+      expect(watch!.detail.toLowerCase()).toContain('watch');
+      expect(watch!.detail.toLowerCase()).not.toContain('electrodes');
+      expect(byId(generateInsights([makeSummary('s', T0, { ...q(0.5), sensorSource: 'simulated' })]), 'data-quality')).toBeUndefined();
     });
     it('ignores earlier sessions and coverage of exactly 0.8', () => {
       expect(byId(generateInsights([makeSummary('old', T0, q(0.5)), makeSummary('new', T0 + DAY, q(0.9))]), 'data-quality')).toBeUndefined();
@@ -474,12 +595,12 @@ describe('generateInsights', () => {
   });
 
   it('emits insights in rule order with complete, readable text', () => {
-    const sums = series(6, (i) => ({
+    const sums = series(10, (i) => ({
       meanHrDelta: 20 - 2 * i,
-      hrv: hrvOf(i < 3 ? 30 : 40),
-      workload: workloadOf(80 - 10 * i),
+      hrv: hrvOf(i < 7 ? 30 + (i % 2) : 40 + (i % 2)),
+      workload: workloadOf(80 - 5 * i),
       phases: [phaseOf('dissection', 0, 600, 80), phaseOf('critical', 1, 300, 95)],
-      quality: { coverage: i === 5 ? 0.6 : 1, gapCount: 0, longestGapSec: 0, rrArtifactRatio: null, sampleRateHz: 1 },
+      quality: { coverage: i === 9 ? 0.6 : 1, gapCount: 0, longestGapSec: 0, rrArtifactRatio: null, sampleRateHz: 1 },
     }));
     const out = generateInsights(sums);
     expect(out.map((x) => x.id)).toEqual(['peak-phase', 'hr-trend', 'hrv-trend', 'workload-hr', 'data-quality']);

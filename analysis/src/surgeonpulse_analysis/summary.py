@@ -9,19 +9,45 @@ Optional keys that are ``undefined`` in TypeScript are *omitted* here too.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from .episodes import default_episode_threshold, detect_stress_episodes
-from .hrv import baevsky_stress_index, clean_rr, compute_hrv
+from .hrv import MAX_HRV_ARTIFACT_RATIO, clean_rr, compute_hrv, windowed_stress_index
 from .phases import MARKER_KINDS, derive_phases, session_end
-from .stats import detect_gaps, hr_stats, is_valid_bpm, resolve_max_gap_ms, slice_by_time
+from .stats import (
+    detect_gaps,
+    hr_stats,
+    is_finite_number,
+    is_valid_bpm,
+    is_valid_sample,
+    median,
+    robust_peak_hr,
+    slice_by_time,
+)
 from .tlx import score_workload
 from .zones import estimate_max_hr, time_in_zones, zone_dwells, zones_from_baseline, zones_from_max_hr
 
-__all__ = ["compute_baseline", "data_quality", "summarize_session", "utc_year", "DEFAULT_MAX_GAP_MS"]
+__all__ = [
+    "compute_baseline",
+    "data_quality",
+    "summarize_session",
+    "utc_year",
+    "effective_max_gap_ms",
+    "is_synthetic_session",
+    "DEFAULT_MAX_GAP_MS",
+    "MIN_PHASE_HRV_SEC",
+    "ANALYTICS_VERSION",
+]
 
 DEFAULT_MAX_GAP_MS = 5000
+#: Shortest phase (s) whose HRV is reported (SPEC ``MIN_PHASE_HRV_SEC``).
+MIN_PHASE_HRV_SEC = 60
+#: Must equal the TypeScript ``ANALYTICS_VERSION`` (checked by the parity fixtures).
+ANALYTICS_VERSION = "2"
+_MAX_HEALTH_STORE_GAP_MS = 900_000
+_SYNTHETIC_TAGS = ("simulated", "demo")
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
@@ -36,36 +62,68 @@ def compute_baseline(samples, rr, start: float, end: float) -> dict[str, Any] | 
     ``restingHr`` is the :func:`~surgeonpulse_analysis.stats.hr_stats` mean
     (``None`` result without HR). ``rmssd``/``sdnn`` come from
     :func:`~surgeonpulse_analysis.hrv.compute_hrv` with ``min_intervals=20`` and are
-    omitted when that returns ``None``. ``source`` is ``"measured"``.
+    omitted when that returns ``None`` or when the window's artefact ratio exceeds
+    ``MAX_HRV_ARTIFACT_RATIO``. ``source`` is ``"measured"``.
     """
     hr = hr_stats(slice_by_time(samples, start, end))
     if hr is None:
         return None
     out: dict[str, Any] = {"startedAt": start, "endedAt": end, "restingHr": hr["mean"], "source": "measured"}
-    hrv = compute_hrv(slice_by_time(rr, start, end), min_intervals=20)["hrv"]
-    if hrv is not None:
+    res = compute_hrv(slice_by_time(rr, start, end), min_intervals=20)
+    hrv = res["hrv"]
+    if hrv is not None and res["artifacts"]["ratio"] <= MAX_HRV_ARTIFACT_RATIO:
         out["rmssd"] = hrv["rmssd"]
         out["sdnn"] = hrv["sdnn"]
     return out
 
 
-def data_quality(session: Mapping[str, Any], max_gap_ms: float = DEFAULT_MAX_GAP_MS) -> dict[str, Any]:
+def effective_max_gap_ms(session: Mapping[str, Any], max_gap_ms: float | None = None) -> float:
+    """Gap rule when no ``max_gap_ms`` is given (SPEC ``effectiveMaxGapMs``).
+
+    An explicit number (not NaN) is used as given. Otherwise 5000 ms, except for
+    ``healthkit``/``health-connect`` sessions: ``1.5 ×`` the median spacing of
+    consecutive valid samples, clamped to [5000 ms, 15 min].
+    """
+    if max_gap_ms is not None and not (isinstance(max_gap_ms, float) and math.isnan(max_gap_ms)):
+        return max_gap_ms
+    source = (session.get("sensor") or {}).get("source")
+    if source not in ("healthkit", "health-connect"):
+        return DEFAULT_MAX_GAP_MS
+    ts = sorted(s["t"] for s in (session.get("samples") or []) if is_valid_sample(s) and is_finite_number(s.get("t")))
+    spacing = [b - a for a, b in zip(ts, ts[1:]) if b > a]
+    m = median(spacing)
+    if m is None:
+        return DEFAULT_MAX_GAP_MS
+    return min(_MAX_HEALTH_STORE_GAP_MS, max(DEFAULT_MAX_GAP_MS, 1.5 * m))
+
+
+def is_synthetic_session(session: Mapping[str, Any]) -> bool:
+    """Sensor source ``simulated``, or a ``simulated``/``demo`` tag (SPEC ``isSyntheticSession``)."""
+    if (session.get("sensor") or {}).get("source") == "simulated":
+        return True
+    return any(t in _SYNTHETIC_TAGS for t in (session.get("tags") or []))
+
+
+def data_quality(session: Mapping[str, Any], max_gap_ms: float | None = None) -> dict[str, Any]:
     """Signal coverage and quality (SPEC ``dataQuality``).
 
+    ``max_gap_ms`` defaults to :func:`effective_max_gap_ms`.
+
     * ``coverage = min(1, covered/duration)`` where covered time is the sum of
-      ``min(t[i+1] − t[i], max_gap_ms)`` between consecutive valid samples,
+      ``min(t[i+1] − t[i], max_gap_ms)`` between consecutive valid samples (valid
+      bpm and not ``contact: false``),
       each piece clipped to ``[startedAt, sessionEnd]``; 0 when duration <= 0.
     * ``gapCount``/``longestGapSec`` from ``detect_gaps(samples, max_gap_ms)``.
     * ``sampleRateHz = max(0, inWindow − 1)/(covered/1000)`` when covered > 0, else 0,
       where ``inWindow`` counts valid samples with ``startedAt <= t <= sessionEnd``.
     * ``rrArtifactRatio`` from :func:`clean_rr`, ``None`` without RR data.
     """
-    max_gap_ms = resolve_max_gap_ms(max_gap_ms)
+    max_gap_ms = effective_max_gap_ms(session, max_gap_ms)
     start = session["startedAt"]
     end = session_end(session)
     duration = end - start
     samples = session.get("samples") or []
-    valid = sorted((s for s in samples if is_valid_bpm(s.get("bpm"))), key=lambda s: s["t"])
+    valid = sorted((s for s in samples if is_valid_sample(s)), key=lambda s: s["t"])
     in_window = sum(1 for s in valid if start <= s["t"] <= end)
     covered: float = 0
     for a, b in zip(valid, valid[1:]):
@@ -139,7 +197,7 @@ def summarize_session(
     * ``phases``: per-segment HR stats, HRV (``min_intervals=20``) and HR delta.
     * ``episodes``: threshold = option or :func:`default_episode_threshold`.
     """
-    gap = resolve_max_gap_ms(max_gap_ms)
+    gap = effective_max_gap_ms(session, max_gap_ms)
     samples = session.get("samples") or []
     rr = session.get("rr") or []
     events = session.get("events") or []
@@ -150,8 +208,11 @@ def summarize_session(
 
     hr = hr_stats(samples)
     cleaned = clean_rr(rr)
-    hrv_res = compute_hrv(rr)
-    valid_ms = [r["ms"] for r, v in zip(rr, cleaned["valid"]) if v]
+    artifacts = cleaned["report"]
+    rr_usable = artifacts["ratio"] <= MAX_HRV_ARTIFACT_RATIO
+    hrv = compute_hrv(rr)["hrv"] if rr_usable else None
+    stress_index = windowed_stress_index(rr, cleaned["valid"]) if rr_usable else None
+    peak_hr = robust_peak_hr(samples)
     baseline = _resolve_baseline(session)
     resting = baseline["restingHr"] if baseline is not None else None
     mhr = _resolve_max_hr(session, max_hr, at_year)
@@ -180,11 +241,16 @@ def summarize_session(
     phases = []
     for seg in segments:
         phr = hr_stats(slice_by_time(samples, seg["start"], seg["end"]))
-        phrv = compute_hrv(slice_by_time(rr, seg["start"], seg["end"]), min_intervals=20)["hrv"]
+        duration_sec = (seg["end"] - seg["start"]) / 1000
+        phrv = None
+        if duration_sec >= MIN_PHASE_HRV_SEC:
+            pres = compute_hrv(slice_by_time(rr, seg["start"], seg["end"]), min_intervals=20)
+            if pres["artifacts"]["ratio"] <= MAX_HRV_ARTIFACT_RATIO:
+                phrv = pres["hrv"]
         phases.append(
             {
                 **seg,
-                "durationSec": (seg["end"] - seg["start"]) / 1000,
+                "durationSec": duration_sec,
                 "hr": phr,
                 "hrv": phrv,
                 "meanHrDelta": (phr["mean"] - resting) if (phr is not None and resting is not None) else None,
@@ -193,7 +259,9 @@ def summarize_session(
 
     threshold = episode_threshold_bpm if episode_threshold_bpm is not None else default_episode_threshold(baseline, hr)
     episodes = (
-        detect_stress_episodes(samples, threshold, segments=segments, events=events) if threshold is not None else []
+        detect_stress_episodes(samples, threshold, max_sample_gap_ms=gap, segments=segments, events=events)
+        if threshold is not None
+        else []
     )
 
     marker_counts: dict[str, int] = {}
@@ -219,12 +287,12 @@ def summarize_session(
             "endedAt": ended,
             "durationSec": (ended - started) / 1000,
             "hr": hr,
-            "hrv": hrv_res["hrv"],
-            "rrArtifacts": hrv_res["artifacts"] if rr else None,
-            "stressIndex": baevsky_stress_index(valid_ms),
+            "hrv": hrv,
+            "rrArtifacts": artifacts if rr else None,
+            "stressIndex": stress_index,
             "baseline": baseline,
             "meanHrDelta": (hr["mean"] - resting) if (hr is not None and resting is not None) else None,
-            "peakHrDelta": (hr["max"] - resting) if (hr is not None and resting is not None) else None,
+            "peakHrDelta": (peak_hr - resting) if (peak_hr is not None and resting is not None) else None,
             "maxHr": mhr,
             "zones": time_in_zones(samples, zone_defs, gap),
             "highIntensityFraction": high_fraction,
@@ -235,6 +303,20 @@ def summarize_session(
             "performance": post_op.get("performance"),
             "perceivedStress": post_op.get("perceivedStress"),
             "quality": data_quality(session, gap),
+            "peakHr": peak_hr,
+            "sensorSource": (session.get("sensor") or {}).get("source"),
+            "simulated": is_synthetic_session(session),
+        }
+    )
+    if is_finite_number(session.get("tzOffsetMin")):
+        out["tzOffsetMin"] = session["tzOffsetMin"]
+    out.update(
+        {
+            "sleepHours": post_op.get("sleepHours"),
+            "caffeine": post_op.get("caffeine"),
+            "outcome": post_op.get("outcome"),
+            "maxGapMs": gap,
+            "analyticsVersion": ANALYTICS_VERSION,
         }
     )
     return out

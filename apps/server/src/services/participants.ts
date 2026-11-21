@@ -130,12 +130,13 @@ export interface WithdrawalResult {
  * Withdraw a participant (both the participant's own request and the
  * researcher-actioned path): delete all their sessions, revoke all their
  * enrolments, mark them withdrawn and reduce the stored profile to the bare
- * code. Idempotent.
+ * code, then checkpoint and truncate the WAL so no copy of the deleted rows
+ * remains on disk while the server keeps running. Idempotent.
  *
  * @returns null if the participant does not exist.
  */
 export function withdrawParticipant(repo: Repo, code: string, actor: string, now: number): WithdrawalResult | null {
-  return repo.transaction(() => {
+  const result = repo.transaction(() => {
     const participant = repo.getParticipant(code);
     if (participant === undefined) return null;
     const deletedSessions = repo.deleteSessionsOf(code);
@@ -144,4 +145,7 @@ export function withdrawParticipant(repo: Repo, code: string, actor: string, now
     repo.audit({ actor, action: 'participant.withdraw', target: code, detail: { deletedSessions, revokedEnrolments } }, now);
     return { deletedSessions, revokedEnrolments };
   });
+  // Erase the withdrawn data from the WAL file too, not only from the database file.
+  if (result !== null) repo.purgeJournal();
+  return result;
 }

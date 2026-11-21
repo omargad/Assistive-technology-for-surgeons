@@ -9,7 +9,7 @@
  *
  * Usage:
  *   npx expo export --platform web --output-dir /tmp/mobile-web
- *   npx serve -s /tmp/mobile-web -l 8090 &
+ *   node e2e/serve-spa.mjs /tmp/mobile-web 8090 &
  *   node e2e/web-flow.mjs [baseUrl=http://localhost:8090]
  * Screenshots: $SCREENSHOT_DIR/mobile-*.png (default: the OS temp dir), 390x844 at deviceScaleFactor 1.
  * Works against `npx expo start --web` too, which also surfaces development-only React warnings.
@@ -105,11 +105,13 @@ try {
   await byTestId('baseline-start').click();
   await sleep(22000);
   await shot('07-baseline-running');
-  await clickText('Finish early');
-  await page.getByText('Your resting baseline').waitFor({ timeout: 10000 });
+  // A baseline under a minute is not used, so "Finish early" is disabled until then (RV-6).
+  const finishEarly = byTestId('baseline-finish-early');
+  if ((await finishEarly.getAttribute('aria-disabled')) !== 'true') throw new Error('"Finish early" should be disabled before 60 s');
+  await page.getByText('Your resting baseline').waitFor({ timeout: 60000 });
   await shot('08-baseline-done');
   const restingTxt = await page.getByText('Resting HR').locator('..').innerText().catch(() => '');
-  log('Baseline', `finished early after 22 s (${restingTxt.replace(/\s+/g, ' ')})`);
+  log('Baseline', `1-minute baseline completed (${restingTxt.replace(/\s+/g, ' ')})`);
   await byTestId('baseline-start-recording').click();
 
   // ---------------------------------------------------------------- Live
@@ -132,6 +134,33 @@ try {
   await byTestId('marker-equipment').click();
   await byTestId('live-undo-action').waitFor();
   await shot('11-live-undo-visible');
+  // The undo bar must never cover a button (a tap on a half-covered "Teaching" used to land on Undo): every visible
+  // phase / event / logger control is hit-testable at its centre while the bar shows.
+  const covered = await page.evaluate(() => {
+    // The part of an element not clipped by scroll containers or the window (scrolled-away buttons are not "covered").
+    const visible = (el) => {
+      const r = el.getBoundingClientRect();
+      let top = Math.max(r.top, 0);
+      let bottom = Math.min(r.bottom, innerHeight);
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowY)) {
+          const pr = p.getBoundingClientRect();
+          top = Math.max(top, pr.top);
+          bottom = Math.min(bottom, pr.bottom);
+        }
+      }
+      return { x: (r.left + r.right) / 2, top, bottom };
+    };
+    return [...document.querySelectorAll('[data-testid^="phase-"],[data-testid^="marker-"],[data-testid^="live-logger-"],[data-testid="live-end"]')]
+      .filter((el) => {
+        const v = visible(el);
+        if (v.bottom - v.top < 24) return false; // (almost) scrolled out of view
+        const hit = document.elementFromPoint(v.x, (v.top + v.bottom) / 2);
+        return !hit || !el.contains(hit);
+      })
+      .map((el) => el.getAttribute('data-testid'));
+  });
+  if (covered.length > 0) throw new Error(`Undo bar covers live controls: ${covered.join(', ')}`);
   await byTestId('live-undo-action').click();
   await sleep(800);
   await shot('12-live-after-undo');
@@ -231,7 +260,10 @@ try {
   await byTestId('insights').waitFor();
   await shot('19-insights-before-demo');
   await page.getByText('Load demo data', { exact: true }).last().click();
-  await page.waitForFunction(() => /Patterns across your (\d{2,}) completed/.test(document.body.innerText), null, { timeout: 30000 });
+  // The case recorded above used the simulator, so it is practice data too: Insights shows the simulated sessions,
+  // clearly labelled, and never as "your" cases.
+  await page.waitForFunction(() => /Patterns across (\d{2,}) simulated sessions/.test(document.body.innerText), null, { timeout: 30000 });
+  if (!(await byTestId('insights-demo-banner').isVisible())) throw new Error('Insights: demo data shown without the demo banner');
   await sleep(1500);
   await shot('20-insights-demo');
   await tallShot('20b-insights-full', 3000);

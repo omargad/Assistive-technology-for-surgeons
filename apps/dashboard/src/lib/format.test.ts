@@ -32,7 +32,7 @@ describe('formatters', () => {
     expect(fmtMetricWithUnit('meanHr', 72.4)).toBe('72 bpm');
     expect(fmtMetricWithUnit('workload', 41.6)).toBe('42/100');
     expect(metricLabel('rmssd')).toBe('RMSSD (ms)');
-    expect(metricLabel('workload')).toBe('Workload (TLX), 0–100');
+    expect(metricLabel('workload')).toBe('Workload (raw TLX), 0–100');
     expect(metricLabel('episodeCount')).toBe('Stress episodes');
   });
 

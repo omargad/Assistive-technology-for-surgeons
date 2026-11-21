@@ -10,7 +10,8 @@ no patient data.
 > profiles.
 
 - **Runs on Windows, macOS and Linux.** It needs Node.js only: SQLite is Node's built-in `node:sqlite`, so there are
-  no native add-ons to compile and no build tools to install. The container image is published for amd64 and arm64.
+  no native add-ons to compile and no build tools to install. A Dockerfile is included (it builds for amd64 and
+  arm64); no image is built or published for you, and CI does not build it.
 - **Serves every SurgeonPulse client.** The iOS and Android apps upload over HTTPS with an enrolment token. The app's
   web build and the research dashboard run in browsers and are allowed through CORS.
 
@@ -51,7 +52,8 @@ of at least 32 characters, and prints which setting is wrong.
 | `DATA_DIR` | `./data` | Holds `surgeonpulse.sqlite`. Created with mode 0700 on macOS and Linux. On Windows, put it in a folder that only the service account can read. A relative path is resolved from the directory the server starts in. |
 | `CORS_ORIGINS` | (empty) | Comma-separated browser origins, e.g. `https://dashboard.example.ac.uk,http://localhost:5173`. Empty means no CORS. `*` is not allowed. |
 | `MAX_UPLOAD_MB` | `25` | Largest request body. Bigger uploads get `413`. The mobile app splits uploads to stay below it. |
-| `TRUST_PROXY` | `false` | Set to `true` only behind a reverse proxy that you control and that sets `X-Forwarded-For`. |
+| `TRUST_PROXY` | `false` | Which reverse proxies may set `X-Forwarded-For` (used for rate limiting and logs). `false`: none, the client is the connecting address. `true`: trust exactly the one proxy directly in front of the server, so the client is the right-most `X-Forwarded-For` entry. Or a comma-separated list of proxy IP addresses, CIDR ranges and the presets `loopback`, `linklocal`, `uniquelocal`, e.g. `127.0.0.1,10.0.0.0/8`. Anything else stops the server at start-up. |
+| `ACCEPT_SIMULATED` | `false` | `true` also accepts simulated and demo sessions (sensor source `simulated`, or a `simulated`/`demo` tag). Leave it `false` on a study server so the exports contain real recordings only; set it to `true` for a local test server fed by `npm run simulate`. |
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`. Request bodies and `Authorization` headers are never logged. |
 
 ## Enrol a participant and upload
@@ -78,6 +80,8 @@ curl -s "$SP_URL/api/v1/me" -H "Authorization: Bearer $SP_TOKEN"
 # → {"participantCode":"SP-014","sessionCount":0,"lastUploadAt":null}
 
 # 3. Phone: upload an export from the app, or a simulated bundle for testing.
+#    Simulated sessions are rejected ("simulated or demo data is not accepted by this server")
+#    unless the server runs with ACCEPT_SIMULATED=true, which is for test servers only.
 npm run simulate -- SP-014 bundle.json
 curl -s -X POST "$SP_URL/api/v1/sessions" \
   -H "Authorization: Bearer $SP_TOKEN" -H "Content-Type: application/json" --data-binary @bundle.json
@@ -124,39 +128,58 @@ authentication failure returns the same `401 {"error":"unauthorized"}`, which do
 | Method & path | Auth | Behaviour |
 | --- | --- | --- |
 | `GET /health` | none | `{ status: 'ok', version }`. Returns 503 if the database doesn't answer. |
-| `POST /api/v1/admin/participants` | admin | `{ code, profile? }` creates the participant (201) or replaces their profile (200). The code must pass core's `isValidParticipantCode` and can't be an e-mail-like string. A withdrawn code returns 409. |
+| `POST /api/v1/admin/participants` | admin | `{ code, profile? }` creates the participant (201) or replaces their profile (200). The code must pass core's `isValidParticipantCode` and can't be an e-mail-like string. Codes are stored in upper case (`sp-014` becomes `SP-014`) and matched case-insensitively everywhere. A withdrawn code returns 409. |
 | `GET /api/v1/admin/participants` | admin | `{ items }`, each with `profile`, `withdrawn`, `sessionCount`, `enrolmentCount`, `activeEnrolmentCount` and `lastUploadAt`. |
 | `DELETE /api/v1/admin/participants/:code` | admin | Researcher-actioned withdrawal (same effect as self-withdrawal). 204, or 404 if the code is unknown. |
 | `POST /api/v1/admin/enrolments` | admin | `{ participantCode, label? }` returns 201 `{ id, token, participantCode, label, createdAt }`. The token is shown **once**. Creates the participant if missing. |
 | `GET /api/v1/admin/enrolments` | admin | `{ items }`. Never includes tokens or hashes. |
 | `DELETE /api/v1/admin/enrolments/:id` | admin | Revokes the enrolment. 204. |
 | `GET /api/v1/admin/audit` | admin | The latest 500 audit rows, newest first. |
-| `POST /api/v1/sessions` | enrolment | Accepts an `ExportBundle`, a session, or an array of sessions (anything core's `parseImport` accepts). Returns `200 { accepted: [{id, status}], rejected: [{index, id?, reason}] }`, where `status` is `created`, `updated` or `unchanged`. An empty or unparseable body returns 400. |
+| `POST /api/v1/sessions` | enrolment | Accepts an `ExportBundle`, a session, or an array of sessions (anything core's `parseImport` accepts). Returns `200 { accepted: [{id, status}], rejected: [{index, id?, reason}] }`, where `status` is `created`, `updated` or `unchanged`. An empty or unparseable body returns 400. A bundle whose profile for this participant records withdrawn consent (`consent.withdrawnAt`) returns `409 {"error":"consent withdrawn"}` and stores nothing. |
 | `GET /api/v1/me` | enrolment | `{ participantCode, sessionCount, lastUploadAt }` |
 | `POST /api/v1/me/withdraw` | enrolment | Deletes all of the participant's sessions, marks them withdrawn and revokes all their tokens. Returns `200 { deletedSessions }`. |
 | `GET /api/v1/sessions` | admin | Filters: `participant`, `from`/`to` (epoch ms on `startedAt`; `from` is inclusive, `to` exclusive), `specialty` (case-insensitive), `limit` (1–1000, default 200) and `offset`. Returns `{ items: [{ id, participantCode, startedAt, endedAt, procedureName, specialty, receivedAt, summary }], total }` in start order. |
 | `GET /api/v1/sessions/:id` | admin | The full de-identified session JSON, or 404. |
 | `DELETE /api/v1/sessions/:id` | admin | 204, or 404. |
-| `GET /api/v1/export` | admin | Same filters (no limit by default). Returns a de-identified `ExportBundle` with participant profiles as a `.json` attachment. |
-| `GET /api/v1/export/summaries.csv` | admin | Core's `summariesToCsv` output (one wide row per session for R, SPSS, Stata or pandas) as a `.csv` attachment. |
+| `GET /api/v1/export` | admin | Same filters (no limit by default). Returns a de-identified `ExportBundle` with participant profiles as a `.json` attachment. Timestamps are real unless you add `shiftDates=true` (see below). |
+| `GET /api/v1/export/summaries.csv` | admin | Core's `summariesToCsv` output (one wide row per session for R, SPSS, Stata or pandas) as a `.csv` attachment. Also accepts `shiftDates=true`. |
+
+**Date-shifted exports.** `?shiftDates=true` on either export moves every timestamp of a participant by the same
+secret number of whole weeks (between 1 and 52, earlier or later), derived with HMAC-SHA256 from the participant code
+and a random key that the server creates in its database on first use. Weekday, time of day and every interval are
+kept, so circadian and rota analyses still work, but calendar dates can't be matched to theatre lists. A participant
+gets the same shift in every export, the shift is never returned or written to the audit log, and `exportedAt` becomes
+the latest shifted session end. Use it for files that leave the research team; the unshifted export is for the team's
+own dashboard.
 
 Upload rules, enforced server-side whatever the client does:
 
-- Every session's `participantCode` must equal the token's participant. Otherwise it is rejected with a reason.
+- Every session's `participantCode` must equal the token's participant (compared case-insensitively; the session is
+  stored under the enrolment's spelling). Otherwise it is rejected with a reason.
+- Simulated and demo sessions are rejected with "simulated or demo data is not accepted by this server" unless
+  `ACCEPT_SIMULATED=true`.
+- Session and event ids must match `^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$`, so an id can't carry free text and every
+  stored session is reachable at `/api/v1/sessions/:id`. Other ids are rejected with a reason.
 - Each session is **de-identified again** with core's `deidentifySession` defaults. That removes event notes, post-op
-  notes and the sensor id, and replaces a free-text procedure name with its catalogue name.
+  notes and the sensor id, and replaces a procedure name that is not in the catalogue with `Unspecified procedure`.
+  The server also keeps a specialty (in the procedure, the participant snapshot and the bundle profile) only if it is
+  one of core's catalogue specialties, and `sensor.location` only if it is a standard Bluetooth body-sensor location.
 - The server then summarises each session with core's `summarizeSession` and stores it under its id. A SHA-256 of the
   canonical JSON (sorted keys) detects `unchanged` re-uploads. A session id that belongs to another participant is
   rejected.
 - If the bundle contains the token's participant profile, it replaces the stored profile. The code itself can't
   change.
+- Summaries are stored with core's `analyticsVersion`. When the server starts after an upgrade that changed the
+  analytics, it recomputes every stored summary from an older version (and writes an audit row); a re-upload of an
+  unchanged session also refreshes an outdated summary.
 
 Rate limits apply per client IP: 30 uploads per minute, and 10 authentication failures per minute. After that, the
-server returns `429` with a `Retry-After` header in seconds.
+server returns `429` with a `Retry-After` header in seconds. Phones behind one hospital NAT share these buckets, and
+while an address is locked out after authentication failures, requests with a valid token from that address wait too.
 
 ## Connecting the apps
 
-- **iOS and Android apps.** In the app, go to Settings › Research upload and enter the server URL and the enrolment
+- **iOS and Android apps.** In the app, go to Settings › Research study and enter the server URL and the enrolment
   token. Use **HTTPS** in production. iOS App Transport Security and Android (since version 9) block plain HTTP, and
   the app only accepts `http://` for local development addresses. For development:
   - The **Android emulator** reaches your computer at `http://10.0.2.2:8787`.
@@ -216,7 +239,9 @@ manager:
 
 - **Always put the server behind TLS.** Use a reverse proxy on university infrastructure (Caddy, nginx, Apache or IIS
   ARR) with an institutional certificate. Keep `HOST=127.0.0.1` so that only the proxy can reach the server, and set
-  `TRUST_PROXY=true` so that rate limiting sees real client addresses.
+  `TRUST_PROXY=true` (trust only the proxy directly in front) so that rate limiting sees real client addresses. If
+  requests pass through more than one proxy (e.g. a load balancer and then nginx), list their addresses instead, e.g.
+  `TRUST_PROXY=127.0.0.1,10.0.0.0/8`.
 - **Allow large enough requests at the proxy.** Set the proxy's body limit to at least `MAX_UPLOAD_MB`, e.g. nginx
   `client_max_body_size 25m;`. Caddy has no limit by default.
 - Caddy example: `surgeonpulse.example.ac.uk { reverse_proxy 127.0.0.1:8787 }`.
@@ -254,8 +279,11 @@ long as your ethics approval allows, and test restores. To restore, stop the ser
 - **Withdrawal**, whether by the participant or by the researcher, deletes all of that participant's sessions, revokes
   every token, clears the profile back to the bare code, and retires the code: it can't be re-enrolled, so use a new
   code if the participant re-consents. The audit log keeps the code, the action and the counts. The database runs with
-  SQLite `secure_delete`, so deleted data is overwritten rather than left recoverable in the file. Backups taken
-  before the withdrawal still contain it, so handle them as your protocol requires.
+  SQLite `secure_delete`, so deleted data is overwritten rather than left recoverable in the file. `secure_delete`
+  does not reach the write-ahead log, so after each withdrawal and each `DELETE /api/v1/sessions/:id` the server also
+  checkpoints and truncates the WAL (`PRAGMA wal_checkpoint(TRUNCATE)`; best effort, retried at the next erasure or
+  shutdown if another connection is busy). Backups taken before the withdrawal still contain the data, so handle them
+  as your protocol requires.
 - **The audit log** records every change (actor `admin` or `participant:<code>`, the action and the target) and every
   export. It never records health data or secrets.
 - **Logging.** Request bodies are never logged, and `Authorization`/`Cookie` headers are redacted. Errors never echo
@@ -263,14 +291,17 @@ long as your ethics approval allows, and test restores. To restore, stop the ser
 - **Response headers.** Every response carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
   `Cache-Control: no-store`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` and
   `X-Frame-Options: DENY`. CORS is off unless `CORS_ORIGINS` lists exact origins.
-- **Request parsing.** The JSON parser rejects prototype-poisoning keys (`__proto__`, `constructor.prototype`).
+- **Request parsing.** The admin JSON routes use Fastify's secure JSON parser, which rejects prototype-poisoning keys
+  (`__proto__`, `constructor.prototype`). The upload route hands the raw body to core's `parseImport`, whose zod
+  schemas keep only known fields, so such keys never reach the stored session.
 
 ## Development
 
 ```bash
 cd apps/server
-npm test            # Vitest: app.inject() against a temp DATA_DIR per test (works on Windows, macOS, Linux)
+npm test            # Vitest: app.inject() against a temp DATA_DIR per test (CI runs it on Linux, Windows and macOS)
 npm run typecheck   # tsc --noEmit
+npm run build       # esbuild bundle in dist/
 npm run dev         # restart on change
 ```
 
@@ -288,6 +319,8 @@ Source layout (`src/`):
 | `http.ts` | Uniform errors, JSON 404, security headers, JSON parser |
 | `services/ingest.ts` | Upload pipeline: `parseImport`, then `deidentifySession`, then `summarizeSession`, then the sha256 upsert |
 | `services/participants.ts` | Participants, enrolments, withdrawal (each one transaction plus an audit row) |
+| `services/recompute.ts` | Recomputes stored summaries from an older `analyticsVersion` at start-up |
+| `dateShift.ts` | Per-participant secret date shift for `?shiftDates=true` exports |
 | `routes/*.ts`, `app.ts` | `buildApp(config, { db? })`, exported for tests |
 | `main.ts` | Entry point with graceful shutdown |
 | `backup.ts` | `npm run backup` |

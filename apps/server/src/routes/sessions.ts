@@ -42,6 +42,7 @@ export function sessionRoutes(ctx: AppContext): FastifyPluginAsync {
         return true;
       });
       if (!deleted) throw new HttpError(404, 'session not found');
+      ctx.repo.purgeJournal(); // don't leave the deleted session in the WAL file
       return reply.code(204).send();
     });
   };

@@ -224,3 +224,114 @@ describe('POST /api/v1/sessions', () => {
     expect(after.json()).toEqual({ participantCode: 'SP-001', sessionCount: 2, lastUploadAt: t.clock.now });
   });
 });
+
+/** A simulator session made to look like a real BLE recording (no `simulated` marker). */
+function realLooking(code: string, seed: number): SurgicalSession {
+  const s = simSession(code, seed);
+  const { tags: _tags, ...rest } = s;
+  return { ...rest, sensor: { source: 'ble', name: 'Polar H10 A1B2C3D4', location: 'chest' } };
+}
+
+describe('upload rules that protect the research dataset', () => {
+  const contexts: TestContext[] = [];
+  async function app(env: Record<string, string> = {}): Promise<TestContext> {
+    const t = await createTestApp(env);
+    contexts.push(t);
+    return t;
+  }
+  afterEach(async () => {
+    for (const t of contexts.splice(0)) await t.close();
+  });
+
+  // DATA-1: synthetic data never enters the dataset unless the operator opts in.
+  it('rejects simulated and demo sessions by default (ACCEPT_SIMULATED=false)', async () => {
+    const t = await app({ ACCEPT_SIMULATED: 'false' });
+    const { token } = await enrol(t.app, 'SP-001');
+    const simulated = simSession('SP-001', 1); // sensor.source 'simulated', tagged 'simulated'
+    const live = { ...realLooking('SP-001', 2), sensor: { source: 'simulated' as const, name: 'Simulator' } }; // app's live simulator: no tag
+    const demo = { ...realLooking('SP-001', 3), tags: ['demo'] };
+    const real = realLooking('SP-001', 4);
+    const res = await upload(t.app, token, bundleJson([simulated, live, demo, real]));
+    expect(res.statusCode).toBe(200);
+    const body: UploadResponse = res.json();
+    expect(body.accepted).toEqual([{ id: real.id, status: 'created' }]);
+    expect(body.rejected).toEqual(
+      [simulated, live, demo].map((s, index) => ({
+        index,
+        id: s.id,
+        reason: 'simulated or demo data is not accepted by this server',
+      })),
+    );
+    const csv = await t.app.inject({ method: 'GET', url: '/api/v1/export/summaries.csv', headers: ADMIN });
+    expect(csv.body.trim().split('\n')).toHaveLength(2); // header + the real session only
+
+    const demoServer = await app({ ACCEPT_SIMULATED: 'true' });
+    const enrolled = await enrol(demoServer.app, 'SP-001');
+    const ok: UploadResponse = (await upload(demoServer.app, enrolled.token, bundleJson([simulated]))).json();
+    expect(ok.accepted).toHaveLength(1);
+  });
+
+  // PRIV-3: a device that recorded the withdrawal must not keep adding data.
+  it('refuses an upload whose profile records withdrawn consent (409) and stores nothing', async () => {
+    const t = await app();
+    const { token } = await enrol(t.app, 'SP-001');
+    const profile = { code: 'SP-001', consent: { version: 'PICF-1.0', givenAt: 1, withdrawnAt: 2 } };
+    const res = await upload(t.app, token, bundleJson([simSession('SP-001', 1)], [profile]));
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: 'consent withdrawn' });
+    const me = await t.app.inject({ method: 'GET', url: '/api/v1/me', headers: bearer(token) });
+    expect(me.json()).toMatchObject({ sessionCount: 0 });
+  });
+
+  // DOC-S4: the app upper-cases codes; a researcher may type them in lower case.
+  it('treats participant codes case-insensitively and stores them in upper case', async () => {
+    const t = await app();
+    const { token, participantCode } = await enrol(t.app, ' sp-099 ');
+    expect(participantCode).toBe('SP-099');
+    const fromApp = simSession('SP-099', 1);
+    const fromScript = simSession('sp-099', 2);
+    const body: UploadResponse = (await upload(t.app, token, bundleJson([fromApp, fromScript], [{ code: 'sp-099', trainingLevel: 'fellow' }]))).json();
+    expect(body.accepted.map((a) => a.status)).toEqual(['created', 'created']);
+    const stored = await t.app.inject({ method: 'GET', url: `/api/v1/sessions/${fromScript.id}`, headers: ADMIN });
+    expect(stored.json().participantCode).toBe('SP-099');
+    const list = await t.app.inject({ method: 'GET', url: '/api/v1/sessions?participant=sp-099', headers: ADMIN });
+    expect(list.json().total).toBe(2);
+    const participants = await t.app.inject({ method: 'GET', url: '/api/v1/admin/participants', headers: ADMIN });
+    expect(participants.json().items).toEqual([expect.objectContaining({ code: 'SP-099', profile: { code: 'SP-099', trainingLevel: 'fellow' } })]);
+    const del = await t.app.inject({ method: 'DELETE', url: '/api/v1/admin/participants/sp-099', headers: ADMIN });
+    expect(del.statusCode).toBe(204);
+  });
+
+  // PRIV-7: ids and typed fields must not carry identifiers past server-side de-identification.
+  it('rejects free-text or over-long ids and drops non-catalogue specialties and sensor locations', async () => {
+    const t = await app();
+    const { token } = await enrol(t.app, 'SP-001');
+    const textId = { ...realLooking('SP-001', 1), id: 'Mrs Jones MRN 1234567 lapchole' };
+    const longId = { ...realLooking('SP-001', 2), id: 'a'.repeat(101) };
+    const base = realLooking('SP-001', 3);
+    const textEvent = { ...base, events: base.events.map((e, i) => (i === 0 ? { ...e, id: 'note: Mr Jones bled' } : e)) };
+    const typed = realLooking('SP-001', 4);
+    const odd: SurgicalSession = {
+      ...typed,
+      procedure: { ...typed.procedure, specialty: 'Dr Smith list, St Elsewhere Theatre 4' },
+      sensor: { ...typed.sensor, location: 'Mr Jones bed 12' },
+      participantSnapshot: { specialty: 'Dr Smith list' },
+    };
+    const known = { ...realLooking('SP-001', 5), procedure: { name: 'Appendicectomy', specialty: 'general SURGERY' } };
+    const body: UploadResponse = (await upload(t.app, token, bundleJson([textId, longId, textEvent, odd, known]))).json();
+    expect(body.rejected.map((r) => [r.index, r.reason])).toEqual([
+      [0, expect.stringMatching(/^session id must be/)],
+      [1, expect.stringMatching(/^session id must be/)],
+      [2, expect.stringMatching(/^event ids must be/)],
+    ]);
+    expect(body.accepted.map((a) => a.id)).toEqual([odd.id, known.id]);
+
+    const stored = (await t.app.inject({ method: 'GET', url: `/api/v1/sessions/${odd.id}`, headers: ADMIN })).json();
+    expect(stored.procedure.specialty).toBeUndefined();
+    expect(stored.sensor.location).toBeUndefined();
+    expect(stored.participantSnapshot?.specialty).toBeUndefined();
+    const kept = (await t.app.inject({ method: 'GET', url: `/api/v1/sessions/${known.id}`, headers: ADMIN })).json();
+    expect(kept.procedure.specialty).toBe('General surgery');
+    expect(kept.sensor.location).toBe('chest');
+  });
+});

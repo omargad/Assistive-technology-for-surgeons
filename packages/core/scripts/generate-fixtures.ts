@@ -360,6 +360,100 @@ function buildEdgeWindow(): SurgicalSession {
   });
 }
 
+/**
+ * Health Connect watch import: about one sample a minute (jittered), a few samples without skin contact, local
+ * time-zone offset, debrief covariates and a `demo` tag (research-validity rules: source-aware gap rule, contact
+ * flag, provenance fields).
+ */
+function buildEdgeWatch(): SurgicalSession {
+  const startedAt = Date.UTC(2026, 1, 28, 21, 3); // 08:03 AEDT on 1 March
+  const samples: { t: number; bpm: number; contact?: boolean }[] = [];
+  for (let i = 0; i <= 95; i++) {
+    const jitter = ((i * 37) % 11) * 1000 - 5000;
+    const t = startedAt + i * MIN + (i === 0 ? 0 : jitter);
+    const bpm = i >= 20 && i < 55 ? 104 + (i % 4) : 71 + (i % 3);
+    samples.push(i % 17 === 5 ? { t, bpm: 66, contact: false } : { t, bpm });
+  }
+  return parseSession({
+    schemaVersion: 1,
+    id: 'edge-watch-0001',
+    participantCode: 'EDGE-05',
+    procedure: { name: 'Total knee replacement', approach: 'open', role: 'primary' },
+    startedAt,
+    endedAt: startedAt + 95 * MIN,
+    status: 'completed',
+    sensor: { source: 'health-connect', name: 'Watch' },
+    app: { version: 'fixtures', platform: 'android' },
+    tzOffsetMin: 660,
+    participantSnapshot: { trainingLevel: 'registrar', restingHr: 64 },
+    baseline: { startedAt: startedAt - 4 * MIN, endedAt: startedAt - MIN, restingHr: 69.5, source: 'measured' },
+    samples,
+    rr: [],
+    events: [
+      { id: 'hw-1', t: startedAt, type: 'phase', phase: 'incision' },
+      { id: 'hw-2', t: startedAt + 18 * MIN, type: 'phase', phase: 'dissection' },
+      { id: 'hw-3', t: startedAt + 30 * MIN, type: 'marker', marker: 'complication' },
+      { id: 'hw-4', t: startedAt + 70 * MIN, type: 'phase', phase: 'closure' },
+    ],
+    postOp: { sleepHours: 6.5, caffeine: false, outcome: 'minor-deviation', performance: 6 },
+    tags: ['demo'],
+  });
+}
+
+/**
+ * Chest strap at 1 Hz for 22 min: a single 212 bpm spike, a 2-min block of a frozen 72 bpm with `contact: false`,
+ * RR long enough for four 5-min stress-index windows (the last 2 min do not qualify), a 40-s phase (too short for
+ * HRV) and a phase with an irregular rhythm whose artefact ratio exceeds the HRV limit.
+ */
+function buildEdgeStrap(): SurgicalSession {
+  const startedAt = Date.UTC(2026, 6, 6, 1, 30);
+  const durationSec = 22 * 60;
+  const samples: { t: number; bpm: number; contact?: boolean }[] = [];
+  for (let sec = 0; sec <= durationSec; sec++) {
+    const t = startedAt + sec * 1000;
+    if (sec >= 400 && sec < 520) samples.push({ t, bpm: 72, contact: false });
+    else samples.push({ t, bpm: sec === 300 ? 212 : 78 + Math.round(6 * Math.sin(sec / 45)) + (sec > 900 ? 9 : 0), contact: true });
+  }
+  const rr: { t: number; ms: number }[] = [];
+  let beat = startedAt;
+  let k = 0;
+  while (beat < startedAt + durationSec * 1000) {
+    const sec = (beat - startedAt) / 1000;
+    // 1100–1160 s: irregular rhythm (alternating ±35 %), otherwise a smooth respiratory pattern
+    const irregular = sec >= 1100 && sec < 1160;
+    const base = sec > 900 ? 640 : 760;
+    const ms = irregular
+      ? Math.round(base * (k % 2 === 0 ? 0.65 : 1.35))
+      : Math.round((base + 30 * Math.sin((2 * Math.PI * sec) / 4.2) + ((k * 29) % 13) - 6) * 1000) / 1000;
+    beat += ms;
+    k++;
+    rr.push({ t: Math.ceil(beat / 1000) * 1000, ms });
+  }
+  return parseSession({
+    schemaVersion: 1,
+    id: 'edge-strap-0001',
+    participantCode: 'EDGE-06',
+    procedure: { name: 'Laparoscopic cholecystectomy', catalogId: 'laparoscopic-cholecystectomy' },
+    startedAt,
+    endedAt: startedAt + durationSec * 1000,
+    status: 'completed',
+    sensor: { source: 'ble', name: 'Strap' },
+    app: { version: 'fixtures', platform: 'ios' },
+    tzOffsetMin: -240,
+    participantSnapshot: { trainingLevel: 'resident', birthYear: 1990 },
+    baseline: { startedAt: startedAt - 3 * MIN, endedAt: startedAt, restingHr: 70, rmssd: 38, source: 'measured' },
+    samples,
+    rr,
+    events: [
+      { id: 'hs-1', t: startedAt, type: 'phase', phase: 'dissection' },
+      { id: 'hs-2', t: startedAt + 600_000, type: 'phase', phase: 'critical' },
+      { id: 'hs-3', t: startedAt + 640_000, type: 'phase', phase: 'dissection' },
+      { id: 'hs-4', t: startedAt + 1_080_000, type: 'phase', phase: 'closure' },
+    ],
+    postOp: { caffeine: true },
+  });
+}
+
 const SESSION_FIXTURES: SessionFixture[] = [
   {
     name: 'sim-1',
@@ -449,6 +543,20 @@ const SESSION_FIXTURES: SessionFixture[] = [
       'Hand-built: samples/RR/events before startedAt and after endedAt (window clipping; sampleRateHz counts in-window samples only), unaligned sample times, ' +
       'snapshot maxHr without baseline (median-based episode threshold, %HRmax zones).',
     build: buildEdgeWindow,
+  },
+  {
+    name: 'edge-watch',
+    description:
+      'Hand-built: Health Connect at ~1 sample/min (source-aware gap rule for coverage, dwell and episodes), ' +
+      'contact: false samples, tzOffsetMin, sleep/caffeine/outcome covariates and a demo tag (simulated: true).',
+    build: buildEdgeWatch,
+  },
+  {
+    name: 'edge-strap',
+    description:
+      'Hand-built: 1 Hz strap with a single spike (robust peakHr), a contact: false block, four 5-min stress-index ' +
+      'windows, a 40-s phase without HRV and an irregular-rhythm phase above the artefact limit.',
+    build: buildEdgeStrap,
   },
   {
     name: 'edge-sparse',

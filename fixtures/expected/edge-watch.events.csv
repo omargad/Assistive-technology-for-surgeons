@@ -1,0 +1,5 @@
+session_id,participant_code,t_iso,t_offset_s,type,kind,logged_by,note
+edge-watch-0001,EDGE-05,2026-02-28T21:03:00.000Z,0,phase,incision,,
+edge-watch-0001,EDGE-05,2026-02-28T21:21:00.000Z,1080,phase,dissection,,
+edge-watch-0001,EDGE-05,2026-02-28T21:33:00.000Z,1800,marker,complication,,
+edge-watch-0001,EDGE-05,2026-02-28T22:13:00.000Z,4200,phase,closure,,

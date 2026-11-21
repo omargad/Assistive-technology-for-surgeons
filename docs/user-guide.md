@@ -80,7 +80,8 @@ If your study uses the research server:
    team before recording.
 4. Optionally turn on **Upload automatically**, which sends each completed, de-identified session after its debrief.
 
-The token is stored only on your phone and is never shown in exports. Treat it like a password.
+The token is kept in your phone's secure storage (on the web version, in the browser's storage) and is never shown
+in exports. Treat it like a password. **Forget server and token** removes both from the phone.
 
 ### Pairing a chest strap
 
@@ -89,6 +90,8 @@ The token is stored only on your phone and is never shown in exports. Treat it l
    screen scans for nearby sensors.
 3. Tap your strap in the list. The app remembers it as "your usual sensor". If it does not appear, turn on
    **Show all devices** or tap **Scan again**, and make sure the strap is not connected to another app or watch.
+4. Once connected, the screen says whether **beat-to-beat (RR) data** is arriving. HRV needs it; if it says it is
+   missing, the strap sends heart rate only.
 
 On the web (Chrome or Edge), there is no list: tap **Choose sensor**, and pick the strap in the browser's own
 chooser. More detail, including what to do in theatre, is in [hardware](hardware.md).
@@ -115,9 +118,11 @@ Put the strap on a few minutes before scrubbing. Then, on the **Record** tab:
 
 The baseline is your personal reference: changes during the case are measured against it.
 
-1. Sit or stand quietly and breathe normally, ideally before scrubbing.
+1. Sit quietly and breathe normally, **the same way before every case**, ideally before scrubbing. Standing raises
+   heart rate, so a standing baseline is not comparable with a seated one.
 2. Choose the **Length** (1–5 minutes; the default is 3 minutes, set in **Settings → Recording → Resting baseline
-   length**) and tap **Start baseline**. You can tap **Finish early** or **Skip baseline**.
+   length**) and tap **Start baseline**. **Finish early** becomes available after 60 seconds (shorter baselines are
+   not used), or tap **Skip baseline**.
 3. When the countdown ends, the **Your resting baseline** card shows your resting heart rate and RMSSD (RMSSD needs
    beat-to-beat data from the strap). Tap **Start recording**, or **Redo baseline**.
 
@@ -132,10 +137,13 @@ It uses a dark, low-glare theme (**Settings → Recording → OR mode (dark live
 
 What it shows:
 
-- **Heart rate** in large digits, coloured by zone, with a trend arrow and a short recent-history line.
+- **Heart rate** in large digits, coloured by zone, with a trend arrow and a short recent-history line. To keep the
+  number off the screen (the whole team can see it), turn off **Settings → Recording → Show heart rate on the live
+  screen**; heart rate is still recorded.
 - **Elapsed** time, the current phase (or "No phase yet") and the sensor status (tap it to open the sensor screen).
-- A **Signal lost** banner if no heart-rate data arrives for more than 15 seconds. Recording continues and the strap
-  reconnects automatically.
+  The status shows "No RR" if the strap sends heart rate without beat-to-beat data.
+- **Signal lost** in the heart-rate panel if no heart-rate data arrives for more than 15 seconds: the number becomes
+  "--" with the last reading. Recording continues and the strap reconnects automatically.
 
 What the team taps:
 
@@ -143,13 +151,14 @@ What the team taps:
 | --- | --- |
 | **Logged by: Self / Team** | Records who is tapping. Leave it on **Team** (the default) when a team member logs for you; switch to **Self** if you tap yourself. |
 | **Phase** buttons: **Pre-op**, **Incision / access**, **Dissection**, **Critical step**, **Closure**, **Post-op** | Marks the start of that phase now. The current phase is highlighted ("Current") and the following one emphasised ("Next"). Phases can be marked in any order and repeated. |
-| **Events** buttons: **Complication**, **Interruption**, **Equipment issue**, **Teaching moment**, **Supervisor takeover**, **Note** | Marks the event now. **Hold** an event button for half a second to add a short note; **Note** always asks for one. Notes must never contain patient details. |
-| **Undo** | Appears for 10 seconds after each tap, in case of a mistake. |
+| **Events** buttons: **Complication**, **Interruption**, **Equipment issue**, **Teaching moment**, **Supervisor takeover**, **Note** | Marks the event now. **Hold** an event button for half a second (on the web: **Shift+Enter** or Shift+click) to add a short note; **Note** always asks for one. Notes must never contain patient details. |
+| **Undo** | Appears in the heart-rate panel for 10 seconds after each tap, in case of a mistake. It is not offered again after **Minimise**; correct the event afterwards with **Edit events & times**. |
 | **Minimise** | Leaves the live screen while recording continues. Return with **Return to live screen** on the Record tab. |
-| **End case** | **Press and hold** for 1.5 seconds ("Keep holding…") to finish. A short tap only shows a reminder. |
+| **End case** | **Press and hold** for 1.5 seconds ("Keep holding…") to finish. A short tap only shows a reminder. On the web, hold Space or Enter; a keyboard or screen-reader activation asks "End the case now?" instead. |
 
-On Android, the back button does not leave the live screen during a recording. Keep the live screen open and the
-phone plugged in for long cases.
+On Android, the back button does not leave the live screen during a recording. **Keep the live screen open, the
+screen on and the phone plugged in**: on Android, recording pauses if the app goes to the background or the screen
+locks. What was recorded is saved, and when you return the screen says "SurgeonPulse was in the background".
 
 ### Timed sessions (Apple Watch or Health Connect)
 
@@ -164,6 +173,9 @@ If you use a watch instead of a strap, there is no live heart rate; it is import
    samples are found yet, import later from the session page (**Import from Apple Health** or
    **Import from Health Connect**).
 
+The import is offered only for cases recorded with the watch (health store) as the source, or cases without any
+heart-rate data. It never mixes watch data into a case recorded with a strap.
+
 Health Connect is built into Android 14 and later; on Android 9–13 install it from the Play Store.
 
 ### The debrief
@@ -172,56 +184,72 @@ The **Post-op debrief** opens when you end a case. It takes 1–2 minutes; compl
 case (your study protocol may set a time limit).
 
 1. **Workload (SURG-TLX).** Rate six demands from very low to very high on 0–100 sliders (steps of 5): Mental
-   Demands, Physical Demands, Temporal Demands, Task Complexity, Situational Stress and Distractions. **Move every
-   slider**: they start at 50, and the app cannot tell an untouched slider from a deliberate 50. The **Workload
-   score** (mean of the six ratings) updates as you go.
+   Demands, Physical Demands, Temporal Demands, Task Complexity, Situational Stress and Distractions. Each slider
+   starts **unanswered** ("Not rated", no thumb): tap the scale or use −/+ to rate it. The **Workload score** (mean of
+   the six ratings) shows "—" until all six are rated. If you save with some unrated, the app asks first and saves
+   the debrief **without** workload ratings.
 2. **Weight the dimensions (optional).** Answer 15 "Which contributed more?" choices. The weighted score is used only
    when all 15 are answered.
 3. **About the case:** **Your performance** (0–10), **Perceived stress** (0–10), **Last night's sleep** (hours),
    **Caffeine in the 2 hours before the case?**, and **How did the case go?** (as planned, minor or major deviation
-   from plan). Each is optional and shows "Not rated" or "Not answered" until you set it.
+   from plan). Each is optional and shows "Not rated" or "Not answered" until you set it; **Clear** un-answers a
+   slider.
 4. **Notes (optional).** Never enter patient identifiers. Notes stay on your phone and are removed from exports by
    default.
-5. Tap **Save debrief**. **Skip** keeps the recording without the questionnaire (you are asked to confirm).
+5. Tap **Save debrief**. **Skip** keeps the recording without the questionnaire (you are asked to confirm). If the
+   end of the recording could not yet be saved to storage, the app says so ("…could not be saved to storage yet…
+   save the debrief again"); nothing has been lost, so free some space if needed and tap **Save debrief** again.
 
 ### Reviewing a session
 
 After the debrief, the session page opens. You can reopen any session from **History**.
 
-- **Summary tiles:** **Mean HR**, **Peak HR**, change **vs resting**, **RMSSD** (needs RR data), **Stress index**
-  (Baevsky), **Episodes** (sustained heart-rate rises) and **Workload**.
+- **Summary tiles:** **Mean HR**, **Peak HR** (the highest sustained level, an 11-second rolling median, so a single
+  glitch does not count), change **vs resting**, **RMSSD** (needs RR data), **Stress index** (Baevsky), **Episodes**
+  (sustained heart-rate rises) and **Workload**. RMSSD and the stress index show "Not shown: too many irregular beats
+  or artefacts" when more than 10 % of beats were artefacts.
 - **Charts:** **Heart rate** over time with phase bands and event markers, **Heart-rate variability** (RMSSD in
   1-minute windows), **Time in zones**, **Heart rate by phase**, a phase table and **Stress episodes**.
 - **Post-op report** and **Data quality** (**Coverage**, **Gaps**, **RR artefacts**, **Sample rate**).
 - **Actions:**
   - **Edit events & times**: correct times with **−1 min**, **−10 s**, **+10 s** and **+1 min**, change or remove an
-    event, or add a missed phase or marker (added events are recorded as "retrospective"). Tap **Save changes**.
+    event, or add a missed phase or marker (added events, and events whose time or kind you change, are recorded as
+    "retrospective"). Tap **Save changes**; leaving with unsaved changes asks first. An uploaded session is marked as
+    not uploaded again (and re-uploaded if automatic upload is on).
   - **Export session (JSON)**, **Export heart rate (CSV)**, **Export RR intervals (CSV)**, **Export events (CSV)**.
-  - **Import from Apple Health / Health Connect** (on phones with a health store).
-  - **Upload to study server** (or **Upload again**), when the study server is set up.
+  - **Import from Apple Health / Health Connect** (on phones with a health store, for watch or empty cases only).
+  - **Upload to study server** (or **Upload again**), when the study server is set up and you have not withdrawn.
   - **Delete session**.
+
+  While a case is still being recorded, its page shows "Case in progress", and **Edit events & times** and **Delete
+  session** are unavailable until the case has ended.
 
 ### History and Insights
 
 - **History** lists your sessions. Search by procedure or specialty, or filter with the specialty chips.
-- **Insights** shows observations once you have a few completed sessions (most need three to five), for example
-  which phase usually has your highest heart rate, whether your response is settling over time, recovery (HRV)
-  trends, how workload relates to heart rate, and data-quality tips. They are prompts for reflection, not a
-  judgement of performance. **Over time** charts one metric per session (**HR vs rest**, **HRV** or **Workload**);
-  **By procedure** compares procedures.
-- **Load demo data** adds simulated sessions, labelled "Demo", to explore the app. They are never uploaded and can be
-  deleted in Settings.
+- **Insights** shows observations about **your own** cases once you have enough of them, for example which phase
+  usually has your highest heart rate (from three cases), how many of your sustained heart-rate rises followed a
+  complication or interruption marker, and data-quality tips. Trend, HRV and workload–heart-rate observations need 8–10 cases and appear only when
+  the pattern is clear enough not to be ordinary variation; they note other possible influences. They are prompts for
+  reflection, not a judgement of performance. **Over time** charts one metric per session (**HR vs rest**, **HRV** or
+  **Workload**) and says "no clear trend" unless the trend is statistically clear; **By procedure** compares
+  procedures.
+- **Load demo data** adds simulated sessions, labelled "Demo", to explore the app. Insights keeps them in a separate,
+  labelled view (**Your cases / Demo**, "Simulated data — not your cases"). They are never uploaded and can be deleted
+  in Settings.
 
 ### Exporting your data
 
 - From a session page: JSON or CSV exports of that session (see above).
 - From **Settings → Data**: **Export all sessions (JSON)** (a de-identified bundle for the research team) and
-  **Export summaries (CSV)** (one row per session for SPSS, R or Excel).
-- **Import sessions** reads a SurgeonPulse JSON export back into the app.
+  **Export summaries (CSV)** (one row per session for SPSS, R or Excel; demo and simulator sessions are left out).
+  If a session can't be read, Export all skips it and tells you.
+- **Import sessions** reads a SurgeonPulse JSON export back into the app. Sessions already on the phone are skipped
+  (the phone's copy is kept), and the app says how many.
 
-JSON and per-session CSV exports are de-identified by default: notes and sensor identifiers are removed, and custom
-procedure names are replaced with the catalogue name (or "Unspecified procedure"). Exports go through your phone's
-share sheet, so check where you send them.
+All exports are de-identified by default: notes and sensor identifiers are removed, and custom procedure names are
+replaced with the catalogue name (or "Unspecified procedure", keeping only the specialty). Dates and times are kept.
+Exports go through your phone's share sheet, so check where you send them.
 
 ### Uploading to the study server
 
@@ -229,14 +257,15 @@ share sheet, so check where you send them.
   after its debrief.
 - **Manual:** **Upload sessions now** (Settings) sends every completed session not yet uploaded; **Upload to study
   server** on a session page sends that one.
-- Uploads are de-identified. Demo sessions and sessions still recording are never sent. Uploaded sessions show an
-  **Uploaded** chip. Uploading again is safe: the server recognises sessions it already has.
+- Uploads are de-identified. Demo and simulator sessions and sessions still recording are never sent, and nothing is
+  sent after you withdraw. Uploaded sessions show an **Uploaded** chip. Uploading again is safe: the server recognises
+  sessions it already has. **Upload sessions now** skips (and reports) a session that can't be read.
 - Recording works without a network connection; upload later.
 
 ### If the app closes during a case
 
-Data are saved every 5 seconds. If the app is closed or the phone restarts during a case, the next launch shows
-**Unfinished case found** with three choices: **Resume recording** (reconnect the sensor and continue the same
+Data are saved every 5 seconds, and whenever the app leaves the foreground. If the app is closed or the phone restarts
+during a case, the next launch shows **Unfinished case found** with three choices: **Resume recording** (reconnect the sensor and continue the same
 session; the time the app was closed stays as a gap), **End case & debrief**, or **Decide later**.
 
 ### Withdrawing from the study
@@ -244,17 +273,20 @@ session; the time the app was closed stays as a gap), **End case & debrief**, or
 You can stop taking part at any time without giving a reason and without any consequence.
 
 1. In the app: **Settings → Privacy & consent → Withdraw consent**, then confirm. This records your withdrawal date,
-   turns off automatic upload and disables **Upload sessions now**. It does **not** delete anything, and it does
-   **not** contact the study server.
-2. **Contact the research team** to have data already uploaded deleted from the server. They will also tell you what
-   happens to data already analysed, as described in your participant information sheet.
+   turns off automatic upload and stops every further upload. It does **not** delete anything on the phone.
+2. If your phone is connected to the study server, the app then asks **Also delete your data on the study server?**
+   Choose **Delete server data** to have the server delete every session it holds for you and stop accepting your
+   token, or **Cancel** to keep the uploaded data. Either way you can **contact the research team** to have uploaded
+   data deleted; they will also tell you what happens to data already analysed, as described in your participant
+   information sheet.
 3. To remove your data from the phone, see the next section, and return the strap.
 
 ### Deleting your data
 
 - **Delete session** on a session page deletes that case from the phone.
-- **Settings → Data → Delete all data** deletes every session on the phone. It does not affect data already uploaded,
-  and it keeps your profile (code and consent record), settings and enrolment token.
+- **Settings → Data → Delete all data** deletes every session, your profile and consent record, and the study server
+  address and token from the phone, then starts setup again. It does not affect data already uploaded, and it is not
+  possible while a case is being recorded (end the case first).
 - To remove everything from the phone, uninstall the app. On the web version, clear the site's data in the browser.
 
 ---
@@ -271,8 +303,13 @@ TLS and backups. In short:
   `ADMIN_TOKEN` of at least 32 characters.
 - `npm run server` from the repository root (or `npm start` in `apps/server`) starts it on `http://127.0.0.1:8787`;
   `GET /health` returns `{"status":"ok","version":"0.1.0"}`.
-- For a study, run it on university infrastructure behind a TLS reverse proxy, add the dashboard's address to
-  `CORS_ORIGINS`, and set up encrypted backups.
+- For a study, run it on university infrastructure behind a TLS reverse proxy (set `TRUST_PROXY`), add the
+  dashboard's address to `CORS_ORIGINS`, and set up encrypted backups.
+- It rejects simulated and demo sessions unless `ACCEPT_SIMULATED=true` (for test servers only), so a test upload from
+  `npm run simulate` needs that setting.
+- Files that leave the research team should come from `GET /api/v1/export?shiftDates=true` (or
+  `/export/summaries.csv?shiftDates=true`), which moves each participant's dates by a secret, consistent number of
+  weeks.
 - A Docker image definition is provided. It has not been built or tested in CI.
 
 ### Creating participants and enrolment tokens
@@ -299,8 +336,8 @@ curl -s -X POST "$SP_URL/api/v1/admin/enrolments" \
 Rules to follow:
 
 - **Use upper-case codes** (`SP-014`, not `sp-014`). The app converts what participants type to upper case, and the
-  server matches codes exactly, so a lower-case code on the server makes every upload fail with "participantCode does
-  not match the enrolment token".
+  server stores codes in upper case and matches them case-insensitively, so `sp-014` and `SP-014` are the same
+  participant everywhere.
 - Codes must be 2–32 characters from `A–Z a–z 0–9 _ -`, start with a letter or digit, and must not look like an
   e-mail address. Never use names or staff numbers.
 - The **token is shown once**, in this response only. Only its hash is stored. If it is lost, revoke it and create a
@@ -380,9 +417,9 @@ list and other pages show other codes) and close the tab afterwards.
 
 | Export | Where | Contents and de-identification |
 | --- | --- | --- |
-| Summaries CSV | Server `GET /api/v1/export/summaries.csv`; dashboard **Download summaries CSV** | One wide row per session (the columns are listed in the dashboard's **Column dictionary**). Identifiers are the participant code and session id; dates are real. |
-| Samples, events and RR CSVs | Dashboard **Download samples CSV**, **Download events CSV**, **Download RR CSV** | Long format, one row per sample, event or beat, as loaded (data from the app or server are already de-identified with the defaults). |
-| JSON bundle | Server `GET /api/v1/export` | De-identified with the defaults: notes, free-text procedure names and sensor ids removed; real dates, time zone and birth year kept. |
+| Summaries CSV | Server `GET /api/v1/export/summaries.csv`; dashboard **Download summaries CSV** | One wide row per session (the columns are listed in the dashboard's **Column dictionary**). Identifiers are the participant code and session id; dates are real unless the server export is called with `?shiftDates=true`. Exclude rows with `simulated` = 1, and do not pool rows with different `analytics_version`. |
+| Samples, events and RR CSVs | Dashboard **Download samples CSV**, **Download events CSV**, **Download RR CSV** | Long format, one row per sample, event or beat, as loaded (data from the app or server are already de-identified with the defaults). The events CSV never contains notes. |
+| JSON bundle | Server `GET /api/v1/export` | De-identified with the defaults: notes, free-text procedure names and sensor ids removed; real dates, time zone and birth year kept. With `?shiftDates=true`, each participant's dates move by a secret, consistent number of whole weeks (weekday and time of day kept). |
 | De-identified bundle | Dashboard **Download de-identified bundle** | As above, plus **Shift dates randomly per participant** (on by default; whole weeks, **Maximum shift (weeks)** 52 by default; the shift is never saved), **Remove timezone offsets** (off by default) and **Remove birth years** (on by default). Use this for sharing outside the team. |
 
 Tick **Excel-friendly CSV** only when the file will be opened in Excel on Windows; leave it off for R, pandas, SPSS
@@ -423,9 +460,11 @@ Follow the withdrawal procedure approved by the HREC. A typical sequence:
 | Strap not found, or "Signal lost" during a case | Dry electrodes, strap busy with another device, phone too far away | See [hardware troubleshooting](hardware.md#troubleshooting) |
 | "The research server address must start with https:// to keep your data secure." | The URL uses `http://` | Use the `https://` address from the research team |
 | "The research server did not accept your enrolment token…" | Wrong or mistyped token; token revoked; participant withdrawn | Re-enter the token; ask the research team for a new one |
-| "Enrolment confirmed" also says "Note: your profile code is …" | The profile code differs from the server's code (often upper versus lower case) | Contact the research team before recording; codes must match exactly |
+| "Enrolment confirmed" also says "Note: your profile code is …" | The profile code differs from the server's code | Contact the research team before recording; the codes must be the same (upper and lower case count as the same) |
 | Upload rejected: "participantCode does not match the enrolment token" | Sessions were recorded under a different code from the token's participant | Sessions keep the code they were recorded with; the research team decides how to proceed |
-| "Demo data is never uploaded." | Demo sessions are excluded by design | Nothing to do |
+| "Demo data is never uploaded." or "Sessions recorded with the simulator are never uploaded." | Demo and simulator sessions are excluded by design (the server also rejects them: "simulated or demo data is not accepted by this server") | Nothing to do |
+| "You have withdrawn consent, so nothing is uploaded to the study server." or "…consent has been withdrawn for this participant." | Consent was withdrawn on this phone or on the server | Nothing is uploaded after withdrawal; contact the research team if this is unexpected |
+| A session is listed as "left out" or "skipped" after an export, upload or import | Its participant code is not a study code, it could not be read, or (import) it is already on the phone | The message names the reason; the other sessions were processed |
 | "The session is still being recorded." | The case has not ended or the debrief is waiting | End the case and complete or skip the debrief |
 | "Too many requests to the research server." | Server rate limit (30 uploads per minute per address) | Wait and try again |
 | "Upload sessions now" is greyed out | Server URL or token missing, or consent withdrawn | Complete **Research study** settings; after withdrawal, uploading is disabled |
@@ -444,8 +483,9 @@ details. Notes are removed from exports by default.
 
 **Can my supervisor or employer see my data?**
 Only the research team can access the study server, and the study's agreements should state that data will not be
-used for performance management, credentialing or medico-legal purposes. The app itself shows your live heart rate on
-the theatre screen, so people in the room can see it while you operate.
+used for performance management, credentialing or medico-legal purposes. By default the app shows your live heart
+rate on the theatre screen, so people in the room can see it while you operate; turn off **Settings → Recording →
+Show heart rate on the live screen** to hide it (it is still recorded).
 
 **Is this a health check?**
 No. SurgeonPulse is a research tool, not a medical device, and nobody monitors your data in real time. If you feel
@@ -456,8 +496,8 @@ A non-sterile team member (circulating nurse, anaesthetist or researcher), with 
 duties always come first; missed events can be added afterwards in **Edit events & times**.
 
 **What if we forget to mark a phase, or mark it late?**
-Fix it after the case in **Edit events & times**. Added events are labelled as retrospective so researchers can tell
-them apart.
+Fix it after the case in **Edit events & times**. Added events, and events whose time or kind you change, are labelled
+as retrospective so researchers can tell them apart.
 
 **What if I forget to end the case?**
 Hold **End case** as soon as you remember and tell the research team the approximate real end time. The end time

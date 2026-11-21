@@ -46,13 +46,14 @@ Hash routes work on any static host, with no server rewrites:
 | `#/overview` | KPIs, HR Δ by phase (± SD), workload distribution, sessions per month, data-quality flags |
 | `#/sessions` | Filterable, sortable table. Paginated above 200 rows |
 | `#/sessions/:id` | HR timeline (phases, markers, baseline, episode threshold, brush zoom), rolling RMSSD, zones, phases, episodes, events, post-op SURG-TLX, data quality, per-session CSVs |
-| `#/participants` | Participant list |
-| `#/participants/:code` | Feedback view. Cohort comparisons show only an anonymised median and never another participant's code |
+| `#/participants` | Participant list, with a notice that responses are not for comparing or ranking surgeons |
+| `#/participants/:code` | Feedback view. Cohort comparisons show only an anonymised median of the **other** participants (never another participant's code), and only for a phase with at least 5 of them |
 | `#/analysis` | Metric × group-by (`aggregateMetric`) table and chart, scatter with OLS fit and Pearson r, copyable summary |
-| `#/export` | Summaries CSV, long samples/events/RR CSVs, a de-identified JSON bundle, and the column dictionary |
+| `#/export` | Summaries CSV (with `sensor_source`, `simulated` and `analytics_version` columns), long samples/events/RR CSVs (the events CSV never contains notes), a de-identified JSON bundle, and the column dictionary |
 | `#/data` | Data sources, loaded-data list, and "Clear all data" |
 
-The filters on the Sessions page also apply to Overview, Analysis and Export.
+The filters on the Sessions page also apply to Overview, Analysis and Export. Pages are loaded on demand
+(`React.lazy` in `App.tsx`), so the first screen does not wait for Recharts.
 
 ## Cross-platform support
 

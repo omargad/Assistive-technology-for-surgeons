@@ -1,7 +1,9 @@
 /**
  * Snackbar / toast with an optional action (e.g. "Undo") and a countdown bar
  * showing how long the action remains available. Positioned at the bottom of
- * its (relatively positioned) parent; announced politely to screen readers.
+ * its (relatively positioned) parent, or — with `inline` — filling the space it
+ * is given (the live screen reserves a fixed area for it so it never covers a
+ * button). Announced politely to screen readers.
  */
 import { useEffect, useRef } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -29,6 +31,8 @@ export interface ToastProps {
   bottomOffset?: number;
   /** Large variant for the live screen. */
   large?: boolean;
+  /** Fill the parent instead of floating over the bottom of the screen. */
+  inline?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -45,6 +49,7 @@ export function Toast({
   icon,
   bottomOffset = 16,
   large,
+  inline,
   style,
   testID,
 }: ToastProps) {
@@ -71,10 +76,9 @@ export function Toast({
 
   if (!visible) return null;
 
-  return (
-    <View pointerEvents="box-none" style={[styles.host, { bottom: bottomOffset }]}>
+  const body = (
       <View
-        style={[styles.toast, large ? styles.large : null, style]}
+        style={[styles.toast, large ? styles.large : null, inline ? styles.inline : null, style]}
         accessibilityLiveRegion="polite"
         accessibilityRole="alert"
         testID={testID}
@@ -89,8 +93,13 @@ export function Toast({
               onPress={onAction}
               accessibilityRole="button"
               accessibilityLabel={actionLabel}
-              hitSlop={8}
-              style={({ pressed }) => [styles.action, large ? styles.actionLarge : null, pressed ? styles.pressed : null]}
+              hitSlop={inline ? undefined : 8}
+              style={({ pressed }) => [
+                styles.action,
+                large ? styles.actionLarge : null,
+                inline ? styles.actionInline : null,
+                pressed ? styles.pressed : null,
+              ]}
               testID={testID ? `${testID}-action` : undefined}
             >
               <AppText variant={large ? 'subheading' : 'bodyStrong'} color={theme.colors.inverseAction}>
@@ -103,21 +112,27 @@ export function Toast({
               onPress={onDismiss}
               accessibilityRole="button"
               accessibilityLabel="Dismiss"
-              hitSlop={8}
-              style={styles.close}
+              style={({ pressed }) => [styles.close, pressed ? styles.pressed : null]}
+              testID={testID ? `${testID}-dismiss` : undefined}
             >
               <Icon name="close" size={18} color={theme.colors.onInverse} />
             </Pressable>
           ) : null}
         </View>
         {showCountdown && durationMs > 0 ? (
-          <View style={styles.countdownTrack}>
+          <View style={[styles.countdownTrack, inline ? styles.countdownInline : null]}>
             <Animated.View
               style={[styles.countdownFill, { transform: [{ scaleX: progress }] }, { transformOrigin: 'left' }]}
             />
           </View>
         ) : null}
       </View>
+  );
+
+  if (inline) return body;
+  return (
+    <View pointerEvents="box-none" style={[styles.host, { bottom: bottomOffset }]}>
+      {body}
     </View>
   );
 }
@@ -143,12 +158,17 @@ const makeStyles = (t: Theme) =>
       elevation: 6,
     },
     large: { paddingVertical: t.space.md, paddingHorizontal: t.space.lg },
+    // Fills a fixed-height slot: no outer margin, vertical padding kept small, countdown on the bottom edge.
+    inline: { maxWidth: undefined, flex: 1, justifyContent: 'center', paddingVertical: t.space.xs, paddingHorizontal: t.space.md, elevation: 0, shadowOpacity: 0 },
     row: { flexDirection: 'row', alignItems: 'center', gap: t.space.sm, minHeight: 40 },
     message: { flex: 1 },
     action: { paddingHorizontal: t.space.md, paddingVertical: t.space.sm, borderRadius: t.radius.sm, minHeight: 44, justifyContent: 'center' },
     actionLarge: { paddingHorizontal: t.space.lg, minHeight: 56 },
+    actionInline: { minHeight: t.layout.minTouch },
     pressed: { opacity: 0.7 },
-    close: { padding: t.space.xs },
+    // 44 × 44 touch target (theme.layout.minTouch) around an 18-pt icon.
+    close: { minWidth: t.layout.minTouch, minHeight: t.layout.minTouch, alignItems: 'center', justifyContent: 'center', borderRadius: t.radius.sm },
     countdownTrack: { height: 3, borderRadius: 2, backgroundColor: 'rgba(127,127,127,0.35)', overflow: 'hidden' },
+    countdownInline: { position: 'absolute', left: 0, right: 0, bottom: 0, borderRadius: 0 },
     countdownFill: { height: '100%', backgroundColor: t.colors.inverseAction },
   });

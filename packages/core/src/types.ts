@@ -459,12 +459,15 @@ export interface SessionSummary {
   hr: HrStats | null;
   hrv: HrvTimeDomain | null;
   rrArtifacts: ArtifactReport | null;
-  /** Baevsky stress index over the whole session, null without sufficient RR data. */
+  /**
+   * Baevsky stress index: median over 5-min windows with ≥ 4 min of clean beats (comparable across case lengths);
+   * null without sufficient RR data or when more than 10 % of RR intervals were artefacts.
+   */
   stressIndex: number | null;
   baseline: Baseline | null;
   /** hr.mean − baseline.restingHr. */
   meanHrDelta: number | null;
-  /** hr.max − baseline.restingHr. */
+  /** Robust peak HR (`peakHr`, highest 11-s rolling median) − baseline.restingHr. */
   peakHrDelta: number | null;
   maxHr: number | null;
   zones: ZoneTime[];
@@ -477,7 +480,35 @@ export interface SessionSummary {
   performance: number | null;
   perceivedStress: number | null;
   quality: DataQuality;
+  // Provenance and covariates. Optional only so summaries stored by older versions still type-check;
+  // `summarizeSession` always sets every key below except `tzOffsetMin` (omitted when the session has none).
+  /**
+   * Robust peak heart rate (bpm): the highest 11-s rolling median of the valid samples, so a single spike
+   * (e.g. diathermy interference) does not become the peak. `hr.max` stays the raw maximum.
+   */
+  peakHr?: number | null;
+  /** `session.sensor.source`. */
+  sensorSource?: SensorSourceKind;
+  /** True for synthetic data: sensor source `simulated`, or a `simulated` / `demo` tag. */
+  simulated?: boolean;
+  /** `session.tzOffsetMin` (minutes east of UTC at the start), omitted when unknown. */
+  tzOffsetMin?: number;
+  /** Debrief covariates from `postOp`, null when not answered. */
+  sleepHours?: number | null;
+  caffeine?: boolean | null;
+  outcome?: CaseOutcome | null;
+  /** Largest sample spacing treated as continuous for coverage, zone dwell and episodes (ms). */
+  maxGapMs?: number;
+  /** {@link ANALYTICS_VERSION} of the code that computed this summary. */
+  analyticsVersion?: string;
 }
+
+/**
+ * Version of the summary definitions (metrics, quality rules, episode rules). Bumped whenever a change would give a
+ * different `SessionSummary` for the same session, so stored summaries computed by older code can be recognised
+ * and recomputed (and research exports can say which definitions produced each row).
+ */
+export const ANALYTICS_VERSION = '2';
 
 /** Feedback message for the surgeon (shown in the app's Insights tab). */
 export interface Insight {

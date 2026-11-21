@@ -6,14 +6,18 @@
 import { isValidParticipantCode } from '@surgeonpulse/core';
 import { z } from 'zod';
 
-/** Pseudonymous participant code, checked with core's `isValidParticipantCode`. */
+/**
+ * Pseudonymous participant code, checked with core's `isValidParticipantCode` and stored in upper
+ * case (the app upper-cases codes too), so `sp-014` and `SP-014` are the same participant.
+ */
 export const ParticipantCodeSchema = z
   .string()
   .trim()
   .refine(
     isValidParticipantCode,
     'must be a pseudonymous study code: 2–32 letters, digits, "-" or "_", starting with a letter or digit, and not an e-mail address',
-  );
+  )
+  .transform((code) => code.toUpperCase());
 
 export const CreateParticipantBodySchema = z.object({
   code: ParticipantCodeSchema,
@@ -28,7 +32,7 @@ export const CreateEnrolmentBodySchema = z.object({
 });
 
 export const IdParamsSchema = z.object({ id: z.string().min(1).max(128) });
-export const CodeParamsSchema = z.object({ code: z.string().min(1).max(64) });
+export const CodeParamsSchema = z.object({ code: z.string().min(1).max(64).transform((code) => code.toUpperCase()) });
 
 /** Drop blank query values (`?specialty=`) so they behave as "not given". */
 function dropBlankValues(v: unknown): unknown {
@@ -64,7 +68,11 @@ export function sessionQuerySchema(maxLimit: number) {
     dropBlankValues,
     z
       .object({
-        participant: z.string().max(64).optional(),
+        participant: z
+          .string()
+          .max(64)
+          .transform((code) => code.trim().toUpperCase())
+          .optional(),
         from: integerString(-MAX_EPOCH_MS, MAX_EPOCH_MS).optional(),
         to: integerString(-MAX_EPOCH_MS, MAX_EPOCH_MS).optional(),
         specialty: z.string().max(200).optional(),
@@ -80,3 +88,15 @@ export function sessionQuerySchema(maxLimit: number) {
 
 export const ListSessionsQuerySchema = sessionQuerySchema(LIST_MAX_LIMIT);
 export const ExportQuerySchema = sessionQuerySchema(EXPORT_MAX_LIMIT);
+
+/**
+ * Export-only option `shiftDates` (`true`/`false`, default false): move each participant's
+ * timestamps by their secret whole-week shift (see `dateShift.ts`), for exports that will be
+ * shared beyond the study's data custodians.
+ */
+export const ExportOptionsSchema = z.object({
+  shiftDates: z
+    .enum(['true', 'false', '1', '0'], { error: 'must be true or false' })
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
+});

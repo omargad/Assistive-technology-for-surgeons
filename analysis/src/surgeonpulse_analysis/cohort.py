@@ -8,6 +8,7 @@ scripts. ``aggregate`` mirrors ``aggregateMetric`` (SPEC.md § analytics/trends.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
@@ -15,7 +16,7 @@ import pandas as pd
 
 from .io import _utc, iso_utc, to_csv
 from .phases import PHASE_ORDER
-from .stats import linear_trend, mean, median, naive_sum, sample_sd
+from .stats import js_round, linear_trend, mean, median, naive_sum, sample_sd, t_critical_95
 from .summary import summarize_session
 
 __all__ = [
@@ -43,17 +44,26 @@ _BASE_COLUMNS = (
     "workload_weighted", "performance", "perceived_stress", "coverage_pct",
 )  # fmt: skip
 _PHASE_FIELDS = ("duration_s", "hr_mean", "hr_delta", "rmssd")
+#: Provenance and covariate columns, appended after the phase columns.
+_PROVENANCE_COLUMNS = (
+    "sensor_source", "simulated", "tz_offset_min", "started_local", "baseline_source",
+    "baseline_duration_s", "max_hr", "peak_hr", "hrv_n", "sleep_hours", "caffeine",
+    "outcome", "analytics_version",
+)  # fmt: skip
 
 #: Column order of the wide per-session CSV (identical to the TypeScript ``SUMMARY_CSV_COLUMNS``).
-SUMMARY_CSV_COLUMNS: tuple[str, ...] = _BASE_COLUMNS + tuple(
-    f"{p.replace('-', '_')}_{f}" for p in PHASE_ORDER for f in _PHASE_FIELDS
+SUMMARY_CSV_COLUMNS: tuple[str, ...] = (
+    _BASE_COLUMNS
+    + tuple(f"{p.replace('-', '_')}_{f}" for p in PHASE_ORDER for f in _PHASE_FIELDS)
+    + _PROVENANCE_COLUMNS
 )
 
 #: ``MetricKey`` (TypeScript ``METRICS``) → column(s) of :func:`summaries_frame`.
-#: ``workload`` uses the weighted score when present, else the raw score.
+#: ``workload`` is always the raw (unweighted) score; ``peakHr`` is the robust peak
+#: (``peak_hr``), falling back to the raw maximum for CSVs from older versions.
 METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
     "meanHr": ("hr_mean",),
-    "peakHr": ("hr_max",),
+    "peakHr": ("peak_hr", "hr_max"),
     "meanHrDelta": ("mean_hr_delta",),
     "peakHrDelta": ("peak_hr_delta",),
     "rmssd": ("rmssd",),
@@ -62,7 +72,7 @@ METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
     "highIntensityPct": ("high_intensity_pct",),
     "episodeCount": ("episode_count",),
     "episodeMinutes": ("episode_minutes",),
-    "workload": ("workload_weighted", "workload_raw"),
+    "workload": ("workload_raw",),
     "performance": ("performance",),
     "perceivedStress": ("perceived_stress",),
     "durationMin": ("duration_min",),
@@ -86,8 +96,29 @@ GROUP_COLUMNS: dict[str, str | None] = {
 
 _TEXT_COLUMNS = {
     "session_id", "participant_code", "training_level", "procedure_name", "specialty",
-    "approach", "role", "urgency", "workload_instrument",
+    "approach", "role", "urgency", "workload_instrument", "sensor_source", "started_local",
+    "baseline_source", "outcome", "analytics_version",
 }  # fmt: skip
+
+
+def _finite(x: Any) -> bool:
+    return isinstance(x, (int, float, np.integer, np.floating)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def _local_iso(epoch_ms: float, tz_offset_min: Any) -> str | None:
+    """Local start as ISO 8601 with offset (``…T08:00:00.000+11:00``); ``None`` when the offset is unknown."""
+    if not _finite(tz_offset_min):
+        return None
+    shifted = iso_utc(epoch_ms + tz_offset_min * 60000)
+    if not shifted.endswith("Z"):
+        return None
+    total = abs(js_round(tz_offset_min))
+    sign = "-" if tz_offset_min < 0 else "+"
+    return f"{shifted[:-1]}{sign}{total // 60:02d}:{total % 60:02d}"
+
+
+def _flag(b: Any) -> int | None:
+    return None if b is None else (1 if b else 0)
 
 
 def _get(d: Mapping[str, Any] | None, key: str) -> Any:
@@ -159,6 +190,21 @@ def summary_row(s: Mapping[str, Any]) -> dict[str, Any]:
         "perceived_stress": s.get("perceivedStress"),
         "coverage_pct": q["coverage"] * 100 if q.get("coverage") is not None else None,
     }
+    tail: dict[str, Any] = {
+        "sensor_source": s.get("sensorSource"),
+        "simulated": _flag(s.get("simulated")),
+        "tz_offset_min": s.get("tzOffsetMin"),
+        "started_local": _local_iso(s["startedAt"], s.get("tzOffsetMin")),
+        "baseline_source": _get(base, "source"),
+        "baseline_duration_s": (base["endedAt"] - base["startedAt"]) / 1000 if base is not None else None,
+        "max_hr": s.get("maxHr"),
+        "peak_hr": s.get("peakHr"),
+        "hrv_n": _get(hrv, "n"),
+        "sleep_hours": s.get("sleepHours"),
+        "caffeine": _flag(s.get("caffeine")),
+        "outcome": s.get("outcome"),
+        "analytics_version": s.get("analyticsVersion"),
+    }
     phases = s.get("phases") or []
     for ph in PHASE_ORDER:
         key = ph.replace("-", "_")
@@ -171,6 +217,7 @@ def summary_row(s: Mapping[str, Any]) -> dict[str, Any]:
         row[f"{key}_hr_mean"] = _weighted((_get(p["hr"], "mean"), p["durationSec"]) for p in occ)
         row[f"{key}_hr_delta"] = _weighted((p.get("meanHrDelta"), p["durationSec"]) for p in occ)
         row[f"{key}_rmssd"] = _weighted((_get(p["hrv"], "rmssd"), p["durationSec"]) for p in occ)
+    row.update(tail)
     return row
 
 
@@ -245,10 +292,18 @@ def _group_labels(df: pd.DataFrame, group_by: str) -> list[str]:
     if group_by == "none":
         return ["All"] * len(df)
     if group_by == "month":
-        return [
-            "Unspecified" if _missing(t) else f"{pd.Timestamp(t).tz_convert('UTC').year:04d}-{pd.Timestamp(t).tz_convert('UTC').month:02d}"
-            for t in df["started_at"].tolist()
-        ]
+        # Local month when the time-zone offset is known (as in the app), else UTC.
+        offsets = df["tz_offset_min"].tolist() if "tz_offset_min" in df.columns else [None] * len(df)
+        labels = []
+        for t, off in zip(df["started_at"].tolist(), offsets):
+            if _missing(t):
+                labels.append("Unspecified")
+                continue
+            ts = pd.Timestamp(t).tz_convert("UTC")
+            if _finite(off):
+                ts = ts + pd.Timedelta(minutes=float(off))
+            labels.append(f"{ts.year:04d}-{ts.month:02d}")
+        return labels
     col = GROUP_COLUMNS[group_by]
     return ["Unspecified" if _missing(v) else str(v) for v in df[col].tolist()]
 
@@ -258,8 +313,9 @@ def aggregate(df: pd.DataFrame, metric: str, group_by: str = "none") -> pd.DataF
 
     Returns columns ``group, n, mean, sd, median, min, max`` (``sd`` is the
     sample SD, 0 for n = 1). Groups with no non-null values are dropped, a
-    missing group value becomes ``"Unspecified"``, ``month`` is the UTC
-    ``YYYY-MM`` of ``started_at`` and ``none`` is a single ``"All"`` group.
+    missing group value becomes ``"Unspecified"``, ``month`` is the
+    ``YYYY-MM`` of ``started_at`` in local time when ``tz_offset_min`` is known
+    (UTC otherwise) and ``none`` is a single ``"All"`` group.
     Sorted by group name (months chronologically).
     """
     values = metric_values(df, metric)
@@ -300,8 +356,10 @@ def learning_curve(df: pd.DataFrame, metric: str = "meanHrDelta") -> pd.DataFram
     Returns ``participant, n, slope, intercept, r2, first, last`` with one row per
     participant plus a final ``"(pooled)"`` row fitted on all participants'
     points (same ``x`` definition; ``first``/``last`` are NaN there). ``slope`` is NaN when a fit is impossible
-    (fewer than two sessions). A negative slope for HR-based metrics means the
-    physiological response is settling with experience.
+    (fewer than two sessions). ``t`` is the slope's t statistic (df = n − 2) and ``p_lt_05`` whether
+    it differs from 0 at the two-sided 5 % level, assuming independent sessions. The pooled row ignores
+    clustering by participant (its ``t`` overstates the evidence); for inference use a mixed model with
+    a random intercept and slope per participant. A slope describes change over sessions, not its cause.
     """
     vals = metric_values(df, metric)
     order = _session_order(df)
@@ -316,6 +374,7 @@ def learning_curve(df: pd.DataFrame, metric: str = "meanHrDelta") -> pd.DataFram
     def fit_row(label: str, pts: list[tuple[int, float]]) -> dict[str, Any]:
         pts = sorted(pts)
         fit = linear_trend(pts)
+        t, sig = _slope_t(fit)
         return {
             "participant": label,
             "n": len(pts),
@@ -324,6 +383,8 @@ def learning_curve(df: pd.DataFrame, metric: str = "meanHrDelta") -> pd.DataFram
             "r2": fit["r2"] if fit else np.nan,
             "first": pts[0][1] if pts else np.nan,
             "last": pts[-1][1] if pts else np.nan,
+            "t": t,
+            "p_lt_05": sig,
         }
 
     for c in sorted(per):
@@ -331,7 +392,18 @@ def learning_curve(df: pd.DataFrame, metric: str = "meanHrDelta") -> pd.DataFram
     pooled = fit_row("(pooled)", [p for c in sorted(per) for p in per[c]])
     pooled["first"] = pooled["last"] = np.nan  # not meaningful across participants
     rows.append(pooled)
-    return pd.DataFrame(rows, columns=["participant", "n", "slope", "intercept", "r2", "first", "last"])
+    return pd.DataFrame(rows, columns=["participant", "n", "slope", "intercept", "r2", "first", "last", "t", "p_lt_05"])
+
+
+def _slope_t(fit: Mapping[str, Any] | None) -> tuple[float, bool]:
+    """t statistic of an OLS slope (df = n − 2) and whether two-sided p < 0.05 (as the app's ``trendEvidence``)."""
+    if fit is None or fit["n"] < 3 or fit["slope"] == 0:
+        return (np.nan if fit is None or fit["n"] < 3 else 0.0), False
+    if fit["r2"] >= 1:
+        return np.nan, True
+    t = math.copysign(math.sqrt(fit["r2"] * (fit["n"] - 2) / (1 - fit["r2"])), fit["slope"])
+    crit = t_critical_95(fit["n"] - 2)
+    return t, crit is not None and abs(t) >= crit
 
 
 def phase_profile(df: pd.DataFrame) -> pd.DataFrame:
@@ -427,10 +499,19 @@ def cohort_report(source: Any, **summary_options: Any) -> str:
     lines += [_table(lc, 2), ""]
     pooled = lc[lc["participant"] == "(pooled)"]["slope"].iloc[0]
     if not _missing(pooled):
-        trend = "settling" if pooled <= -0.5 else "rising" if pooled >= 0.5 else "stable"
-        lines.append(f"Pooled trend: {pooled:+.2f} bpm/session ({trend}; |slope| >= 0.5 is the app's feedback threshold).")
+        per_rows = lc[lc["participant"] != "(pooled)"]
+        n_sig = int(per_rows["p_lt_05"].sum())
+        lines.append(
+            f"Pooled slope: {pooled:+.2f} bpm/session (naive OLS over every participant's sessions; it ignores "
+            "clustering by participant, so it is descriptive only - use a mixed model with a random intercept "
+            "and slope per participant for inference)."
+        )
+        lines.append(
+            f"Participants whose own slope differs from 0 (p < 0.05): {n_sig} of {len(per_rows)}. A slope "
+            "describes change over sessions, not its cause (case mix, workload and baseline conditions also vary)."
+        )
         lines.append("")
     lines += ["Mean HR delta by training level", "-" * 31, _table(aggregate(df, "meanHrDelta", "trainingLevel")), ""]
-    lines += ["Workload (SURG-TLX / NASA-TLX, weighted if available) by procedure", "-" * 66, _table(aggregate(df, "workload", "procedure")), ""]
+    lines += ["Workload (SURG-TLX / NASA-TLX, raw score) by procedure", "-" * 54, _table(aggregate(df, "workload", "procedure")), ""]
     return "\n".join(lines) + "\n"
 

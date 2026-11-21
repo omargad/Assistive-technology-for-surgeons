@@ -9,11 +9,11 @@ import { appInfo } from '../platform';
 import { repository } from '../storage';
 import { createUploader } from './client';
 import type { UploadResult } from './client';
+import { UPLOADED_TAG_PREFIX } from './tags';
 
 export type { UploadResult } from './client';
 export { UploadError, normalizeServerUrl } from './client';
-
-export const UPLOADED_TAG_PREFIX = 'uploaded:';
+export { UPLOADED_TAG_PREFIX, hasUploadedTag, withoutUploadedTag } from './tags';
 
 const uploader = createUploader({ app: appInfo });
 
@@ -57,4 +57,13 @@ export async function uploadSessions(
 /** Confirm the enrolment token with the server (`GET /api/v1/me`). */
 export function checkEnrolment(cfg: { url: string; token: string }): Promise<{ participantCode: string; sessionCount: number }> {
   return uploader.checkEnrolment(cfg);
+}
+
+/**
+ * Withdraw from the study on the server (`POST /api/v1/me/withdraw`): the
+ * server deletes every session it holds for the participant and revokes all of
+ * their enrolment tokens, including this one.
+ */
+export function withdrawFromStudy(cfg: { url: string; token: string }): Promise<{ deletedSessions: number }> {
+  return uploader.withdraw(cfg);
 }

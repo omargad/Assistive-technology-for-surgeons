@@ -67,7 +67,7 @@ that implements this public GATT profile should work. Nothing is manufacturer-sp
 | Heart Rate Service | `0x180D` (`0000180d-0000-1000-8000-00805f9b34fb`) | Scan filter, and the service holding the two characteristics below |
 | Heart Rate Measurement | `0x2A37` | Notifications: heart rate, skin contact, RR intervals |
 | Body Sensor Location | `0x2A38` | Read once on connect (for example `chest`), stored as `sensor.location` |
-| Battery Service / Battery Level | `0x180F` / `0x2A19` | Read on connect and after each reconnect (0–100 %) |
+| Battery Service / Battery Level | `0x180F` / `0x2A19` | Read on connect, after each reconnect and every 5 minutes while streaming (0–100 %) |
 
 The constants and parsers are in [`packages/core/src/ble/heartRate.ts`](../packages/core/src/ble/heartRate.ts).
 
@@ -79,7 +79,7 @@ specification):
 | Flag bit | Meaning | How SurgeonPulse uses it |
 | --- | --- | --- |
 | 0 | Heart-rate value is `uint8` (0) or `uint16` (1) | Read the bpm value in the right width |
-| 1–2 | Sensor contact: bit 2 = supported, bit 1 = detected | `contact` is stored only when the sensor supports it; the status pill shows "no skin contact" |
+| 1–2 | Sensor contact: bit 2 = supported, bit 1 = detected | `contact` is stored only when the sensor supports it; the status pill shows "no skin contact". Samples with `contact: false` are kept but excluded from every heart-rate metric and count as uncovered time |
 | 3 | Energy Expended field present | Skipped (not stored) |
 | 4 | One or more RR intervals follow | Each `uint16` is in units of 1/1024 s and is converted to ms as `raw × 1000 / 1024`, rounded to 3 decimals |
 
@@ -90,6 +90,8 @@ What is stored for each notification:
   notification's `t`, and their order in the session is the beat order. Timing analyses should therefore use beat
   order and the interval lengths, not `t`, for beat-level work.
 - A malformed or truncated payload is ignored; it never stops the recording.
+- A heart rate above 300 bpm or an RR interval above 5000 ms (possible in the `uint16` format when a strap glitches)
+  is dropped when it arrives, and skipped if found in stored data, because the session format rejects such values.
 
 ### Scanning and connecting
 
@@ -108,7 +110,9 @@ What is stored for each notification:
   `ACCESS_FINE_LOCATION`, which those versions require for BLE scanning. The full list is in the
   [mobile README](../apps/mobile/README.md#permissions).
 - **Adapter state.** If Bluetooth is off, unauthorised or unsupported, the app says so in plain words (for example
-  "Bluetooth is off. Turn it on and try again.").
+  "Bluetooth is off. Turn it on and try again."). If Bluetooth is switched off during a recording, the sensor pill
+  shows "Bluetooth is off. Turn it on to resume heart-rate recording." (or a message that the permission was
+  withdrawn), and the app reconnects with the usual back-off once Bluetooth is on again.
 
 ### Reconnection and dropouts
 
@@ -116,19 +120,19 @@ What is stored for each notification:
 | --- | --- |
 | The strap disconnects unexpectedly while a baseline or recording is running | Reconnects automatically with exponential back-off: 1 s, 2 s, 4 s, 8 s, 16 s, then every 30 s, until the case ends. The sensor pill shows "Reconnecting" with the attempt number, and notifications are re-subscribed after each reconnect. |
 | No data for more than 15 seconds while recording (live sources only) | A **Signal lost** banner appears on the live screen ("Check strap contact and battery — recording continues"). It clears when data returns. |
-| Data gaps | Gaps stay as gaps. They are never filled in. The analytics count time between samples more than 5 s apart as uncovered (`coverage_pct`) and report the number and length of gaps. |
-| The app is closed or crashes mid-case | Signals are written to storage every 5 seconds, so at most a few seconds are lost. On the next launch an **Unfinished case found** prompt offers **Resume recording**, **End case & debrief** or **Decide later**. |
+| Data gaps | Gaps stay as gaps. They are never filled in. For live sensors the analytics count time between samples more than 5 s apart as uncovered (`coverage_pct`) and report the number and length of gaps (watch sessions use a wider limit, see [Apple Watch](#apple-watch-via-apple-health-ios)). |
+| The app is closed or crashes mid-case | Signals are written to storage every 5 seconds and whenever the app leaves the foreground, so at most a few seconds are lost. On the next launch an **Unfinished case found** prompt offers **Resume recording**, **End case & debrief** or **Decide later**. |
 
-Battery level is read when the strap connects and after each reconnect. It is not polled during the case, so a
-battery that runs down during a long case may not be shown as low until the next connection.
+Battery level is read when the strap connects, after each reconnect and every 5 minutes during the case (native app
+and Web Bluetooth), so a strap running down shows as low (red below 20 %) during the case.
 
 ### Background operation and keeping the screen on
 
 | Platform | What the code does | Practical advice |
 | --- | --- | --- |
 | iOS | The `react-native-ble-plx` config plugin is set with `isBackgroundEnabled: true` and `modes: ["central"]`, which adds `UIBackgroundModes: bluetooth-central`. iOS can then keep delivering Bluetooth notifications if the screen locks. | Keep the live screen open anyway. iOS can still suspend or end a background app (for example under memory pressure), and background behaviour has not been verified on a device. |
-| Android | There is **no foreground service**. The app relies on staying in the foreground: the screen is kept awake during the baseline and the recording (`expo-keep-awake`, setting **Keep screen awake**, on by default), and the live screen intercepts the Android back button ("Recording continues. Use “Minimise” to leave this screen…"). | Keep the live screen open on a stand, with the phone plugged in. Do not switch to other apps during a case. If the app goes to the background, Android may throttle or stop it; how quickly varies by manufacturer and battery settings. Consider exempting the app from battery optimisation on study phones (the app does not ask for this). |
-| Web | Keep-awake uses the browser's Screen Wake Lock API where available. | Keep the tab open, visible and in the foreground. Browsers throttle hidden tabs. |
+| Android | There is **no foreground service**. The app relies on staying in the foreground: the screen is kept awake during the baseline and the recording (`expo-keep-awake`, setting **Keep screen awake**, on by default), and the live screen intercepts the Android back button ("Recording continues. Use “Minimise” to leave this screen…"). Anything buffered is written as soon as the app leaves the foreground. When it returns, the live screen shows "SurgeonPulse was in the background", and "Signal lost" appears at once if data stopped. The setup screen and the **Keep screen awake** setting tell the team to keep the app open with the screen on. | Keep the live screen open on a stand, with the phone plugged in. Do not switch to other apps or lock the screen during a case: recording pauses until the app is back in the foreground. How quickly Android stops a background app varies by manufacturer and battery settings. Consider exempting the app from battery optimisation on study phones (the app does not ask for this). |
+| Web | Keep-awake uses the browser's Screen Wake Lock API where available, and requests the lock again whenever the tab becomes visible (browsers release it when a tab is hidden). Buffered data is written when the tab is hidden. | Keep the tab open, visible and in the foreground. Browsers throttle hidden tabs. |
 
 **Minimise** on the live screen returns to the tabs while recording continues; the **Record** tab then offers
 **Return to live screen**.
@@ -146,11 +150,13 @@ The web build of the app can record from the same straps through the Web Bluetoo
   **New case** screen) opens the browser's own device chooser, filtered to the Heart Rate Service. The browser grants
   access per device.
 - **Data and reconnection.** Notifications are parsed with the same core parser as the native app. Battery Level and
-  Body Sensor Location are read on connect if the strap offers them. A `gattserverdisconnected` event triggers the
-  same 1 s → 30 s back-off.
+  Body Sensor Location are read on connect if the strap offers them; the battery is read again after a reconnect and
+  every 5 minutes. A `gattserverdisconnected` event triggers the same 1 s → 30 s back-off.
 - **Storage.** On the web, sessions are kept in the browser's `localStorage` (about 4 MB budget). Several long
-  sessions with RR intervals can fill it, and clearing site data deletes them. Use the web build for demonstrations,
-  training and short pilot recordings; use the native app for study cases.
+  sessions with RR intervals can fill it; the heart-rate data of the oldest finished cases is then dropped first and
+  **History** shows a "Browser storage is full" banner asking you to export all sessions before closing the page.
+  Clearing site data deletes everything. Use the web build for demonstrations, training and short pilot recordings;
+  use the native app for study cases.
 
 ## Apple Watch via Apple Health (iOS)
 
@@ -165,6 +171,11 @@ imports the data for the case window afterwards. The app calls this a **timed se
 4. After the case, the debrief offers **Import heart rate now**. Watch data may take a few minutes to sync; you can
    import later from the session page (**Import from Apple Health**).
 
+The import is offered, and accepted, only for cases recorded with the health store as the source, or cases without
+any heart-rate data. It never merges a watch's data into a strap's own recording, because interleaving two devices'
+beats would corrupt HRV and heart-rate statistics. Importing new data into a session that was already uploaded marks
+it as not uploaded again (and re-uploads it when automatic upload is on).
+
 What is read, for the window from case start to case end (read-only; the app never writes to Apple Health):
 
 | HealthKit type | Stored as | Used in the app's metrics |
@@ -178,9 +189,11 @@ Things to know:
 - HealthKit never tells an app whether **read** access was granted. An import that finds no data is the only sign
   that access is missing (check **Settings › Health › Data Access** on the iPhone).
 - Re-importing the same window adds only new data, so it is safe to retry.
-- Watch heart-rate samples are often less frequent than one per second. Gaps longer than 5 s count as uncovered time
-  and break stress-episode runs, so `coverage_pct` and episode metrics from watch data are not directly comparable
-  with chest-strap data. Record the source (`sensor.source`) as a covariate or analyse sources separately.
+- Watch heart-rate samples are often less frequent than one per second. For Apple Health and Health Connect sessions
+  the analytics therefore treat a gap as uncovered only when it is longer than 1.5 × the session's median sample
+  spacing (kept between 5 s and 15 min; the value used is stored as `maxGapMs` in the summary). `coverage_pct`, time
+  in zones and episode metrics from watch data are still not directly comparable with chest-strap data. Record the
+  source (`sensor_source` in the summaries CSV) as a covariate or analyse sources separately.
 
 ## Android wearables via Health Connect
 
@@ -190,7 +203,8 @@ Health, Fitbit or Garmin Connect, depending on the vendor's own sync support).
 - Health Connect is built into Android 14 and later. On Android 9–13, install the Health Connect app from the Play
   Store. The app reports the source as unavailable otherwise.
 - Choose **Smartwatch (via Health Connect)**, start a workout on the watch, and follow the same timed-session flow as
-  for Apple Watch. The session page action is **Import from Health Connect**.
+  for Apple Watch (including the rule that the import is offered only for health-store or empty cases). The session
+  page action is **Import from Health Connect**.
 - The app reads `HeartRate` records (required permission `android.permission.health.READ_HEART_RATE`) and
   `HeartRateVariabilityRmssd` records (optional permission `READ_HEART_RATE_VARIABILITY`), 1000 records per page.
   RMSSD readings are stored as `externalHrv` and exported, but not used in the app's HRV metrics.
@@ -313,7 +327,8 @@ Run this on every phone model and sensor model the study will use, using a devel
 3. **Range.** Walk away from the phone until the sensor reconnects; check the **Signal lost** banner appears after
    15 seconds and clears when you return.
 4. **Lock and background.** Lock the screen (iOS) or turn keep-awake off briefly (Android) during a test recording,
-   and check whether data continued. Record the result for each phone model.
+   and check whether data continued. On Android this pauses recording: expect a gap and the "was in the background"
+   banner. Record the result for each phone model.
 5. **Long run.** Record for at least as long as the longest expected case, with the phone plugged in, and check
    coverage and battery.
 6. **Theatre test.** Wear the strap under scrubs (and a lead apron if relevant) during a mock or observed session,
@@ -334,7 +349,7 @@ Run this on every phone model and sensor model the study will use, using a devel
 | "Signal lost" banner during the case | Dry or loose electrodes, out of range, lead apron, interference, flat battery | Leave it; recording continues and reconnects automatically. Fix fit and phone position before the next case |
 | Frequent short dropouts | Phone too far away or blocked by the body; 2.4 GHz congestion | Move the phone closer and into line of sight |
 | High RR artefact percentage | Diathermy interference, movement, poor contact, ectopic beats | Check strap fit and moisture; compare cases with and without heavy diathermy; review the RR CSV `valid` column |
-| Recording stopped when the phone was locked or the app switched (Android) | No foreground service; Android stopped the background app | Keep the live screen open with **Keep screen awake** on and the phone plugged in |
+| Recording stopped when the phone was locked or the app switched (Android); "SurgeonPulse was in the background" on return | No foreground service; Android pauses the app in the background (data up to that moment was saved) | Keep the live screen open with **Keep screen awake** on and the phone plugged in |
 | "No samples found yet" after a timed session | Watch has not synced yet; workout not started; Apple Health read access not granted | Wait and import again from the session page; check that a workout ran; check Health access settings |
-| Imported watch data look sparse | Watch sampling interval longer than 5 s | Expected; analyse watch sessions separately from strap sessions |
-| Battery shows low only after a reconnect | Battery is read on connect and reconnect only | Check the level before each case |
+| Imported watch data look sparse | Watch sampling interval longer than 5 s | Expected (the gap rule adapts to the watch's spacing); analyse watch sessions separately from strap sessions |
+| "Import from Apple Health / Health Connect" is not offered | The case was recorded with a strap and already has heart-rate data | Expected: the app never mixes two devices' data in one session |

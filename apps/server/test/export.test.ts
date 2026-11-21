@@ -1,4 +1,4 @@
-import { SUMMARY_CSV_COLUMNS, parseCsv, parseImport } from '@surgeonpulse/core';
+import { SUMMARY_CSV_COLUMNS, parseCsv, parseImport, sessionEnd } from '@surgeonpulse/core';
 import type { SurgicalSession } from '@surgeonpulse/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ADMIN, bundleJson, createTestApp, enrol, simSession, upload } from './helpers';
@@ -73,5 +73,55 @@ describe('exports', () => {
   it('validates export filters', async () => {
     const res = await t.app.inject({ method: 'GET', url: '/api/v1/export?from=yesterday', headers: ADMIN });
     expect(res.statusCode).toBe(400);
+  });
+
+  // PRIV-5: a shareable export hides calendar dates with a consistent secret shift per participant.
+  it('with shiftDates=true shifts each participant by a secret, consistent, whole-week offset', async () => {
+    const WEEK = 7 * 24 * 60 * 60 * 1000;
+    const get = async (url: string) => {
+      const res = await t.app.inject({ method: 'GET', url, headers: ADMIN });
+      expect(res.statusCode, res.body).toBe(200);
+      return res;
+    };
+    const real = parseImport((await get('/api/v1/export')).body).bundle;
+    const first = parseImport((await get('/api/v1/export?shiftDates=true')).body).bundle;
+    const again = parseImport((await get('/api/v1/export?shiftDates=1')).body).bundle;
+    expect(first.deidentified).toBe(true);
+    expect(again.sessions).toEqual(first.sessions); // same shift in every export
+
+    const realById = new Map(real.sessions.map((s) => [s.id, s]));
+    const shiftOf = new Map<string, number>();
+    for (const s of first.sessions) {
+      const r = realById.get(s.id)!;
+      const shift = s.startedAt - r.startedAt;
+      expect(Math.abs(shift) % WEEK).toBe(0); // weekday and time of day kept
+      expect(Math.abs(shift)).toBeGreaterThanOrEqual(WEEK);
+      expect(Math.abs(shift)).toBeLessThanOrEqual(52 * WEEK);
+      expect(s.samples[0]!.t - r.samples[0]!.t).toBe(shift);
+      expect(s.events.map((e) => e.t - shift)).toEqual(r.events.map((e) => e.t));
+      expect(s.tzOffsetMin).toBe(r.tzOffsetMin);
+      if (shiftOf.has(s.participantCode)) expect(shiftOf.get(s.participantCode)).toBe(shift);
+      shiftOf.set(s.participantCode, shift);
+    }
+    expect(shiftOf.size).toBe(2);
+    expect(first.exportedAt).toBe(Math.max(...first.sessions.map((s) => sessionEnd(s))));
+
+    // The CSV uses the same per-participant shift.
+    const rows = parseCsv((await get('/api/v1/export/summaries.csv?shiftDates=true')).body);
+    const realRows = parseCsv((await get('/api/v1/export/summaries.csv')).body);
+    const header = rows[0]!;
+    const idCol = header.indexOf('session_id');
+    const startCol = header.indexOf('started_at');
+    const codeCol = header.indexOf('participant_code');
+    const realStart = new Map(realRows.slice(1).map((r) => [r[idCol], Date.parse(r[startCol]!)]));
+    for (const row of rows.slice(1)) {
+      expect(Date.parse(row[startCol]!) - realStart.get(row[idCol])!).toBe(shiftOf.get(row[codeCol]!));
+    }
+
+    // The shift is not revealed anywhere in the API.
+    const audit = await get('/api/v1/admin/audit');
+    for (const shift of shiftOf.values()) expect(audit.body).not.toContain(String(shift));
+    const bad = await t.app.inject({ method: 'GET', url: '/api/v1/export?shiftDates=maybe', headers: ADMIN });
+    expect(bad.statusCode).toBe(400);
   });
 });

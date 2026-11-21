@@ -152,12 +152,12 @@ sequenceDiagram
 | --- | --- | --- |
 | Before scrubbing | Put on the strap and moisten the electrodes a few minutes before the baseline | — |
 | Case setup | Choose the procedure from the catalogue (avoid custom names); set **Your role**, **Approach**, **Urgency** and **Anticipated complexity** (1 routine – 5 very complex) | `procedure.*` fields |
-| Resting baseline | [3] minutes seated or standing quietly before scrubbing, same posture each time [specify]. The app offers 1–5 minutes (default 3, **Settings → Recording**). | `baseline.restingHr`, `baseline.rmssd`, `baseline.sdnn`, `baseline.source: "measured"`. Raw baseline samples are not kept. If no baseline is recorded, the profile resting heart rate is used when entered (`source: "profile"`). |
+| Resting baseline | [3] minutes sitting quietly before scrubbing, the same way before every case [specify; the app asks for a seated baseline]. The app offers 1–5 minutes (default 3, **Settings → Recording**); the minimum is 60 s, and shorter baselines are not stored (**Finish early** is available only after 60 s). | `baseline.restingHr`, `baseline.rmssd`, `baseline.sdnn`, `baseline.source: "measured"`; CSV `baseline_hr`, `baseline_source`, `baseline_duration_s`. Raw baseline samples are not kept. If no baseline is recorded, the profile resting heart rate is used when entered (`source: "profile"`). Posture is not recorded by the app. |
 | Recording | Phone on a stand outside the sterile field; screen stays on; phone plugged in for long cases | Heart rate about 1 Hz; RR intervals; saved every 5 s |
 | Event logging | A non-sterile team member taps phase and event buttons with **Logged by: Team** (the default); the surgeon's own taps use **Self** | `events[]` with `loggedBy` |
 | End | Hold **End case** for 1.5 s | `endedAt` |
-| Debrief | Within [30] minutes of the end of the case: six SURG-TLX sliders (move every slider deliberately), optional pairwise weighting, performance, perceived stress, sleep, caffeine, outcome. **No notes** [or: notes allowed, never patient details]. | `postOp.*` |
-| Corrections | Event times may be corrected afterwards in **Edit events & times**; added events are logged as `retrospective` | `loggedBy: "retrospective"` |
+| Debrief | Within [30] minutes of the end of the case: six SURG-TLX sliders (each starts unanswered; rate every one), optional pairwise weighting, performance, perceived stress, sleep, caffeine, outcome. **No notes** [or: notes allowed, never patient details]. | `postOp.*`. The workload is stored only when all six SURG-TLX items are rated; otherwise `postOp.workload` is absent (the app asks before saving). |
+| Corrections | Event times may be corrected afterwards in **Edit events & times**; added events, and events whose time or kind is changed, are logged as `retrospective` | `loggedBy: "retrospective"` (the original live time is not kept) |
 | Upload | Automatic after the debrief (if enabled) or **Upload sessions now** | Server stores a de-identified copy |
 
 ### Operational definitions of phases and events
@@ -197,20 +197,21 @@ the session objects in an export bundle (see [data model](data-model.md)).
 | Construct | Measure | Where to find it | Notes |
 | --- | --- | --- | --- |
 | Resting reference | Resting heart rate (bpm) | `baseline_hr`; JSON `baseline` | Measured baseline, else profile resting HR |
-| Cardiac response | Mean, median, min, max, SD, 95th percentile heart rate | `hr_mean`, `hr_median`, `hr_min`, `hr_max`, `hr_sd`, `hr_p95` | Valid samples 25–250 bpm; not time-weighted |
-| Cardiac response relative to rest | Mean and peak change from baseline | `mean_hr_delta`, `peak_hr_delta` | Null without a baseline |
-| Phase response | Duration, mean HR, change from baseline, RMSSD per phase | `<phase>_duration_s`, `<phase>_hr_mean`, `<phase>_hr_delta`, `<phase>_rmssd` (`pre_op`, `incision`, `dissection`, `critical`, `closure`, `post_op`) | Phase RMSSD needs ≥ 20 valid RR intervals |
-| HRV (whole case) | RMSSD, SDNN, pNN50, mean RR | `rmssd`, `sdnn`, `pnn50`, `mean_rr` | Needs ≥ 30 valid RR intervals; RR artefacts removed first |
+| Cardiac response | Mean, median, min, max, SD, 95th percentile heart rate; robust peak | `hr_mean`, `hr_median`, `hr_min`, `hr_max`, `hr_sd`, `hr_p95`; `peak_hr` (highest 11-s rolling median) | Valid samples 25–250 bpm with skin contact (samples flagged `contact: false` are excluded); not time-weighted |
+| Cardiac response relative to rest | Mean and peak change from baseline | `mean_hr_delta`, `peak_hr_delta` (from `peak_hr`) | Null without a baseline |
+| Phase response | Duration, mean HR, change from baseline, RMSSD per phase | `<phase>_duration_s`, `<phase>_hr_mean`, `<phase>_hr_delta`, `<phase>_rmssd` (`pre_op`, `incision`, `dissection`, `critical`, `closure`, `post_op`) | Phase RMSSD needs a phase of ≥ 60 s with ≥ 20 valid RR intervals and ≤ 10 % artefacts; segments of a repeated phase are combined as a duration-weighted mean |
+| HRV (whole case) | RMSSD, SDNN, pNN50, mean RR | `rmssd`, `sdnn`, `pnn50`, `mean_rr`; `hrv_n` (valid RR intervals) | Needs ≥ 30 valid RR intervals; RR artefacts removed first; null when more than 10 % of intervals are artefacts. SDNN depends on recording length: do not compare it across cases of different duration |
 | HRV over time | Rolling RMSSD/SDNN in 60 s windows every 30 s | core `rollingHrv`, Python `rolling_hrv` | Not in the CSV |
-| Autonomic balance index | Baevsky stress index | `stress_index` | Needs ≥ 30 valid RR intervals; 50 ms histogram bins |
+| Autonomic balance index | Baevsky stress index (raw SI, not √SI) | `stress_index` | Median of 5-minute windows that each hold at least 4 minutes of clean beats; 50 ms histogram bins; null when more than 10 % of intervals are artefacts |
 | Intensity | Time at ≥ 70 % of maximum heart rate | `high_intensity_pct` | Needs a measured max HR or birth year (Tanaka formula) |
 | Sustained stress | Stress episodes: count and total minutes | `episode_count`, `episode_minutes` | HR ≥ baseline + 20 bpm (else session median + 15) for ≥ 60 s; runs ≤ 30 s apart merged |
-| Workload | SURG-TLX raw (mean of six 0–100 ratings) and weighted score | `workload_raw`, `workload_weighted`, `workload_instrument`; dimensions in JSON `postOp.workload.ratings.{mental, physical, temporal, complexity, stress, distraction}` | Weighted only when all 15 pairwise comparisons are answered |
+| Workload | SURG-TLX raw (mean of six 0–100 ratings) and weighted score | `workload_raw`, `workload_weighted`, `workload_instrument`; dimensions in JSON `postOp.workload.ratings.{mental, physical, temporal, complexity, stress, distraction}` | Present only when all six items were rated; weighted only when all 15 pairwise comparisons are answered. App and dashboard charts use the raw score |
 | Self-rated performance | 0 (very poor) – 10 (excellent) | `performance` | Optional item |
 | Perceived stress | 0 (none) – 10 (extreme) | `perceived_stress` | Optional item |
-| Sleep | Hours slept the night before (0–12 in 0.5 h steps in the app) | JSON `postOp.sleepHours` | Not in the summaries CSV |
-| Caffeine | Caffeine within 2 hours before the case (yes/no) | JSON `postOp.caffeine` | Not in the summaries CSV |
-| Case outcome (self-report) | As planned / minor / major deviation from plan | JSON `postOp.outcome` | Not in the summaries CSV |
+| Sleep | Hours slept the night before (0–12 in 0.5 h steps in the app) | `sleep_hours`; JSON `postOp.sleepHours` | Optional item |
+| Caffeine | Caffeine within 2 hours before the case (yes/no) | `caffeine`; JSON `postOp.caffeine` | Optional item |
+| Case outcome (self-report) | As planned / minor / major deviation from plan | `outcome`; JSON `postOp.outcome` | Optional item |
+| Time of day | Local start time | `started_local` (ISO 8601 with offset), `tz_offset_min` | Empty when the offset is unknown |
 | Debrief latency | Minutes from case end to debrief | JSON `(postOp.workload.completedAt − endedAt) / 60000` | Not in the summaries CSV |
 | Procedure | Name, specialty, approach, role, urgency, anticipated complexity | `procedure_name`, `specialty`, `approach`, `role`, `urgency`, `complexity` | Complexity rated before the case |
 | Experience | Training level; years of surgical experience | `training_level`; JSON `participantSnapshot.yearsExperience` (Python `sessions` frame `years_experience`) | Optional profile fields |
@@ -218,12 +219,13 @@ the session objects in an export bundle (see [data model](data-model.md)).
 | Events | Phase changes and markers with time and logger | Events CSV: `t_offset_s`, `type`, `kind`, `logged_by` | `logged_by` is `self`, `team` or `retrospective` |
 | Case duration | Minutes | `duration_min` | |
 | Data quality | Coverage, RR artefact percentage, gaps, sample rate | `coverage_pct`, `rr_artifact_pct`; JSON summary `quality.gapCount`, `quality.longestGapSec`, `quality.sampleRateHz` | |
-| Sensor | Source and model | JSON `sensor.source`, `sensor.name` | |
+| Sensor | Source and model | `sensor_source`; JSON `sensor.source`, `sensor.name` | Watch (health-store) sessions use an adaptive gap rule (1.5 × median sample spacing, 5 s–15 min); analyse sources separately or as a covariate |
+| Provenance | Synthetic data flag; analytics version | `simulated` (1/0), `analytics_version` | Exclude `simulated` = 1; do not pool rows with different `analytics_version` |
 | Screening covariates | Medications, arrhythmia history, [on-call status, alcohol, illness] | [Screening/case report form] | Not captured by the app |
 
-> **SURG-TLX sliders start at 50.** The app cannot tell an untouched slider from a deliberate rating of 50. Instruct
-> participants to move every slider, and consider a sensitivity analysis excluding debriefs in which all six ratings
-> equal 50.
+> **SURG-TLX ratings start unanswered.** Each slider shows no value until the participant rates it, and the workload
+> is saved only when all six items are rated (the app asks before saving an incomplete debrief). Report the number of
+> debriefs without workload ratings as missing data.
 
 ## 7. Data quality criteria
 
@@ -232,17 +234,18 @@ Pre-specify, for example:
 | Criterion | Example threshold | Source |
 | --- | --- | --- |
 | Usable heart-rate data | `coverage_pct` ≥ [80] | Dashboard flags sessions below 80 %; the app's Insights flag the latest session below 80 % |
-| Usable HRV data | `rr_artifact_pct` ≤ [5] and HRV not null | Dashboard flags artefact above 5 % |
-| Usable phase data | Phase present with ≥ 20 valid RR intervals for phase RMSSD | Phase RMSSD is null otherwise |
-| Valid baseline | `baseline.source` = `measured` | Profile-based baselines analysed in sensitivity analyses |
-| Simulated data excluded | `sensor.source` ≠ `simulated`; tags do not include `demo` | JSON |
+| Usable HRV data | `rr_artifact_pct` ≤ [5] and HRV not null | Dashboard flags artefact above 5 %; core leaves HRV and the stress index null above 10 % |
+| Usable phase data | Phase of ≥ 60 s with ≥ 20 valid RR intervals and ≤ 10 % artefacts for phase RMSSD | Phase RMSSD is null otherwise |
+| Valid baseline | `baseline_source` = `measured` (minimum 60 s, `baseline_duration_s`) | Profile-based baselines analysed in sensitivity analyses |
+| Simulated data excluded | `simulated` = 0 (sensor source not `simulated`, no `simulated`/`demo` tag) | Summaries CSV; the server rejects synthetic uploads by default |
+| One analytics version | All rows share one `analytics_version` | Recompute older rows (the server does this at start-up) before pooling |
 
 ## 8. Data management
 
 Follow the [privacy, ethics and governance document](privacy-ethics.md), in particular the data-flow table, the code
 key arrangements, the withdrawal procedure and retention. In summary: pseudonymous codes only; de-identified uploads
-to a university-hosted server; exports for analysis through the server or dashboard; date-shifted bundles for any
-sharing outside the team.
+to a university-hosted server; exports for analysis through the server or dashboard; date-shifted exports (the
+server's `?shiftDates=true` or the dashboard's de-identified bundle) for any sharing outside the team.
 
 ## 9. Statistical analysis plan
 
@@ -255,8 +258,9 @@ sharing outside the team.
 - Use the [Python toolkit](../analysis/README.md): `surgeonpulse summarize export.json -o summaries.csv` for one row
   per session, and `surgeonpulse frames export.json -o outdir/` for long-format samples, RR, events, sessions and
   participants. The CSVs are byte-identical to the app's.
-- Add the debrief items that are not in the summaries CSV from the JSON bundle, and reshape phase columns to long
-  format:
+- Drop synthetic rows (`simulated` = 1) and check that every row has the same `analytics_version`. Add the items
+  that are not in the summaries CSV (for example years of experience) from the JSON bundle, and reshape phase columns
+  to long format:
 
 ```python
 import pandas as pd
@@ -264,13 +268,12 @@ from surgeonpulse_analysis import load_export, summaries_frame
 
 bundle = load_export("export.json")
 df = summaries_frame(bundle)                       # one row per session (summaries CSV columns)
+df = df[df["simulated"] != 1]                      # real recordings only
+assert df["analytics_version"].nunique() <= 1, "recompute summaries before pooling"
 
 extra = pd.DataFrame([
     {
         "session_id": s["id"],
-        "sleep_hours": (s.get("postOp") or {}).get("sleepHours"),
-        "caffeine": (s.get("postOp") or {}).get("caffeine"),
-        "outcome": (s.get("postOp") or {}).get("outcome"),
         "years_experience": (s.get("participantSnapshot") or {}).get("yearsExperience"),
     }
     for s in bundle["sessions"]

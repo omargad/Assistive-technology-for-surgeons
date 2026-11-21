@@ -12,9 +12,13 @@
  *   during a live recording only re-encodes the session that changed.
  * - Size-aware: if the payload exceeds `maxBytes` (≈4 MB, below the usual
  *   5 MB browser quota) the signal arrays of the oldest finished sessions are
- *   left out (their metadata and cached summaries are kept). A quota error
- *   falls back to persisting metadata only. Every storage access is wrapped in
- *   try/catch so a full or blocked storage never breaks recording.
+ *   left out (their metadata and cached summaries are kept). A storage error
+ *   (quota) leaves out one more session's signals per retry, oldest finished
+ *   first and an in-progress recording last, so one failure never drops the
+ *   signals of every session. Sessions whose signals are not persisted are
+ *   reported through `onPersistStatus` (they stay in memory until the page is
+ *   closed, so the user can still export them). Every storage access is
+ *   wrapped in try/catch so a full or blocked storage never breaks recording.
  */
 import { safeParseSession } from '@surgeonpulse/core';
 import type {
@@ -24,6 +28,7 @@ import type {
   SessionSummary,
   SurgicalSession,
 } from '@surgeonpulse/core';
+import { isStorableRr, isStorableSample } from '../util/signals';
 import { applyMetaPatch, safeJsonParse, toMeta } from './meta';
 import type { SessionListItem, SessionMeta, SessionRepository } from './types';
 
@@ -44,6 +49,17 @@ export interface MemoryPersistOptions {
   maxBytes?: number;
   /** Called (without any data) when persisting fails, e.g. quota exceeded. */
   onError?: (error: unknown) => void;
+  /**
+   * Called after a write when the outcome differs from the previous write: `ok` is false when nothing
+   * could be stored; `droppedSignals` lists sessions stored without their signals.
+   */
+  onPersistStatus?: (status: PersistStatus) => void;
+}
+
+export interface PersistStatus {
+  ok: boolean;
+  /** Ids of sessions whose heart-rate signals are not in storage (metadata and summary only). */
+  droppedSignals: string[];
 }
 
 export interface MemoryRepositoryOptions {
@@ -136,7 +152,8 @@ function decodeSamples(raw: unknown): HeartRateSample[] {
     const sample: HeartRateSample = { t: ts[i] as number, bpm };
     const c = contact?.[i];
     if (c === 1 || c === 0) sample.contact = c === 1;
-    out.push(sample);
+    // A value outside the schema's limits (stored by an older version) must not invalidate the session.
+    if (isStorableSample(sample)) out.push(sample);
   }
   return out;
 }
@@ -154,7 +171,9 @@ function decodeRr(raw: unknown): RRInterval[] {
   const out: RRInterval[] = [];
   for (let i = 0; i < ts.length; i++) {
     const ms = r.ms[i];
-    if (typeof ms === 'number' && Number.isFinite(ms)) out.push({ t: ts[i] as number, ms });
+    if (typeof ms !== 'number') continue;
+    const interval: RRInterval = { t: ts[i] as number, ms };
+    if (isStorableRr(interval)) out.push(interval);
   }
   return out;
 }
@@ -252,29 +271,63 @@ export function createMemoryRepository(options: MemoryRepositoryOptions = {}): M
     return next;
   }
 
-  /** Build the payload, leaving out signals of the oldest finished sessions until it fits. */
-  function buildPayload(): string[] {
+  interface Payload {
+    text: string;
+    /** Sessions (with signals) stored as metadata only. */
+    dropped: string[];
+    /** Number of sessions whose signals were left out (whether or not they had any). */
+    droppedCount: number;
+    /** True when no session's signals are left to drop. */
+    exhausted: boolean;
+  }
+
+  /**
+   * Build the payload, leaving out signals of the oldest finished sessions (in-progress recordings
+   * last) until it fits `maxBytes` and at least `minDropped` sessions are left out.
+   */
+  function buildPayload(minDropped: number): Payload {
     const sorted = [...entries.entries()].sort((a, b) => a[1].meta.startedAt - b[1].meta.startedAt);
-    const encoded = sorted.map(([id, entry]) => ({ entry, enc: encodeEntry(id, entry), full: true }));
+    const encoded = sorted.map(([id, entry]) => ({ id, entry, enc: encodeEntry(id, entry), full: true }));
     const head = `{"v":${PERSIST_FORMAT_VERSION},"profile":${JSON.stringify(profile)},"sessions":[`;
     const tail = ']}';
-    const size = (): number =>
-      head.length +
-      tail.length +
-      encoded.reduce((n, e) => n + (e.full ? e.enc.full.length : e.enc.metaOnly.length) + 1, 0);
+    let size =
+      head.length + tail.length + encoded.reduce((n, e) => n + e.enc.full.length + 1, 0);
 
-    // Drop signals oldest-first, keeping in-progress recordings for last.
     const order = [
       ...encoded.filter((e) => e.entry.meta.status !== 'recording'),
       ...encoded.filter((e) => e.entry.meta.status === 'recording'),
     ];
+    let droppedCount = 0;
     for (const e of order) {
-      if (size() <= maxBytes) break;
+      if (size <= maxBytes && droppedCount >= minDropped) break;
       e.full = false;
+      size -= e.enc.full.length - e.enc.metaOnly.length;
+      droppedCount += 1;
     }
-    const full = head + encoded.map((e) => (e.full ? e.enc.full : e.enc.metaOnly)).join(',') + tail;
-    const metaOnly = head + encoded.map((e) => e.enc.metaOnly).join(',') + tail;
-    return [full, metaOnly];
+    return {
+      text: head + encoded.map((e) => (e.full ? e.enc.full : e.enc.metaOnly)).join(',') + tail,
+      dropped: encoded
+        .filter((e) => !e.full && (e.entry.samples.length > 0 || e.entry.rr.length > 0))
+        .map((e) => e.id),
+      droppedCount,
+      exhausted: droppedCount >= encoded.length,
+    };
+  }
+
+  let lastStatus: PersistStatus = { ok: true, droppedSignals: [] };
+
+  function reportStatus(status: PersistStatus): void {
+    const same =
+      status.ok === lastStatus.ok &&
+      status.droppedSignals.length === lastStatus.droppedSignals.length &&
+      status.droppedSignals.every((id, i) => id === lastStatus.droppedSignals[i]);
+    lastStatus = status;
+    if (same) return;
+    try {
+      persist?.onPersistStatus?.(status);
+    } catch {
+      // listeners must not break persistence
+    }
   }
 
   function writeNow(): void {
@@ -284,23 +337,30 @@ export function createMemoryRepository(options: MemoryRepositoryOptions = {}): M
     }
     if (!persist || !dirty) return;
     dirty = false;
-    let candidates: string[];
-    try {
-      candidates = buildPayload();
-    } catch (error) {
-      persist.onError?.(error);
-      return;
-    }
     let lastError: unknown = null;
-    for (const payload of candidates) {
+    let minDropped = 0;
+    // On a storage error (most likely QuotaExceededError) leave out one more session's signals and
+    // retry, instead of falling back to metadata only for every session at once.
+    for (;;) {
+      let payload: Payload;
       try {
-        persist.storage.setItem(key, payload);
+        payload = buildPayload(minDropped);
+      } catch (error) {
+        persist.onError?.(error);
+        return;
+      }
+      try {
+        persist.storage.setItem(key, payload.text);
+        reportStatus({ ok: true, droppedSignals: payload.dropped });
         return;
       } catch (error) {
-        lastError = error; // most likely QuotaExceededError → retry with metadata only
+        lastError = error;
       }
+      if (payload.exhausted) break;
+      minDropped = payload.droppedCount + 1;
     }
     persist.onError?.(lastError);
+    reportStatus({ ok: false, droppedSignals: lastStatus.droppedSignals });
   }
 
   function markDirty(id?: string): void {
@@ -424,6 +484,12 @@ export function createMemoryRepository(options: MemoryRepositoryOptions = {}): M
     async saveProfile(next: ParticipantProfile): Promise<void> {
       loadFromStorage();
       profile = cloneJson(next);
+      markDirty();
+    },
+
+    async deleteProfile(): Promise<void> {
+      loadFromStorage();
+      profile = null;
       markDirty();
     },
 

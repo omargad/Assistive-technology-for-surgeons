@@ -43,10 +43,13 @@ export interface SessionRepository {
   saveSession(session: SurgicalSession): Promise<void>;
   saveSummary(id: string, summary: SessionSummary): Promise<void>;
   deleteSession(id: string): Promise<void>;
+  /** Delete every session and its signals. The profile is kept (see `deleteProfile`). */
   deleteAll(): Promise<void>;
   /** Sessions left in status 'recording' (app was killed mid-case) — offered for recovery on launch. */
   findInterrupted(): Promise<SessionMeta[]>;
 
   getProfile(): Promise<ParticipantProfile | null>;
   saveProfile(profile: ParticipantProfile): Promise<void>;
+  /** Remove the stored profile (participant code, consent record, optional fields). Used by "Delete all data". */
+  deleteProfile(): Promise<void>;
 }

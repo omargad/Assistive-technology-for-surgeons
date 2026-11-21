@@ -3,6 +3,10 @@
  * per-session trend for a chosen metric (core `metricSeries` + `linearTrend`)
  * and a by-procedure comparison (core `aggregateMetric`). Framed as
  * reflection, never as evaluation.
+ *
+ * Only the participant's own cases are "your" insights. Demo and simulator
+ * sessions are shown separately (clearly labelled), either because there are
+ * no own cases yet or when the participant switches to the demo view.
  */
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -11,6 +15,7 @@ import { METRICS, aggregateMetric, generateInsights, metricSeries } from '@surge
 import type { MetricKey } from '@surgeonpulse/core';
 
 import { AppText } from '@/components/AppText';
+import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { notify } from '@/components/ConfirmDialog';
@@ -21,7 +26,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { GroupBarChart } from '@/components/charts/GroupBarChart';
 import { TrendChart } from '@/components/charts/TrendChart';
 import { errorMessage, useBusy } from '@/hooks/useBusy';
-import { useSummaries } from '@/hooks/useSummaries';
+import { useInsightSources } from '@/hooks/useSummaries';
 import { useSessions } from '@/state/sessions';
 import { useStyles, type Theme } from '@/theme';
 
@@ -35,12 +40,18 @@ const SHORT_LABEL: Partial<Record<MetricKey, string>> = {
 
 export default function InsightsScreen() {
   const styles = useStyles(makeStyles);
-  const summaries = useSummaries();
+  const { own, practice } = useInsightSources();
   const loading = useSessions((s) => s.loading);
   const [metric, setMetric] = useState<MetricKey>('meanHrDelta');
+  const [view, setView] = useState<'own' | 'demo'>('own');
   const { busy, run } = useBusy();
 
-  const insights = useMemo(() => generateInsights(summaries), [summaries]);
+  // Demo/simulator data is shown only on its own: when there are no own cases yet, or on request.
+  const showingDemo = practice.summaries.length > 0 && (own.summaries.length === 0 || view === 'demo');
+  const data = showingDemo ? practice : own;
+  const summaries = data.summaries;
+  const hasDemo = practice.sessions.some((s) => s.tags?.includes('demo'));
+  const insights = useMemo(() => generateInsights(data.summaries, { sessions: data.sessions }), [data]);
   const series = useMemo(() => metricSeries(summaries, metric), [summaries, metric]);
   const byProcedure = useMemo(() => aggregateMetric(summaries, metric, 'procedure'), [summaries, metric]);
   const info = METRICS[metric];
@@ -79,11 +90,40 @@ export default function InsightsScreen() {
     <Screen testID="insights" onRefresh={() => void useSessions.getState().refresh()} refreshing={loading}>
       <View style={styles.intro}>
         <AppText variant="title">Insights</AppText>
-        <AppText variant="body" tone="muted">
-          Patterns across your {summaries.length} completed session{summaries.length === 1 ? '' : 's'}. These are prompts
-          for reflection — physiological responses vary for many reasons, and none of this is a judgement of performance.
+        <AppText variant="body" tone="muted" testID="insights-intro">
+          {showingDemo
+            ? `Patterns across ${summaries.length} simulated session${summaries.length === 1 ? '' : 's'} (demo data and simulator recordings). `
+            : `Patterns across your ${summaries.length} completed session${summaries.length === 1 ? '' : 's'}. `}
+          These are prompts for reflection — physiological responses vary for many reasons, and none of this is a
+          judgement of performance.
         </AppText>
       </View>
+
+      {own.summaries.length > 0 && practice.summaries.length > 0 ? (
+        <SegmentedControl
+          options={[
+            { value: 'own', label: `Your cases (${own.summaries.length})`, accessibilityLabel: `Your cases, ${own.summaries.length}` },
+            { value: 'demo', label: `Demo (${practice.summaries.length})`, accessibilityLabel: `Demo and simulator sessions, ${practice.summaries.length}` },
+          ]}
+          value={view}
+          onChange={setView}
+          accessibilityLabel="Which sessions to show"
+          testID="insights-view"
+        />
+      ) : null}
+      {showingDemo ? (
+        <Banner
+          tone="warning"
+          title="Simulated data — not your cases"
+          message={
+            own.summaries.length === 0
+              ? 'These show what Insights looks like. Your own recorded cases replace them here once you complete one. Demo data can be deleted in Settings.'
+              : 'Demo data and simulator recordings are kept out of your own Insights.'
+          }
+          live={false}
+          testID="insights-demo-banner"
+        />
+      ) : null}
 
       {insights.length > 0 ? (
         <View style={styles.list}>
@@ -114,11 +154,11 @@ export default function InsightsScreen() {
         <GroupBarChart groups={byProcedure} label={info.label} unit={info.unit} decimals={info.decimals} testID="insights-groups" />
       </Card>
 
-      {summaries.length < 3 ? (
+      {!hasDemo && own.summaries.length < 3 ? (
         <Card icon="sparkles-outline" title="Want to explore first?">
           <AppText variant="label" tone="muted">
-            Load a set of simulated sessions (tagged “Demo”) to see what Insights looks like with more data. You can
-            delete them later in Settings.
+            Load a set of simulated sessions (tagged “Demo”) to see what Insights looks like with more data. They are
+            kept apart from your own cases, and you can delete them later in Settings.
           </AppText>
           <Button
             label="Load demo data"

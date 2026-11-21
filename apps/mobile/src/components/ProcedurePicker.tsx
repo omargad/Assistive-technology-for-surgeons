@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { APPROACH_LABELS, PROCEDURE_CATALOG } from '@surgeonpulse/core';
+import { APPROACH_LABELS, PROCEDURE_CATALOG, UNSPECIFIED_PROCEDURE_NAME } from '@surgeonpulse/core';
 import type { ProcedureInfo } from '@surgeonpulse/core';
 
 import { useStyles, useTheme, type Theme } from '@/theme';
@@ -156,6 +156,10 @@ export function ProcedurePicker({ value, onChange, testID }: ProcedurePickerProp
           message="Enter the type of procedure only. Never enter patient names, record numbers, dates of birth or other identifiers."
           live={false}
         />
+        <AppText variant="caption" tone="muted" testID={testID ? `${testID}-custom-note` : undefined}>
+          A custom name stays on this device. Research exports and uploads record it as “{UNSPECIFIED_PROCEDURE_NAME}”,
+          keeping only the specialty, so choose the specialty above first.
+        </AppText>
         <TextField
           label="Custom procedure name"
           value={custom}

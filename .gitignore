@@ -44,6 +44,9 @@ __pycache__/
 # test artefacts
 test-results/
 playwright-report/
+blob-report/
+# CLI smoke-test output (CI: `surgeonpulse summarize … -o analysis-out/…`)
+analysis-out/
 
 # os / editors
 .DS_Store

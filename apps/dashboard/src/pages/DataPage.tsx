@@ -222,10 +222,12 @@ function ServerCard() {
   );
 }
 
-function SourcesCard() {
+function SourcesCard({ onCleared }: { onCleared: () => void }) {
   const state = useDashboardState();
   const { clearAll } = useDataActions();
   const [confirming, setConfirming] = useState(false);
+  // Also offered with no data loaded, so a remembered admin token can always be removed.
+  const hasToken = loadServerSettings().token !== '';
 
   const columns: Column<SourceInfo>[] = [
     {
@@ -264,6 +266,7 @@ function SourcesCard() {
               onClick={() => {
                 clearAll();
                 setConfirming(false);
+                onCleared();
               }}
             >
               Yes, clear everything
@@ -273,7 +276,13 @@ function SourcesCard() {
             </button>
           </span>
         ) : (
-          <button type="button" className="btn btn--danger-outline" onClick={() => setConfirming(true)} disabled={state.order.length === 0}>
+          <button
+            type="button"
+            className="btn btn--danger-outline"
+            onClick={() => setConfirming(true)}
+            disabled={state.order.length === 0 && !hasToken}
+            title="Removes the loaded data and forgets the admin token on this device"
+          >
             Clear all data
           </button>
         )
@@ -303,6 +312,8 @@ export function DataPage() {
   useDocumentTitle('Data');
   const { error, busy } = useDashboardState();
   const { dismissError } = useDataActions();
+  // Re-mounts the server form after "Clear all data" so the forgotten token is not left in the input.
+  const [clears, setClears] = useState(0);
   return (
     <>
       <PageHeader title="Data" subtitle="Load SurgeonPulse exports, the simulated demo cohort, or your research server's data." />
@@ -323,9 +334,9 @@ export function DataPage() {
       <div className="grid grid--3">
         <FilesCard />
         <DemoCard />
-        <ServerCard />
+        <ServerCard key={clears} />
       </div>
-      <SourcesCard />
+      <SourcesCard onCleared={() => setClears((n) => n + 1)} />
     </>
   );
 }

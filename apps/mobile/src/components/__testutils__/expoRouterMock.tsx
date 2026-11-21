@@ -30,5 +30,7 @@ export function expoRouterMock() {
     Link: ({ children }: { children?: ReactNode }) => children ?? null,
     useLocalSearchParams: jest.fn(() => ({})),
     useRouter: () => router,
+    /** Returns the "disable prevention" function; tests read the latest call's arguments. */
+    usePreventRemove: jest.fn(() => jest.fn()),
   };
 }

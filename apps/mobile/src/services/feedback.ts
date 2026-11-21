@@ -48,22 +48,69 @@ export interface KeepAwakeController {
   deactivate(): void;
 }
 
-/** Idempotent keep-awake controller (activating twice holds one lock). */
-export function createKeepAwake(tag: string = KEEP_AWAKE_TAG): KeepAwakeController {
+/** The part of `document` used to re-acquire the web wake lock. */
+export interface VisibilityTarget {
+  readonly visibilityState: string;
+  addEventListener(type: 'visibilitychange', listener: () => void): void;
+  removeEventListener(type: 'visibilitychange', listener: () => void): void;
+}
+
+function browserDocument(): VisibilityTarget | null {
+  // Only the web has a `document`; on iOS/Android the native keep-awake flag needs no re-acquiring.
+  return typeof document !== 'undefined' && typeof document.addEventListener === 'function' ? document : null;
+}
+
+/**
+ * Idempotent keep-awake controller (activating twice holds one lock).
+ *
+ * On the web the Screen Wake Lock is released by the browser whenever the page is hidden (tab switch,
+ * screen off, app switch), and a request made while hidden is rejected. While active, the lock is
+ * therefore requested again each time the page becomes visible.
+ */
+export function createKeepAwake(
+  tag: string = KEEP_AWAKE_TAG,
+  doc: VisibilityTarget | null = browserDocument(),
+): KeepAwakeController {
   let active = false;
+
+  function request(): void {
+    try {
+      ignore(activateKeepAwakeAsync(tag));
+    } catch {
+      // Wake lock not available (e.g. browser without the Screen Wake Lock API).
+    }
+  }
+
+  function onVisibilityChange(): void {
+    if (!active || doc?.visibilityState !== 'visible') return;
+    // The browser released the previous lock when the page was hidden: drop it, then request a new one.
+    try {
+      ignore(deactivateKeepAwake(tag));
+    } catch {
+      // nothing held
+    }
+    request();
+  }
+
   return {
     activate() {
       if (active) return;
       active = true;
+      request();
       try {
-        ignore(activateKeepAwakeAsync(tag));
+        doc?.addEventListener('visibilitychange', onVisibilityChange);
       } catch {
-        // Wake lock not available (e.g. browser without the Screen Wake Lock API).
+        // ignore
       }
     },
     deactivate() {
       if (!active) return;
       active = false;
+      try {
+        doc?.removeEventListener('visibilitychange', onVisibilityChange);
+      } catch {
+        // ignore
+      }
       try {
         ignore(deactivateKeepAwake(tag));
       } catch {

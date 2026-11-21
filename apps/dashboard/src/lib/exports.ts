@@ -21,9 +21,26 @@ export function longSamplesCsv(sessions: readonly SurgicalSession[]): string {
   return concatCsv(sessions.map((s) => samplesToCsv(s)));
 }
 
-/** Long-format events (phases and markers) for many sessions. */
+/** The session with every event's free-text `note` removed (notes may name patients or staff). */
+function withoutEventNotes(s: SurgicalSession): SurgicalSession {
+  if (!s.events.some((e) => e.note !== undefined)) return s;
+  return {
+    ...s,
+    events: s.events.map((e) => {
+      if (e.note === undefined) return e;
+      const { note: _note, ...rest } = e;
+      return rest as typeof e;
+    }),
+  };
+}
+
+/**
+ * Long-format events (phases and markers) for many sessions. The `note` column is always empty:
+ * free-text notes never leave the dashboard, even when a file that was not de-identified is loaded.
+ * (The samples and RR CSVs carry no free text.)
+ */
 export function longEventsCsv(sessions: readonly SurgicalSession[]): string {
-  return concatCsv(sessions.map((s) => eventsToCsv(s)));
+  return concatCsv(sessions.map((s) => eventsToCsv(withoutEventNotes(s))));
 }
 
 /** Long-format RR intervals for the sessions that have them. */

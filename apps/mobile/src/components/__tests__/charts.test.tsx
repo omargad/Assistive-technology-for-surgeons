@@ -165,8 +165,20 @@ describe('TrendChart', () => {
 
   it('renders points with a trend line and caption', async () => {
     await render(<TrendChart points={points} label="Mean HR change" unit="bpm" testID="trend" />);
-    expect(screen.getByTestId('trend-plot').props.accessibilityLabel).toMatch(/Mean HR change across 6 sessions, from 12 bpm to 6 bpm; trend falling/);
-    expect(screen.getByText(/per session \(R²/)).toBeOnTheScreen();
+    expect(screen.getByTestId('trend-plot').props.accessibilityLabel).toMatch(
+      /Mean HR change across 6 sessions, from 12 bpm to 6 bpm; trend falling by about 1\.2 bpm per session \(unlikely to be chance, p < 0\.05\)/,
+    );
+    expect(screen.getByText(/per session \(R² 0\.\d\d, n = 6; p < 0\.05\)/)).toBeOnTheScreen();
+  });
+
+  // RV-1: three noisy points used to be announced as "trend rising by X per session".
+  it('does not announce a trend that could be chance', async () => {
+    const noisy = [10, 14, 11, 15].map((value, i) => ({ sessionId: `n${i}`, t: T0 + i * 86_400_000, value }));
+    await render(<TrendChart points={noisy} label="Mean HR change" unit="bpm" testID="noisy" />);
+    const label = screen.getByTestId('noisy-plot').props.accessibilityLabel as string;
+    expect(label).toMatch(/no clear trend/);
+    expect(label).not.toMatch(/rising/);
+    expect(screen.getByText(/not statistically clear, could be chance/)).toBeOnTheScreen();
   });
 
   it('renders an empty state', async () => {

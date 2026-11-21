@@ -164,6 +164,9 @@ describe('SQLite repository', () => {
     await repo.deleteAll();
     expect(await repo.listSessions()).toEqual([]);
     expect(await repo.getProfile()).toEqual({ code: 'SP-014', trainingLevel: 'fellow' });
+    // "Delete all data" also removes the profile (DOC-S1).
+    await repo.deleteProfile();
+    expect(await repo.getProfile()).toBeNull();
   });
 
   it('serialises concurrent writes (exclusive transactions never overlap)', async () => {

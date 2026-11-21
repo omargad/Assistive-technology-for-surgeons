@@ -23,6 +23,7 @@ export const TEST_SETTINGS: Settings = {
   preferredDeviceId: null,
   preferredDeviceName: null,
   orModeDark: true,
+  showLiveHr: true,
   researchServerUrl: '',
   researchToken: '',
   autoUpload: false,
@@ -46,6 +47,8 @@ export const INITIAL_RECORDING_STATE: RecordingState = {
   lastEvent: null,
   logger: 'self',
   signalLost: false,
+  streamSince: null,
+  rrSeenAt: null,
   timedOnly: false,
   error: null,
 };

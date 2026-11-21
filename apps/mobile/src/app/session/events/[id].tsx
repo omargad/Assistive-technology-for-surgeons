@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams, usePreventRemove } from 'expo-router';
 
 import {
   EVENT_LOGGER_LABELS,
@@ -37,7 +37,11 @@ import { HrTimelineChart } from '@/components/charts/HrTimelineChart';
 import { errorMessage, useBusy } from '@/hooks/useBusy';
 import { summaryOptions, useSessionDetail } from '@/hooks/useSessionDetail';
 import { repository } from '@/services/storage';
+import { useRecording } from '@/state/recording';
+import { activeSessionOf, shouldAutoUpload } from '@/state/recordingStore';
 import { useSessions } from '@/state/sessions';
+import { useSettings } from '@/state/settings';
+import { uploadSessions, withoutUploadedTag } from '@/services/upload/research';
 import { formatElapsed, useStyles, useTheme, withAlpha, type Theme } from '@/theme';
 
 const NUDGES = [
@@ -54,7 +58,24 @@ function eventLabel(e: SessionEvent): string {
 export default function EventEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, loading, error } = useSessionDetail(typeof id === 'string' ? id : undefined);
+  // The recording store owns the case until its debrief is saved: edits here would be overwritten by the
+  // next live event and missing from the summary, so they wait until the case has ended.
+  const inProgress = useRecording((s) => typeof id === 'string' && activeSessionOf(s) === id);
 
+  if (inProgress) {
+    return (
+      <Screen>
+        <EmptyState
+          icon="time-outline"
+          title="Case in progress"
+          message="Events can be corrected once the case has ended. Until then, mark and undo events on the live screen."
+          testID="events-in-progress"
+        >
+          <Button label="Go back" onPress={() => router.back()} />
+        </EmptyState>
+      </Screen>
+    );
+  }
   if (loading && !session) {
     return (
       <Screen>
@@ -95,16 +116,40 @@ function Editor({ original }: { original: SurgicalSession }) {
     if (selectedId && !draft.events.some((e) => e.id === selectedId)) setSelectedId(null);
   }, [draft.events, selectedId]);
 
+  // Unsaved edits: every way of leaving (iOS swipe-back, Android back, header back, browser back) asks first.
+  const allowLeave = usePreventRemove(dirty, ({ repeat }) => {
+    void confirmDiscard().then((ok) => {
+      if (!ok) return;
+      // Clear `dirty` in the same handler so the hook's prevention state and its prop stay in sync.
+      setDirty(false);
+      allowLeave();
+      repeat();
+    });
+  });
+  const confirmDiscard = () =>
+    confirmAsync({ title: 'Discard changes?', message: 'Your edits to the event times will be lost.', confirmLabel: 'Discard', destructive: true });
+
   const clampT = (t: number) => Math.min(end, Math.max(start, t));
   const apply = (next: SurgicalSession) => {
     setDraft(next);
     setDirty(true);
   };
 
-  const nudge = (e: SessionEvent, deltaMs: number) => apply(updateEvent(draft, e.id, { t: clampT(e.t + deltaMs) }));
+  // An event whose time or kind is changed after the case is no longer a live record: it is marked
+  // 'retrospective', so analyses restricted to live-logged timing exclude reconstructed times (RV-12).
+  const nudge = (e: SessionEvent, deltaMs: number) =>
+    apply(updateEvent(draft, e.id, { t: clampT(e.t + deltaMs), loggedBy: 'retrospective' }));
   const remove = (e: SessionEvent) => apply(removeEvent(draft, e.id));
   const changeKind = (e: SessionEvent, kind: PhaseKind | MarkerKind) =>
-    apply(updateEvent(draft, e.id, e.type === 'phase' ? { phase: kind as PhaseKind } : { marker: kind as MarkerKind }));
+    apply(
+      updateEvent(
+        draft,
+        e.id,
+        e.type === 'phase'
+          ? { phase: kind as PhaseKind, loggedBy: 'retrospective' }
+          : { marker: kind as MarkerKind, loggedBy: 'retrospective' },
+      ),
+    );
 
   const addNew = (kind: PhaseKind | MarkerKind) => {
     const last = draft.events[draft.events.length - 1];
@@ -122,12 +167,23 @@ function Editor({ original }: { original: SurgicalSession }) {
   const save = () =>
     void run('save', async () => {
       try {
-        await repository.updateMeta(original.id, { events: draft.events });
-        const updated: SurgicalSession = { ...original, events: draft.events };
-        const summary = summarizeSession(updated, summaryOptions(useSessions.getState().profile));
+        // Edited events make an earlier upload out of date: drop the "uploaded" marker (RV-3).
+        const tags = withoutUploadedTag(original.tags);
+        await repository.updateMeta(original.id, tags === undefined ? { events: draft.events } : { events: draft.events, tags });
+        const updated: SurgicalSession = { ...original, events: draft.events, ...(tags === undefined ? {} : { tags }) };
+        const profile = useSessions.getState().profile;
+        const summary = summarizeSession(updated, summaryOptions(profile));
         await repository.saveSummary(original.id, summary);
         await useSessions.getState().refresh();
+        const settings = useSettings.getState().settings;
+        if (updated.status === 'completed' && shouldAutoUpload(settings, profile)) {
+          // Fire and forget, like the upload after the debrief; the server replaces its copy.
+          void uploadSessions([updated], { url: settings.researchServerUrl, token: settings.researchToken, profile })
+            .then(() => useSessions.getState().refresh())
+            .catch(() => undefined);
+        }
         setDirty(false);
+        allowLeave();
         if (router.canGoBack()) router.back();
         else router.replace(`/session/${original.id}`);
       } catch (e) {
@@ -137,8 +193,9 @@ function Editor({ original }: { original: SurgicalSession }) {
 
   const discard = async () => {
     if (dirty) {
-      const ok = await confirmAsync({ title: 'Discard changes?', message: 'Your edits to the event times will be lost.', confirmLabel: 'Discard', destructive: true });
-      if (!ok) return;
+      if (!(await confirmDiscard())) return;
+      setDirty(false);
+      allowLeave();
     }
     if (router.canGoBack()) router.back();
     else router.replace(`/session/${original.id}`);

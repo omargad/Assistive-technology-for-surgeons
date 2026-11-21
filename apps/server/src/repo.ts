@@ -56,6 +56,8 @@ export interface SessionMeta {
   id: string;
   participantCode: string;
   sha256: string;
+  /** `analyticsVersion` of the stored summary (null for summaries stored before it existed). */
+  analyticsVersion: string | null;
 }
 
 /** A session ready to store: the de-identified JSON, its digest and its summary. */
@@ -219,6 +221,11 @@ export function createRepo(db: Database) {
   const stmt = {
     ping: db.prepare('SELECT 1 AS ok'),
 
+    getSecret: db.prepare('SELECT value FROM server_secrets WHERE name = :name'),
+    insertSecret: db.prepare(
+      'INSERT OR IGNORE INTO server_secrets (name, value, created_at) VALUES (:name, :value, :now)',
+    ),
+
     getParticipant: db.prepare('SELECT * FROM participants WHERE code = :code'),
     insertParticipant: db.prepare(
       'INSERT INTO participants (code, profile, created_at, withdrawn_at) VALUES (:code, :profile, :now, NULL)',
@@ -257,7 +264,13 @@ export function createRepo(db: Database) {
       WHERE e.token_hash = :hash`),
     touchEnrolment: db.prepare('UPDATE enrolments SET last_used_at = :now WHERE id = :id'),
 
-    getSessionMeta: db.prepare('SELECT id, participant_code, sha256 FROM sessions WHERE id = :id'),
+    getSessionMeta: db.prepare(
+      "SELECT id, participant_code, sha256, json_extract(summary, '$.analyticsVersion') AS analytics_version FROM sessions WHERE id = :id",
+    ),
+    staleSummaries: db.prepare(
+      "SELECT id, body FROM sessions WHERE json_extract(summary, '$.analyticsVersion') IS NOT :version ORDER BY id",
+    ),
+    updateSummary: db.prepare('UPDATE sessions SET summary = :summary WHERE id = :id'),
     getSessionBody: db.prepare('SELECT body FROM sessions WHERE id = :id'),
     insertSession: db.prepare(`
       INSERT INTO sessions (id, participant_code, started_at, ended_at, procedure_name, specialty, body, sha256,
@@ -306,6 +319,36 @@ export function createRepo(db: Database) {
     /** Run several repository calls atomically (see {@link transaction}). */
     transaction<T>(fn: () => T): T {
       return transaction(db, fn);
+    },
+
+    /**
+     * Copy every committed change into the database file and truncate the WAL file
+     * (`PRAGMA wal_checkpoint(TRUNCATE)`). Call it after erasing research data (withdrawal,
+     * session deletion): `secure_delete` zeroes deleted content in the database file, but
+     * the WAL keeps the original page images until a checkpoint resets it, which otherwise
+     * happens only every ~1000 pages or at shutdown. Must not be called inside a transaction.
+     *
+     * @returns true when the whole WAL was checkpointed and truncated, false if another
+     *   connection (e.g. a running backup) kept it busy or the checkpoint failed.
+     */
+    purgeJournal(): boolean {
+      try {
+        const r = db.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get() as { busy?: number } | undefined;
+        return r?.busy === 0;
+      } catch {
+        return false;
+      }
+    },
+
+    /**
+     * A server-side secret by name, created with `create()` on first use. Secrets never leave the
+     * server (they are not part of any API response or export).
+     */
+    secret(name: string, create: () => string, now: number): string {
+      return transaction(db, () => {
+        stmt.insertSecret.run({ name, value: create(), now });
+        return str(getRow(stmt.getSecret, { name })?.value);
+      });
     },
 
     /** Cheap liveness check for `/health`. */
@@ -417,7 +460,24 @@ export function createRepo(db: Database) {
     getSessionMeta(id: string): SessionMeta | undefined {
       const r = getRow(stmt.getSessionMeta, { id });
       if (r === undefined) return undefined;
-      return { id: str(r.id), participantCode: str(r.participant_code), sha256: str(r.sha256) };
+      return {
+        id: str(r.id),
+        participantCode: str(r.participant_code),
+        sha256: str(r.sha256),
+        analyticsVersion: r.analytics_version === null || r.analytics_version === undefined ? null : str(r.analytics_version),
+      };
+    },
+
+    /** Sessions whose stored summary was computed by a different analytics version (or before versions existed). */
+    staleSummarySessions(version: string): { id: string; body: string }[] {
+      return allRows(stmt.staleSummaries, { version }).map((r) => ({ id: str(r.id), body: str(r.body) }));
+    },
+
+    /** Replace only the stored summary (the session body and its digest are unchanged). */
+    updateSummary(id: string, summary: SessionSummary): void {
+      transaction(db, () => {
+        stmt.updateSummary.run({ id, summary: JSON.stringify(summary) });
+      });
     },
 
     /** The stored (de-identified) session JSON text. */

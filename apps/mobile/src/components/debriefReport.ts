@@ -1,12 +1,38 @@
 /**
  * Pure helpers for the post-op debrief: pairwise-weight tallies and building
  * the `PostOpReport` (scoring itself is core `scoreWorkload`).
+ *
+ * SURG-TLX ratings start unanswered (`null`): a rating is only ever stored when
+ * the participant gave it. The workload response is included in the report only
+ * when all six dimensions were rated (core requires all six); otherwise it is
+ * left out rather than filled with midpoint defaults.
  */
+import { SURG_TLX_DIMENSIONS } from '@surgeonpulse/core';
 import type { CaseOutcome, PostOpReport, SurgTlxDimension, SurgTlxResponse } from '@surgeonpulse/core';
 
 export type Ratings = Record<SurgTlxDimension, number>;
+/** Ratings while the form is being filled in (`null` = not rated yet). */
+export type DraftRatings = Record<SurgTlxDimension, number | null>;
 
-export const DEFAULT_RATINGS: Ratings = { mental: 50, physical: 50, temporal: 50, complexity: 50, stress: 50, distraction: 50 };
+export const EMPTY_RATINGS: DraftRatings = {
+  mental: null,
+  physical: null,
+  temporal: null,
+  complexity: null,
+  stress: null,
+  distraction: null,
+};
+
+/** Dimensions not rated yet, in questionnaire order. */
+export function missingRatings(ratings: DraftRatings): SurgTlxDimension[] {
+  return SURG_TLX_DIMENSIONS.map((d) => d.id).filter((id) => ratings[id] == null);
+}
+
+/** All six ratings when complete, otherwise `null`. */
+export function completeRatings(ratings: DraftRatings): Ratings | null {
+  if (missingRatings(ratings).length > 0) return null;
+  return { ...ratings } as Ratings;
+}
 
 /** Pairwise tallies: each chosen dimension gets one point; complete when all 15 pairs are answered. */
 export function weightsFromChoices(pairs: readonly [string, string][], choices: Readonly<Record<number, string>>): Ratings | null {
@@ -19,7 +45,7 @@ export function weightsFromChoices(pairs: readonly [string, string][], choices: 
 }
 
 export interface DebriefDraft {
-  ratings: Ratings;
+  ratings: DraftRatings;
   weights: Ratings | null;
   performance: number | null;
   perceivedStress: number | null;
@@ -29,11 +55,18 @@ export interface DebriefDraft {
   notes: string;
 }
 
-/** Build the PostOpReport from the form (unanswered optional items are omitted). */
+/**
+ * Build the PostOpReport from the form. Unanswered optional items are omitted, and the
+ * SURG-TLX response is omitted unless all six ratings were given.
+ */
 export function buildPostOpReport(draft: DebriefDraft, completedAt: number): PostOpReport {
-  const workload: SurgTlxResponse = { instrument: 'surg-tlx', ratings: { ...draft.ratings }, completedAt };
-  if (draft.weights) workload.weights = { ...draft.weights };
-  const report: PostOpReport = { workload };
+  const report: PostOpReport = {};
+  const ratings = completeRatings(draft.ratings);
+  if (ratings) {
+    const workload: SurgTlxResponse = { instrument: 'surg-tlx', ratings, completedAt };
+    if (draft.weights) workload.weights = { ...draft.weights };
+    report.workload = workload;
+  }
   if (draft.performance != null) report.performance = draft.performance;
   if (draft.perceivedStress != null) report.perceivedStress = draft.perceivedStress;
   if (draft.sleepHours != null) report.sleepHours = draft.sleepHours;

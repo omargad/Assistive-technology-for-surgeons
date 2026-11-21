@@ -107,6 +107,23 @@ describe('memory repository', () => {
     expect(await repo.listSessions()).toEqual([]);
   });
 
+  it('deletes the profile, also from persisted storage (DOC-S1)', async () => {
+    const data = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => data.get(k) ?? null,
+      setItem: (k: string, v: string) => void data.set(k, v),
+      removeItem: (k: string) => void data.delete(k),
+    };
+    const repo = createMemoryRepository({ persist: { storage, key: 'k', debounceMs: 0 } });
+    await repo.saveProfile({ code: 'SP-014', birthYear: 1980 });
+    repo.flushPersistence();
+    expect(data.get('k')).toContain('SP-014');
+    await repo.deleteProfile();
+    repo.flushPersistence();
+    expect(data.get('k')).not.toContain('SP-014');
+    expect(await createMemoryRepository({ persist: { storage, key: 'k' } }).getProfile()).toBeNull();
+  });
+
   it('rejects duplicates and unknown ids', async () => {
     const repo = createMemoryRepository();
     await repo.createSession(makeSession('a'));

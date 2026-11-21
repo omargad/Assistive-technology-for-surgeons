@@ -48,7 +48,7 @@ export default function AboutScreen() {
       <Card title="Your data" icon="shield-checkmark-outline">
         <Point icon="person-outline" text="You are identified only by a pseudonymous participant code. Never enter your name or any patient information." />
         <Point icon="phone-portrait-outline" text="Sessions are stored on this device (in the browser's local storage on the web) until you export, upload or delete them." />
-        <Point icon="eye-off-outline" text="Exports and uploads are de-identified by default: free-text notes and sensor identifiers are removed and custom procedure names are replaced by the catalogue name where possible." />
+        <Point icon="eye-off-outline" text="Exports and uploads are de-identified by default: free-text notes and sensor identifiers are removed, and a typed procedure name that is not in the catalogue is replaced by “Unspecified procedure”. Dates and times are kept. Demo and simulator sessions are never uploaded." />
         <Point icon="cloud-upload-outline" text="Uploads go only to the study server configured by your research team, using your enrolment token. Nothing is sent anywhere else, and there is no analytics or tracking." />
         <Point icon="trash-outline" text="You can delete individual sessions or all data at any time in Settings, and withdraw consent." />
       </Card>

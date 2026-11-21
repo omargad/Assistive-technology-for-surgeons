@@ -8,6 +8,7 @@ import { importFiles } from '../lib/files';
 import type { ReadableFile } from '../lib/files';
 import { fetchExportBundle, normaliseServerUrl, ServerError } from '../lib/serverClient';
 import type { ServerConnection } from '../lib/serverClient';
+import { forgetServerToken } from '../lib/serverSettings';
 import { DerivedContext, DispatchContext, StateContext } from './context';
 import type { DerivedData } from './context';
 import type { SessionFilters } from './filters';
@@ -57,6 +58,7 @@ export interface DataActions {
   loadDemo: (seed: number) => Promise<boolean>;
   loadFiles: (files: readonly ReadableFile[]) => Promise<boolean>;
   loadServer: (conn: ServerConnection) => Promise<boolean>;
+  /** Clear all loaded data and forget the admin token. */
   clearAll: () => void;
   dismissError: () => void;
 }
@@ -174,7 +176,11 @@ export function useDataActions(): DataActions {
     [dispatch],
   );
 
-  const clearAll = useCallback(() => dispatch({ type: 'data/cleared' }), [dispatch]);
+  /** Clear every loaded session and forget the admin token (memory and "remember on this device" copy). */
+  const clearAll = useCallback(() => {
+    forgetServerToken();
+    dispatch({ type: 'data/cleared' });
+  }, [dispatch]);
   const dismissError = useCallback(() => dispatch({ type: 'error/dismissed' }), [dispatch]);
 
   return useMemo(

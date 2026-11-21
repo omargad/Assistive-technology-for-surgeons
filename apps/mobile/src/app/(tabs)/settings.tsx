@@ -3,7 +3,7 @@
  * upload, data (export / import / demo / delete), privacy & consent, about.
  */
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { SENSOR_SOURCE_LABELS, isValidParticipantCode } from '@surgeonpulse/core';
@@ -24,18 +24,30 @@ import { normaliseCode } from '@/components/forms';
 import { errorMessage, useBusy } from '@/hooks/useBusy';
 import { useToast } from '@/hooks/useToast';
 import { pickImportFile, shareBundle, shareSummariesCsv } from '@/services/export/share';
-import { consentVersion } from '@/services/platform';
+import { consentVersion, defaultResearchServerUrl } from '@/services/platform';
 import { repository } from '@/services/storage';
-import { checkEnrolment, uploadSessions } from '@/services/upload/research';
-import { useSessions } from '@/state/sessions';
+import { checkEnrolment, uploadSessions, withdrawFromStudy } from '@/services/upload/research';
+import { activeSessionId } from '@/state/activeSession';
+import { CASE_IN_PROGRESS_ERROR, useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { formatDate, useStyles, type Theme } from '@/theme';
 
 const BASELINE_OPTIONS = [1, 2, 3, 4, 5].map((m) => ({ value: m * 60, label: `${m} min`, accessibilityLabel: `${m} minute${m === 1 ? '' : 's'}` }));
 
-async function loadFullSessions(ids: readonly string[]): Promise<SurgicalSession[]> {
-  const loaded = await Promise.all(ids.map((id) => repository.getSession(id)));
-  return loaded.filter((s): s is SurgicalSession => s != null);
+/** Load full sessions; one that cannot be read is counted and left out instead of failing the whole batch. */
+async function loadFullSessions(ids: readonly string[]): Promise<{ sessions: SurgicalSession[]; unreadable: number }> {
+  const loaded = await Promise.allSettled(ids.map((id) => repository.getSession(id)));
+  const sessions: SurgicalSession[] = [];
+  let unreadable = 0;
+  for (const r of loaded) {
+    if (r.status === 'rejected') unreadable += 1;
+    else if (r.value != null) sessions.push(r.value);
+  }
+  return { sessions, unreadable };
+}
+
+function unreadableNote(n: number): string {
+  return n > 0 ? `\n\n${n} session${n === 1 ? '' : 's'} could not be read from storage and ${n === 1 ? 'was' : 'were'} left out.` : '';
 }
 
 export default function SettingsScreen() {
@@ -86,9 +98,10 @@ export default function SettingsScreen() {
 
   const uploadNow = () =>
     guarded('upload', 'Upload failed', async () => {
-      const sessions = await loadFullSessions(notUploaded.map((i) => i.meta.id));
+      const { sessions, unreadable } = await loadFullSessions(notUploaded.map((i) => i.meta.id));
       if (sessions.length === 0) {
-        show('Everything is already uploaded');
+        if (unreadable > 0) notify('Nothing could be uploaded', unreadableNote(unreadable).trim());
+        else show('Everything is already uploaded');
         return;
       }
       const res = await uploadSessions(sessions, { url: settings.researchServerUrl, token: settings.researchToken, profile });
@@ -97,28 +110,40 @@ export default function SettingsScreen() {
       notify(
         rejected ? 'Upload finished with problems' : 'Upload complete',
         `${res.accepted.length} session${res.accepted.length === 1 ? '' : 's'} accepted` +
-          (rejected ? `, ${rejected} rejected:\n${res.rejected.map((r) => `• ${r.reason}`).join('\n')}` : '.'),
+          (rejected ? `, ${rejected} rejected:\n${res.rejected.map((r) => `• ${r.reason}`).join('\n')}` : '.') +
+          unreadableNote(unreadable),
       );
     });
 
   const exportAll = () =>
     guarded('export', 'Export failed', async () => {
-      const sessions = await loadFullSessions(items.map((i) => i.meta.id));
+      const { sessions, unreadable } = await loadFullSessions(items.map((i) => i.meta.id));
       if (sessions.length === 0) {
-        notify('Nothing to export', 'There are no sessions on this device yet.');
+        notify('Nothing to export', unreadable > 0 ? unreadableNote(unreadable).trim() : 'There are no sessions on this device yet.');
         return;
       }
-      await shareBundle(sessions, { deidentify: true, profile });
+      if (unreadable > 0) notify('Some sessions were left out', unreadableNote(unreadable).trim());
+      const res = await shareBundle(sessions, { deidentify: true, profile });
+      if (res.skipped > 0) {
+        notify(
+          'Some sessions were left out',
+          `${res.skipped} imported session${res.skipped === 1 ? ' has' : 's have'} a participant code that is not a study code, so ${res.skipped === 1 ? 'it' : 'they'} cannot be exported de-identified.`,
+        );
+      }
     });
 
   const exportCsv = () =>
     guarded('csv', 'Export failed', async () => {
-      const summaries = completed.map((i) => i.summary).filter((s): s is NonNullable<typeof s> => s != null);
-      if (summaries.length === 0) {
+      if (!completed.some((i) => i.summary != null)) {
         notify('Nothing to export', 'Complete a session first.');
         return;
       }
-      await shareSummariesCsv(summaries);
+      const { skipped } = await shareSummariesCsv(completed);
+      const left = [
+        skipped.demo + skipped.simulated > 0 ? `${skipped.demo + skipped.simulated} demo or simulator session${skipped.demo + skipped.simulated === 1 ? '' : 's'}` : null,
+        skipped.invalidCode > 0 ? `${skipped.invalidCode} with a participant code that is not a study code` : null,
+      ].filter((x): x is string => x !== null);
+      if (left.length > 0) notify('Some sessions were left out', `Not in the CSV: ${left.join('; ')}.`);
     });
 
   const importFile = () =>
@@ -138,16 +163,45 @@ export default function SettingsScreen() {
       show('Demo sessions loaded (tagged “Demo”)');
     });
 
+  /** Forget the study server address and enrolment token on this device. */
+  const forgetServer = async () => {
+    await update({ researchServerUrl: defaultResearchServerUrl(), researchToken: '', autoUpload: false });
+    setServerUrl(defaultResearchServerUrl());
+    setToken('');
+  };
+
+  const confirmForgetServer = async () => {
+    const ok = await confirmAsync({
+      title: 'Forget the study server?',
+      message: 'The server address and enrolment token will be removed from this device. You will need the token from your research team to upload again.',
+      confirmLabel: 'Forget',
+      destructive: true,
+    });
+    if (ok) guarded('forget', 'Could not update settings', async () => {
+      await forgetServer();
+      show('Study server forgotten');
+    });
+  };
+
   const deleteAll = async () => {
+    if (activeSessionId() != null) {
+      notify('A case is in progress', CASE_IN_PROGRESS_ERROR);
+      return;
+    }
     const ok = await confirmAsync({
       title: 'Delete all data?',
-      message: 'Every session on this device will be permanently deleted. Data already uploaded to the study server is not affected.',
+      message:
+        'Every session, your participant profile and consent record, and the study server settings (including the enrolment token) will be permanently deleted from this device, and setup starts again. Data already uploaded to the study server is not affected.',
       confirmLabel: 'Delete everything',
       destructive: true,
     });
     if (ok) guarded('delete', 'Could not delete', async () => {
       await useSessions.getState().deleteAll();
-      show('All sessions deleted');
+      await repository.deleteProfile();
+      await forgetServer();
+      await useSessions.getState().refresh();
+      // Back to onboarding: there is no profile or consent any more.
+      await update({ onboardingComplete: false });
     });
   };
 
@@ -155,18 +209,44 @@ export default function SettingsScreen() {
     const ok = await confirmAsync({
       title: 'Withdraw consent?',
       message:
-        'Automatic upload will be turned off and your withdrawal date recorded. Sessions stay on this device until you delete them. Contact the research team to remove data already uploaded.',
+        'Nothing more will be uploaded, automatic upload is turned off and your withdrawal date is recorded. Sessions stay on this device until you delete them.',
       confirmLabel: 'Withdraw',
       destructive: true,
     });
     if (!ok || !profile) return;
+    // Only offered when this device can reach the study server; otherwise the research team removes the data.
+    const deleteOnServer =
+      researchConfigured &&
+      (await confirmAsync({
+        title: 'Also delete your data on the study server?',
+        message:
+          'The study server will permanently delete every session it holds for you and stop accepting your enrolment token. This cannot be undone. Choose Cancel to keep the uploaded data (the research team can still remove it on request).',
+        confirmLabel: 'Delete server data',
+        destructive: true,
+      }));
     guarded('withdraw', 'Could not update consent', async () => {
       await useSessions.getState().saveProfile({
         ...profile,
         consent: { version: profile.consent?.version ?? consentVersion, givenAt: profile.consent?.givenAt ?? Date.now(), withdrawnAt: Date.now() },
       });
       await update({ autoUpload: false });
-      show('Consent withdrawn');
+      if (!deleteOnServer) {
+        show('Consent withdrawn');
+        return;
+      }
+      try {
+        const res = await withdrawFromStudy({ url: settings.researchServerUrl, token: settings.researchToken });
+        await forgetServer(); // the server has revoked the token
+        notify(
+          'Consent withdrawn',
+          `The study server deleted ${res.deletedSessions} session${res.deletedSessions === 1 ? '' : 's'} and no longer accepts this device.`,
+        );
+      } catch (e) {
+        notify(
+          'Withdrawn on this device only',
+          `Your withdrawal is recorded here and nothing more will be uploaded, but the study server could not be updated: ${errorMessage(e)}\n\nContact the research team to remove data already uploaded.`,
+        );
+      }
     });
   };
 
@@ -196,7 +276,11 @@ export default function SettingsScreen() {
           <SwitchRow
             icon="sunny-outline"
             title="Keep screen awake"
-            subtitle="While recording, so the live screen stays visible on its stand"
+            subtitle={
+              Platform.OS === 'android'
+                ? 'While recording. Keep this on: Android pauses recording while the screen is off or the app is in the background'
+                : 'While recording, so the live screen stays visible on its stand'
+            }
             value={settings.keepAwake}
             onValueChange={(v) => void update({ keepAwake: v })}
           />
@@ -213,6 +297,18 @@ export default function SettingsScreen() {
             subtitle="Low-glare display for dark laparoscopic and robotic theatres"
             value={settings.orModeDark}
             onValueChange={(v) => void update({ orModeDark: v })}
+          />
+          <SwitchRow
+            icon="pulse-outline"
+            title="Show heart rate on the live screen"
+            subtitle={
+              settings.showLiveHr
+                ? 'The theatre team can see it. Turn off to record without showing it — phases and events still work'
+                : 'Hidden: your heart rate is recorded but not shown during the case'
+            }
+            value={settings.showLiveHr}
+            onValueChange={(v) => void update({ showLiveHr: v })}
+            testID="settings-show-live-hr"
           />
           <ListRow
             icon="bluetooth"
@@ -244,7 +340,7 @@ export default function SettingsScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             secureTextEntry
-            hint="Issued by the research team. Stored only on this device."
+            hint="Issued by the research team. Kept in this device's secure storage (in the browser's storage on the web — use “Delete all data” before leaving a shared computer)."
           />
           <View style={styles.buttonRow}>
             <Button label="Save" variant="primary" disabled={!researchDirty} loading={busy === 'research'} onPress={saveResearch} style={styles.grow} />
@@ -256,6 +352,9 @@ export default function SettingsScreen() {
               style={styles.grow}
             />
           </View>
+          {settings.researchToken !== '' ? (
+            <Button label="Forget server and token" variant="ghost" loading={busy === 'forget'} onPress={() => void confirmForgetServer()} />
+          ) : null}
         </Card>
         <ListGroup>
           <SwitchRow
@@ -301,18 +400,33 @@ export default function SettingsScreen() {
         </ListGroup>
 
         <SectionHeader title="Privacy & consent" />
-        <Card icon="shield-checkmark-outline" title={consent?.withdrawnAt ? 'Consent withdrawn' : 'Consent given'}>
+        <Card
+          icon="shield-checkmark-outline"
+          title={!consent ? 'No consent recorded' : consent.withdrawnAt ? 'Consent withdrawn' : 'Consent given'}
+          testID="settings-consent"
+        >
           <AppText variant="label" tone="muted">
             {consent
               ? `Form ${consent.version}, ${formatDate(consent.givenAt)}${consent.withdrawnAt ? ` · withdrawn ${formatDate(consent.withdrawnAt)}` : ''}.`
               : `No consent recorded (current form ${consentVersion}).`}
           </AppText>
           <AppText variant="label" tone="muted">
-            Data stays on this device unless you export or upload it. Exports remove notes and device identifiers by
-            default. Never enter patient information anywhere in the app.
+            Data stays on this device unless you export or upload it. On iPhone and iPad, sessions are included in
+            your device backup (iCloud or computer) like other app data; Android cloud backups exclude them. Exports remove
+            notes, typed procedure names and device identifiers, but keep dates and times. Never enter patient
+            information anywhere in the app.
           </AppText>
           {consent && !consent.withdrawnAt ? (
             <Button label="Withdraw consent" variant="ghost" onPress={() => void withdraw()} />
+          ) : null}
+          {!consent ? (
+            // e.g. the app was closed before the profile was saved: go through the consent steps again.
+            <Button
+              label="Review study information and consent"
+              variant="primary"
+              onPress={() => void update({ onboardingComplete: false })}
+              testID="settings-give-consent"
+            />
           ) : null}
         </Card>
 
