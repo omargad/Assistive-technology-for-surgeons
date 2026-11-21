@@ -86,15 +86,19 @@ in exports. Treat it like a password. **Forget server and token** removes both f
 ### Pairing a chest strap
 
 1. Put the strap on and **moisten the electrodes**; many straps stay asleep until they detect skin contact.
-2. Open **Settings → Recording → Heart-rate sensor** (or tap **Manage** on the Record tab). The **Heart-rate sensor**
-   screen scans for nearby sensors.
-3. Tap your strap in the list. The app remembers it as "your usual sensor". If it does not appear, turn on
-   **Show all devices** or tap **Scan again**, and make sure the strap is not connected to another app or watch.
-4. Once connected, the screen says whether **beat-to-beat (RR) data** is arriving. HRV needs it; if it says it is
-   missing, the strap sends heart rate only.
+2. Open **Settings → Recording → Heart-rate sensor** (or tap **Manage** on the Record tab). The sensor screen scans
+   for nearby sensors.
+3. Tap your strap in the list. The app remembers it as "your usual sensor" for your next case (outside a case,
+   tapping it does not connect). If it does not appear, turn on **Show all devices** or tap **Scan again**, and make
+   sure the strap is not connected to another app or watch.
+4. The strap connects when you start a case (**Connect _your strap_** on the **New case** screen). Once RR intervals
+   arrive, the screen says "Beat-to-beat (RR) intervals: receiving."; if none have arrived after about 10 seconds of
+   streaming, it says "…not received…". HRV needs RR intervals; if they are not received, the strap sends heart rate
+   only.
 
-On the web (Chrome or Edge), there is no list: tap **Choose sensor**, and pick the strap in the browser's own
-chooser. More detail, including what to do in theatre, is in [hardware](hardware.md).
+On the web (Chrome or Edge), there is no list: tap **Choose sensor** (or **Choose sensor in browser** on the
+**New case** screen), and pick the strap in the browser's own chooser. More detail, including what to do in theatre,
+is in [hardware](hardware.md).
 
 ### Starting a case
 
@@ -152,7 +156,7 @@ What the team taps:
 | **Logged by: Self / Team** | Records who is tapping. Leave it on **Team** (the default) when a team member logs for you; switch to **Self** if you tap yourself. |
 | **Phase** buttons: **Pre-op**, **Incision / access**, **Dissection**, **Critical step**, **Closure**, **Post-op** | Marks the start of that phase now. The current phase is highlighted ("Current") and the following one emphasised ("Next"). Phases can be marked in any order and repeated. |
 | **Events** buttons: **Complication**, **Interruption**, **Equipment issue**, **Teaching moment**, **Supervisor takeover**, **Note** | Marks the event now. **Hold** an event button for half a second (on the web: **Shift+Enter** or Shift+click) to add a short note; **Note** always asks for one. Notes must never contain patient details. |
-| **Undo** | Appears in the heart-rate panel for 10 seconds after each tap, in case of a mistake. It is not offered again after **Minimise**; correct the event afterwards with **Edit events & times**. |
+| **Undo** | Appears in the heart-rate panel for 10 seconds after each tap, in case of a mistake. The 10 seconds are not restarted by **Minimise**: on return it shows only for what is left of them. After that, correct the event with **Edit events & times** once the case has ended. |
 | **Minimise** | Leaves the live screen while recording continues. Return with **Return to live screen** on the Record tab. |
 | **End case** | **Press and hold** for 1.5 seconds ("Keep holding…") to finish. A short tap only shows a reminder. On the web, hold Space or Enter; a keyboard or screen-reader activation asks "End the case now?" instead. |
 
@@ -185,11 +189,12 @@ case (your study protocol may set a time limit).
 
 1. **Workload (SURG-TLX).** Rate six demands from very low to very high on 0–100 sliders (steps of 5): Mental
    Demands, Physical Demands, Temporal Demands, Task Complexity, Situational Stress and Distractions. Each slider
-   starts **unanswered** ("Not rated", no thumb): tap the scale or use −/+ to rate it. The **Workload score** (mean of
-   the six ratings) shows "—" until all six are rated. If you save with some unrated, the app asks first and saves
-   the debrief **without** workload ratings.
-2. **Weight the dimensions (optional).** Answer 15 "Which contributed more?" choices. The weighted score is used only
-   when all 15 are answered.
+   starts **unanswered** ("Not rated", no thumb): tap the scale or use −/+ to rate it. The **Workload score** shows
+   "—" until all six are rated; it is the mean of the six ratings (0–100). If you save with some unrated, the app asks
+   first ("Workload ratings incomplete") and can save the debrief **without** workload ratings.
+2. **Weight the dimensions (optional).** Answer 15 quick "which mattered more?" choices. The weighted score is
+   calculated, and shown as the workload score, only when all 15 are answered. Trend charts and the research
+   summaries' `workload_raw` column always use the unweighted mean.
 3. **About the case:** **Your performance** (0–10), **Perceived stress** (0–10), **Last night's sleep** (hours),
    **Caffeine in the 2 hours before the case?**, and **How did the case go?** (as planned, minor or major deviation
    from plan). Each is optional and shows "Not rated" or "Not answered" until you set it; **Clear** un-answers a
@@ -206,8 +211,8 @@ After the debrief, the session page opens. You can reopen any session from **His
 
 - **Summary tiles:** **Mean HR**, **Peak HR** (the highest sustained level, an 11-second rolling median, so a single
   glitch does not count), change **vs resting**, **RMSSD** (needs RR data), **Stress index** (Baevsky), **Episodes**
-  (sustained heart-rate rises) and **Workload**. RMSSD and the stress index show "Not shown: too many irregular beats
-  or artefacts" when more than 10 % of beats were artefacts.
+  (sustained heart-rate rises) and **Workload**. When more than 10 % of the beats were removed as artefacts, RMSSD and
+  the stress index are left empty, and the RMSSD tile says "Not shown: too many irregular beats or artefacts".
 - **Charts:** **Heart rate** over time with phase bands and event markers, **Heart-rate variability** (RMSSD in
   1-minute windows), **Time in zones**, **Heart rate by phase**, a phase table and **Stress episodes**.
 - **Post-op report** and **Data quality** (**Coverage**, **Gaps**, **RR artefacts**, **Sample rate**).
@@ -234,9 +239,10 @@ After the debrief, the session page opens. You can reopen any session from **His
   reflection, not a judgement of performance. **Over time** charts one metric per session (**HR vs rest**, **HRV** or
   **Workload**) and says "no clear trend" unless the trend is statistically clear; **By procedure** compares
   procedures.
-- **Load demo data** adds simulated sessions, labelled "Demo", to explore the app. Insights keeps them in a separate,
-  labelled view (**Your cases / Demo**, "Simulated data — not your cases"). They are never uploaded and can be deleted
-  in Settings.
+- **Load demo data** adds simulated sessions, labelled "Demo", to explore the app (loading it again replaces the
+  earlier demo sessions). Insights keeps them in a separate, labelled view (**Your cases / Demo**, "Simulated data —
+  not your cases"). They are never uploaded. Remove them one at a time with **Delete session**; there is no separate
+  "delete demo data" action, and **Settings → Data → Delete all data** also deletes your own sessions and profile.
 
 ### Exporting your data
 
@@ -308,8 +314,8 @@ TLS and backups. In short:
 - It rejects simulated and demo sessions unless `ACCEPT_SIMULATED=true` (for test servers only), so a test upload from
   `npm run simulate` needs that setting.
 - Files that leave the research team should come from `GET /api/v1/export?shiftDates=true` (or
-  `/export/summaries.csv?shiftDates=true`), which moves each participant's dates by a secret, consistent number of
-  weeks.
+  `GET /api/v1/export/summaries.csv?shiftDates=true`), which moves each participant's dates by a secret, consistent
+  number of whole weeks.
 - A Docker image definition is provided. It has not been built or tested in CI.
 
 ### Creating participants and enrolment tokens
@@ -318,7 +324,7 @@ Each participant needs a participant record and at least one enrolment token (on
 bash; the [server README](../apps/server/README.md#enrol-a-participant-and-upload) also has PowerShell versions.
 
 ```bash
-export SP_URL=https://surgeonpulse.example.ac.uk     # your server
+export SP_URL=https://surgeonpulse.example.org      # your server
 export ADMIN_TOKEN='paste-the-admin-token'           # keep it out of shell history where possible
 
 # Optional: create the participant with profile fields first (201 = created, 200 = profile replaced).
@@ -483,8 +489,8 @@ details. Notes are removed from exports by default.
 
 **Can my supervisor or employer see my data?**
 Only the research team can access the study server, and the study's agreements should state that data will not be
-used for performance management, credentialing or medico-legal purposes. By default the app shows your live heart
-rate on the theatre screen, so people in the room can see it while you operate; turn off **Settings → Recording →
+used for performance management, credentialing or medico-legal purposes. By default the phone's live screen shows
+your heart rate in large digits, so people in the room can see it while you operate; turn off **Settings → Recording →
 Show heart rate on the live screen** to hide it (it is still recorded).
 
 **Is this a health check?**

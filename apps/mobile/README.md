@@ -23,13 +23,14 @@ The web build is the fastest way to try the whole flow with the built-in simulat
 install once and start the dev server:
 
 ```bash
-npm install                 # once, at the repo root (npm workspaces)
+npm ci                      # once, at the repo root (npm workspaces)
 cd apps/mobile
 npm run web                 # same as: npx expo start --web
 ```
 
 Then: complete onboarding (use a study code such as `SP-001`), tap **Start new case**, pick a procedure, choose
-**Simulator (demo)**, record a short baseline, mark phases and events on the live screen, hold **End case** for
+**Simulator (demo)**, record a baseline (**Finish early** is available after 60 seconds) or skip it, mark phases and
+events on the live screen, hold **End case** for
 1.5 seconds and fill in the debrief. **Insights → Load demo data** adds 12 simulated sessions to explore trends.
 
 To produce a static site (for a demo server or automated tests):
@@ -94,17 +95,27 @@ npx eas-cli@latest build --profile production --platform all
 npx eas-cli@latest submit --profile production --platform ios
 ```
 
+Before building for a study, check two values under `expo.extra` in `app.json`:
+
+- `consentVersion` (currently `PICF-1.0`) is recorded with each participant's consent. Set it to the version of the
+  participant information and consent form the HREC approved.
+- `researchServerUrl` (empty by default) pre-fills **Study server URL** in **Settings → Research study**, and
+  **Forget server and token** returns to it. Participants still enter their own enrolment token. Never put a token in
+  `app.json`.
+
 ## During a case: live screen and debrief
 
 - **Marking events.** Tap a phase or event button. The **Undo** bar appears inside the heart-rate panel (it never
-  covers the buttons) for 10 seconds after each mark; after that, or after **Minimise**, the event can only be
-  corrected afterwards in the session's event editor. Hold an event button (or, on the web, **Shift+Enter** /
-  Shift+click) to add a short note.
+  covers the buttons) for 10 seconds after each mark. **Minimise** does not restart that time: on return the bar shows
+  only for what is left of it. After that, the event can only be corrected once the case has ended, in the session's
+  event editor (**Edit events & times**). Hold an event button (or, on the web, **Shift+Enter** / Shift+click) to add a
+  short note.
 - **Ending the case.** Hold **End case** for 1.5 seconds. On the web, keyboard users hold Space or Enter, and a
   keyboard or assistive-technology activation asks "End the case now?" instead.
 - **Heart rate on screen.** Settings → Recording → **Show heart rate on the live screen** (on by default) can hide the
-  number from the theatre team; heart rate is still recorded. "No signal" replaces the number when data stops, and the
-  sensor pill shows "No RR" when the sensor sends heart rate without beat-to-beat intervals.
+  number from the theatre team; heart rate is still recorded. After 15 s without data the number becomes "--" with
+  "No signal · last … bpm" beneath it and a **Signal lost** notice (recording continues), and the sensor pill shows
+  "No RR" when the sensor sends heart rate without beat-to-beat intervals.
 - **Debrief.** The six SURG-TLX sliders start unanswered (no thumb, "Not rated"). The workload score is saved only
   when all six are rated; saving with some unrated asks first and stores the debrief without workload ratings.
   The optional items (self-rated performance, perceived stress, sleep) also start unanswered and have a **Clear**
@@ -114,7 +125,7 @@ npx eas-cli@latest submit --profile production --platform ios
 
 ## Heart-rate sources and supported sensors
 
-Choose the source on the **New case** screen, or set a preferred one in **Settings → Heart-rate sensor**.
+Choose the source on the **New case** screen, or set a preferred one in **Settings → Recording → Heart-rate sensor**.
 
 | Source | iOS | Android | Web | Data |
 | --- | --- | --- | --- | --- |
@@ -133,7 +144,7 @@ it says so and reconnects once it is back on), shows "Signal lost" after 15 s wi
 battery level every 5 minutes (red below 20 %). Values outside 0–300 bpm and RR intervals outside 0–5000 ms are
 dropped as sensor glitches.
 
-**Web Bluetooth** needs a Chromium-based browser (Chrome, Edge, Android Chrome) on `https://` or `localhost`. The
+**Web Bluetooth** needs Chrome or Edge on a desktop computer, or Chrome on Android, on `https://` or `localhost`. The
 browser shows its own device chooser. In Safari and Firefox the Bluetooth option shows as unavailable, and the
 simulator still works.
 
@@ -156,7 +167,7 @@ The app asks only for what it uses, at the moment it needs it.
 | iOS | `UIBackgroundModes: bluetooth-central` | Keep receiving sensor data if the screen locks during a long case |
 | iOS | HealthKit entitlement + `NSHealthShareUsageDescription` | Read heart rate and HRV (read-only; the app never writes to Apple Health) |
 | Android 12+ | `BLUETOOTH_SCAN` (`neverForLocation`), `BLUETOOTH_CONNECT` | Find and connect to the sensor; scan results are never used for location |
-| Android ≤ 11 | `ACCESS_FINE_LOCATION` (max SDK 30) | Required by Android for BLE scanning on these versions |
+| Android ≤ 11 | `ACCESS_FINE_LOCATION` (asked at runtime) and `ACCESS_COARSE_LOCATION`, both declared with max SDK 30; `BLUETOOTH` and `BLUETOOTH_ADMIN` (install-time) | Required by Android for BLE scanning on these versions |
 | Android | `health.READ_HEART_RATE`, `health.READ_HEART_RATE_VARIABILITY` | Health Connect import |
 | Android | `INTERNET`, `VIBRATE` | Research upload; haptic confirmation of taps |
 | Web | Web Bluetooth device chooser | Granted per device by the user |
@@ -194,10 +205,10 @@ awake setting remind the team to keep the app open with the screen on.
   Research study**, then use **Check enrolment**. Uploads are de-identified, never include demo, simulator or
   in-progress sessions, and can run automatically after each debrief. The server URL must use `https://` (plain
   `http://` is accepted only for `localhost` and private LAN addresses during testing). The token is kept in
-  `expo-secure-store` (iOS Keychain / Android Keystore, this device only, never in backups); on the web it is in the
+  `expo-secure-store` (iOS Keychain / Android Keystore, this device only, so a backup cannot carry it to another device); on the web it is in the
   browser's storage under its own key, so use **Delete all data** before leaving a shared computer. It is never logged
-  or exported. **Forget server and token** removes both. See `apps/server/README.md` for running the server and issuing
-  tokens.
+  or exported. **Forget server and token** removes both. See the [server README](../server/README.md) for running the
+  server and issuing tokens.
 - **Withdrawal.** Settings → Privacy & consent → **Withdraw consent** records the withdrawal, turns off automatic upload
   and blocks every further upload; when the study server is configured it also offers to delete your data there
   (`POST /api/v1/me/withdraw`) and then forgets the token. Settings → Data → **Delete all data** removes every session,
@@ -222,8 +233,8 @@ npx expo-doctor                     # dependency and config checks
 **Browser end-to-end flow.** `e2e/web-flow.mjs` drives the exported web build in Chromium at phone size (onboarding →
 setup with the simulator → baseline → live screen with phases, a complication marker, the logger toggle and undo →
 hold to end → debrief → session detail → Insights with demo data → History → Settings → reload). It also checks the
-landscape live screen and fails on console errors or warnings. It uses the `playwright` package already installed at
-the repo root for the dashboard. CI runs it in the `mobile-web-e2e` job. `e2e/serve-spa.mjs` is a dependency-free
+landscape live screen and fails on console errors or warnings. It uses the `playwright` package (a dev dependency of
+this workspace). CI runs it in the `mobile-web-e2e` job. `e2e/serve-spa.mjs` is a dependency-free
 static server with a single-page-app fallback, so nothing extra is downloaded.
 
 ```bash

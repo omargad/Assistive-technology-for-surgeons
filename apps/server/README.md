@@ -50,7 +50,7 @@ of at least 32 characters, and prints which setting is wrong.
 | `PORT` | `8787` | |
 | `HOST` | `127.0.0.1` | Use `0.0.0.0` in containers, or to reach the server from other devices. |
 | `DATA_DIR` | `./data` | Holds `surgeonpulse.sqlite`. Created with mode 0700 on macOS and Linux. On Windows, put it in a folder that only the service account can read. A relative path is resolved from the directory the server starts in. |
-| `CORS_ORIGINS` | (empty) | Comma-separated browser origins, e.g. `https://dashboard.example.ac.uk,http://localhost:5173`. Empty means no CORS. `*` is not allowed. |
+| `CORS_ORIGINS` | (empty) | Comma-separated browser origins, e.g. `https://dashboard.example.org,http://localhost:5173`. Empty means no CORS. `*` is not allowed. |
 | `MAX_UPLOAD_MB` | `25` | Largest request body. Bigger uploads get `413`. The mobile app splits uploads to stay below it. |
 | `TRUST_PROXY` | `false` | Which reverse proxies may set `X-Forwarded-For` (used for rate limiting and logs). `false`: none, the client is the connecting address. `true`: trust exactly the one proxy directly in front of the server, so the client is the right-most `X-Forwarded-For` entry. Or a comma-separated list of proxy IP addresses, CIDR ranges and the presets `loopback`, `linklocal`, `uniquelocal`, e.g. `127.0.0.1,10.0.0.0/8`. Anything else stops the server at start-up. |
 | `ACCEPT_SIMULATED` | `false` | `true` also accepts simulated and demo sessions (sensor source `simulated`, or a `simulated`/`demo` tag). Leave it `false` on a study server so the exports contain real recordings only; set it to `true` for a local test server fed by `npm run simulate`. |
@@ -82,6 +82,7 @@ curl -s "$SP_URL/api/v1/me" -H "Authorization: Bearer $SP_TOKEN"
 # 3. Phone: upload an export from the app, or a simulated bundle for testing.
 #    Simulated sessions are rejected ("simulated or demo data is not accepted by this server")
 #    unless the server runs with ACCEPT_SIMULATED=true, which is for test servers only.
+#    Run this in apps/server (the repository root has no "simulate" script).
 npm run simulate -- SP-014 bundle.json
 curl -s -X POST "$SP_URL/api/v1/sessions" \
   -H "Authorization: Bearer $SP_TOKEN" -H "Content-Type: application/json" --data-binary @bundle.json
@@ -131,13 +132,13 @@ authentication failure returns the same `401 {"error":"unauthorized"}`, which do
 | `POST /api/v1/admin/participants` | admin | `{ code, profile? }` creates the participant (201) or replaces their profile (200). The code must pass core's `isValidParticipantCode` and can't be an e-mail-like string. Codes are stored in upper case (`sp-014` becomes `SP-014`) and matched case-insensitively everywhere. A withdrawn code returns 409. |
 | `GET /api/v1/admin/participants` | admin | `{ items }`, each with `profile`, `withdrawn`, `sessionCount`, `enrolmentCount`, `activeEnrolmentCount` and `lastUploadAt`. |
 | `DELETE /api/v1/admin/participants/:code` | admin | Researcher-actioned withdrawal (same effect as self-withdrawal). 204, or 404 if the code is unknown. |
-| `POST /api/v1/admin/enrolments` | admin | `{ participantCode, label? }` returns 201 `{ id, token, participantCode, label, createdAt }`. The token is shown **once**. Creates the participant if missing. |
-| `GET /api/v1/admin/enrolments` | admin | `{ items }`. Never includes tokens or hashes. |
-| `DELETE /api/v1/admin/enrolments/:id` | admin | Revokes the enrolment. 204. |
+| `POST /api/v1/admin/enrolments` | admin | `{ participantCode, label? }` returns 201 `{ id, token, participantCode, label, createdAt }`. The token is shown **once**. Creates the participant if missing. A withdrawn code returns 409. |
+| `GET /api/v1/admin/enrolments` | admin | `{ items }`, each with `active`. Never includes tokens or hashes. |
+| `DELETE /api/v1/admin/enrolments/:id` | admin | Revokes the enrolment. 204, or 404 if the id is unknown. |
 | `GET /api/v1/admin/audit` | admin | The latest 500 audit rows, newest first. |
 | `POST /api/v1/sessions` | enrolment | Accepts an `ExportBundle`, a session, or an array of sessions (anything core's `parseImport` accepts). Returns `200 { accepted: [{id, status}], rejected: [{index, id?, reason}] }`, where `status` is `created`, `updated` or `unchanged`. An empty or unparseable body returns 400. A bundle whose profile for this participant records withdrawn consent (`consent.withdrawnAt`) returns `409 {"error":"consent withdrawn"}` and stores nothing. |
 | `GET /api/v1/me` | enrolment | `{ participantCode, sessionCount, lastUploadAt }` |
-| `POST /api/v1/me/withdraw` | enrolment | Deletes all of the participant's sessions, marks them withdrawn and revokes all their tokens. Returns `200 { deletedSessions }`. |
+| `POST /api/v1/me/withdraw` | enrolment | Deletes all of the participant's sessions, revokes all their tokens (including the one used for the call), clears the profile back to the bare code and marks the code withdrawn, so it can't be re-enrolled. Returns `200 { deletedSessions }`. |
 | `GET /api/v1/sessions` | admin | Filters: `participant`, `from`/`to` (epoch ms on `startedAt`; `from` is inclusive, `to` exclusive), `specialty` (case-insensitive), `limit` (1–1000, default 200) and `offset`. Returns `{ items: [{ id, participantCode, startedAt, endedAt, procedureName, specialty, receivedAt, summary }], total }` in start order. |
 | `GET /api/v1/sessions/:id` | admin | The full de-identified session JSON, or 404. |
 | `DELETE /api/v1/sessions/:id` | admin | 204, or 404. |
@@ -179,7 +180,7 @@ while an address is locked out after authentication failures, requests with a va
 
 ## Connecting the apps
 
-- **iOS and Android apps.** In the app, go to Settings › Research study and enter the server URL and the enrolment
+- **iOS and Android apps.** In the app, go to **Settings → Research study** and enter the server URL and the enrolment
   token. Use **HTTPS** in production. iOS App Transport Security and Android (since version 9) block plain HTTP, and
   the app only accepts `http://` for local development addresses. For development:
   - The **Android emulator** reaches your computer at `http://10.0.2.2:8787`.
@@ -202,7 +203,7 @@ Build from the **repository root**, because the server bundles the `packages/cor
 docker build -f apps/server/Dockerfile -t surgeonpulse-server .
 docker run -d --name surgeonpulse --restart unless-stopped \
   -p 127.0.0.1:8787:8787 \
-  -e ADMIN_TOKEN="$ADMIN_TOKEN" -e CORS_ORIGINS=https://dashboard.example.ac.uk \
+  -e ADMIN_TOKEN="$ADMIN_TOKEN" -e CORS_ORIGINS=https://dashboard.example.org \
   -v surgeonpulse-data:/data \
   surgeonpulse-server
 ```
@@ -244,7 +245,7 @@ manager:
   `TRUST_PROXY=127.0.0.1,10.0.0.0/8`.
 - **Allow large enough requests at the proxy.** Set the proxy's body limit to at least `MAX_UPLOAD_MB`, e.g. nginx
   `client_max_body_size 25m;`. Caddy has no limit by default.
-- Caddy example: `surgeonpulse.example.ac.uk { reverse_proxy 127.0.0.1:8787 }`.
+- Caddy example: `surgeonpulse.example.org { reverse_proxy 127.0.0.1:8787 }`.
 - Host on university-managed servers with encrypted disks, inside the institution's data-governance arrangements for
   your ethics approval. The server makes **no outbound connections**.
 - Consider restricting `/api/v1/admin/*` and `/api/v1/export*` to the university network or VPN at the proxy.

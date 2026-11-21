@@ -40,7 +40,7 @@ Contents:
 | Time | UTC epoch milliseconds. Durations in the outputs are in seconds unless the name says otherwise. |
 | Valid heart-rate sample | `isValidSample(s)`: `isValidBpm(bpm)` (a finite number within **[25, 250] bpm**, inclusive) **and** not recorded with `contact: false` (the sensor supports contact detection and reported no skin contact, so the value is stale or noise; a missing `contact` is accepted). Anything else is ignored by every HR metric (statistics, resampling, zones, episodes, coverage, robust peak and the watch gap rule). |
 | Missing data | Functions return `null` when there is not enough data. No output is ever `NaN` or `Infinity`. |
-| Rounding | Halves round up (JavaScript `Math.round`). The Python port uses `floor(x + 0.5)` to match. |
+| Rounding | Halves round up (JavaScript `Math.round`). The Python port uses its own `js_round` (half-up) to match, not Python's banker's `round`. |
 | Gap threshold | `maxGapMs = effectiveMaxGapMs(session)`: **5000 ms** for live sensors. For Apple Health and Health Connect sessions (sparse watch data) it is **1.5 × the median spacing** between consecutive valid samples, kept between 5 s and 15 min (5 s when there is no spacing). Two consecutive samples further apart than this are treated as a data gap. A `NaN` value means "use the default". The value used is stored as `summary.maxGapMs`. |
 | Analytics version | `ANALYTICS_VERSION` (currently `'2'`) is stored in every summary (`analyticsVersion`, CSV `analytics_version`) and bumped whenever a definition on this page changes. The server and the app recompute stored summaries from an older version. Do not pool rows with different versions. |
 | Session end | `sessionEnd(session)` = `endedAt`, else the latest sample, RR or event time, else `startedAt`. |
@@ -112,7 +112,7 @@ Where the flags appear:
 | Where | Rule | Source |
 | --- | --- | --- |
 | Dashboard Overview, "data-quality flags" | coverage `< 0.8` or `rrArtifactRatio > 0.05` | [`apps/dashboard/src/lib/quality.ts`](../apps/dashboard/src/lib/quality.ts) |
-| Insight `data-quality` | latest session coverage `< 0.8` (not for simulated sessions; watch advice for health-store sources) | [Insight rule 5](#insight-rules) |
+| Insight `data-quality` | latest session coverage `< 0.8` (not when its sensor source is `simulated`; watch advice for health-store sources) | [Insight rule 5](#insight-rules) |
 | HRV and stress index blanked | `rrArtifactRatio > 0.1` (`MAX_HRV_ARTIFACT_RATIO`) | [Time-domain HRV](#time-domain-hrv) |
 | Summary CSV | `coverage_pct = coverage × 100`, `rr_artifact_pct = ratio × 100` | [Data model](data-model.md#summary-csv) |
 
@@ -240,7 +240,8 @@ inside that phase.
   sensor.
 - **External HRV readings** imported from Apple Health (SDNN) or Health Connect (RMSSD) are stored in the session's
   `externalHrv` array but are **not** used by any summary metric, because the platforms compute them over windows and
-  with methods SurgeonPulse does not control.
+  with methods SurgeonPulse does not control. Apple Watch heartbeat series, when Apple Health has them for the session
+  window, are converted to RR intervals on import and then go through the same cleaning and HRV pipeline as strap data.
 
 ## Rolling HRV
 
@@ -276,7 +277,8 @@ intervals (after [cleaning](#rr-artefact-cleaning)) are split into 5-minute wind
 window is used when its intervals add up to at least 4 minutes and give a non-null index; the result is the **median**
 of the used windows' indices, or `null` when no window qualifies (less than 4 minutes of clean beats). It is also
 `null` when more than 10 % of the session's intervals are artefacts. This keeps the value comparable between short
-and long cases (about 123–132 for the same simulated physiology over 30–240 minutes).
+and long cases: in the core tests, the mean over four simulated sessions changes by less than 15 % between 30- and
+240-minute cases, whereas a single whole-case histogram falls by about 40 %.
 
 ```
 histogram bins: [floor(x / binMs) · binMs, + binMs)        binMs = 50 ms
@@ -444,7 +446,8 @@ once produces several segments, and the summary CSV combines them (total duratio
 phase. Otherwise it returns `undefined`.
 
 Per-phase summary fields (`PhaseSummary`): `durationSec = (end − start) / 1000`, `hr` (HR statistics on
-`[start, end)`), `hrv` (`computeHrv` with `minIntervals: 20`) and `meanHrDelta`.
+`[start, end)`), `hrv` (`computeHrv` with `minIntervals: 20`; `null` for a phase shorter than 60 s or with more than
+10 % artefacts) and `meanHrDelta`.
 
 **Caveats.** Phases are only as accurate as the taps that mark them. During a case a circulating nurse or researcher
 usually logs them (`loggedBy: 'team'`). Events can be corrected afterwards in the app's event editor. Short phases
@@ -599,7 +602,7 @@ rules run in this order, and each produces at most one insight:
 | 2 | `hr-trend` | positive / attention | ≥ **8** sessions with `meanHrDelta` (else `meanHr`) | `trendEvidence` against session order is **significant (p < 0.05)** and \|slope\| ≥ **0.5 bpm/session**. Falling gives positive ("lower in recent sessions"), rising gives attention ("higher in recent sessions"). The text names other influences (case mix, workload, baseline conditions, sleep, caffeine) and never attributes a cause. |
 | 3 | `hrv-trend` | info | ≥ **8** sessions with RMSSD | Mean RMSSD of the last 3 sessions versus the earlier ones changes by **≥ 15 %** and **Welch's t-test** is significant (\|t\| ≥ `tCritical95` of the Welch–Satterthwaite df). The text says intra-operative HRV mostly reflects heart rate and arousal during the case and is not a fatigue or recovery measure; it gives no rest advice. |
 | 4 | `workload-hr` | info | ≥ **10** sessions with both raw workload and `meanHrDelta` | **\|Pearson r\| ≥ 0.5** and r differs from 0 at p < 0.05 (`t = \|r\|·√(n−2)/√(1−r²) ≥ tCritical95(n−2)`). The text gives r, n and p < 0.05 and says correlation is not causation. |
-| 5 | `data-quality` | attention | ≥ 1 session | The latest session's coverage is **< 0.8** and it is not a simulated session. The tip matches the source (watch advice for Apple Health / Health Connect, strap fit otherwise). |
+| 5 | `data-quality` | attention | ≥ 1 session | The latest session's coverage is **< 0.8** and its sensor source (`sensorSource`) is not `simulated`. The tip matches the source (watch advice for Apple Health / Health Connect, strap fit otherwise). |
 | 6 | `episodes-after-markers` | info | `context.sessions`, and ≥ 3 episodes in total | **≥ 50 %** of episodes have a related `complication` or `interruption` marker among their `relatedEventIds`. |
 
 Every insight lists the supporting session ids in `evidence`. Rule 6 needs the full sessions, because a summary stores
@@ -609,8 +612,8 @@ own sessions only; demo and simulator sessions are shown in a separate, labelled
 
 **Caveats.** These are deterministic heuristics. Rules 2–4 require enough sessions and a two-sided p < 0.05 test so
 that ordinary session-to-session variation rarely produces feedback, but they assume independent sessions, and
-Welch's test for rule 3 is slightly liberal with only 3 recent sessions (about 7 % false positives in simulation). The
-thresholds are project defaults. Treat each insight as a prompt for a conversation or a debrief.
+Welch's test for rule 3 can be slightly liberal with only 3 recent sessions (the core tests check that each of rules
+2–4 fires on fewer than 8 % of simulated noise-only histories of 8–12 sessions). The thresholds are project defaults. Treat each insight as a prompt for a conversation or a debrief.
 
 ## Cohort aggregation
 

@@ -81,9 +81,11 @@ Examples to adapt:
 - **Unit of observation:** the operative case (session), with phases nested within cases and cases nested within
   surgeons.
 - **Duration:** [recruitment period]; each participant records up to [N] eligible cases over [N] weeks.
-- **No intervention.** Participants see their own data in the app (live heart rate, session pages, Insights). The app
-  cannot currently hide this feedback. If the design needs feedback withheld (for example during a run-in), discuss
-  it with the developers before the study starts.
+- **No intervention.** Participants see their own data in the app (live heart rate, session pages, Insights). The
+  live heart rate can be hidden per phone (**Settings → Recording → Show heart rate on the live screen**; it is still
+  recorded), but there is no study-level setting for this, and session pages and Insights cannot currently be hidden.
+  If the design needs feedback withheld (for example during a run-in), discuss it with the developers before the
+  study starts.
 
 ## 4. Participants and recruitment
 
@@ -125,7 +127,7 @@ participant is the primary or assisting surgeon. The procedure is selected from 
    [user guide, part B](user-guide.md#creating-participants-and-enrolment-tokens)). Give the token to the participant
    in person [or by another agreed secure route].
 4. Help the participant install the study build of the app, complete onboarding (consent, code, optional profile),
-   enter the server URL and token in **Settings → Research study**, and tap **Check enrolment**.
+   enter the server URL and token in **Settings → Research study**, tap **Save**, then tap **Check enrolment**.
 5. Issue a chest strap [model], labelled with a strap number, and pair it.
 6. Complete the screening form [medications, arrhythmia history, other covariates].
 7. Training: one practice case with the simulator for the participant and [the theatre staff who will log events].
@@ -205,20 +207,19 @@ the session objects in an export bundle (see [data model](data-model.md)).
 | Autonomic balance index | Baevsky stress index (raw SI, not √SI) | `stress_index` | Median of 5-minute windows that each hold at least 4 minutes of clean beats; 50 ms histogram bins; null when more than 10 % of intervals are artefacts |
 | Intensity | Time at ≥ 70 % of maximum heart rate | `high_intensity_pct` | Needs a measured max HR or birth year (Tanaka formula) |
 | Sustained stress | Stress episodes: count and total minutes | `episode_count`, `episode_minutes` | HR ≥ baseline + 20 bpm (else session median + 15) for ≥ 60 s; runs ≤ 30 s apart merged |
-| Workload | SURG-TLX raw (mean of six 0–100 ratings) and weighted score | `workload_raw`, `workload_weighted`, `workload_instrument`; dimensions in JSON `postOp.workload.ratings.{mental, physical, temporal, complexity, stress, distraction}` | Present only when all six items were rated; weighted only when all 15 pairwise comparisons are answered. App and dashboard charts use the raw score |
+| Workload | SURG-TLX raw (mean of six 0–100 ratings) and weighted score | `workload_raw`, `workload_weighted`, `workload_instrument`; dimensions in JSON `postOp.workload.ratings.{mental, physical, temporal, complexity, stress, distraction}` | Present only when all six items were rated; weighted only when all 15 pairwise comparisons are answered. App and dashboard charts and insights use the raw score (single-session displays show the weighted score when it exists) |
 | Self-rated performance | 0 (very poor) – 10 (excellent) | `performance` | Optional item |
 | Perceived stress | 0 (none) – 10 (extreme) | `perceived_stress` | Optional item |
 | Sleep | Hours slept the night before (0–12 in 0.5 h steps in the app) | `sleep_hours`; JSON `postOp.sleepHours` | Optional item |
 | Caffeine | Caffeine within 2 hours before the case (yes/no) | `caffeine`; JSON `postOp.caffeine` | Optional item |
 | Case outcome (self-report) | As planned / minor / major deviation from plan | `outcome`; JSON `postOp.outcome` | Optional item |
-| Time of day | Local start time | `started_local` (ISO 8601 with offset), `tz_offset_min` | Empty when the offset is unknown |
-| Debrief latency | Minutes from case end to debrief | JSON `(postOp.workload.completedAt − endedAt) / 60000` | Not in the summaries CSV |
+| Time of day | Local start time | `started_local` (ISO 8601 with offset), `tz_offset_min`; JSON `startedAt` and `tzOffsetMin` (Python `sessions` frame `tz_offset_min`) | Empty when the offset is unknown, or when an export removed time-zone offsets |
+| Debrief latency | Minutes from case end to debrief | JSON `(postOp.workload.completedAt − endedAt) / 60000` | Not in the summaries CSV. Available only when the workload was rated (a debrief saved without workload ratings has no completion time) |
 | Procedure | Name, specialty, approach, role, urgency, anticipated complexity | `procedure_name`, `specialty`, `approach`, `role`, `urgency`, `complexity` | Complexity rated before the case |
 | Experience | Training level; years of surgical experience | `training_level`; JSON `participantSnapshot.yearsExperience` (Python `sessions` frame `years_experience`) | Optional profile fields |
-| Time of day | Local start time | JSON `startedAt` and `tzOffsetMin` (Python `sessions` frame `tz_offset_min`) | Removed if exports drop the time zone |
 | Events | Phase changes and markers with time and logger | Events CSV: `t_offset_s`, `type`, `kind`, `logged_by` | `logged_by` is `self`, `team` or `retrospective` |
 | Case duration | Minutes | `duration_min` | |
-| Data quality | Coverage, RR artefact percentage, gaps, sample rate | `coverage_pct`, `rr_artifact_pct`; JSON summary `quality.gapCount`, `quality.longestGapSec`, `quality.sampleRateHz` | |
+| Data quality | Coverage, RR artefact percentage, gaps, sample rate | `coverage_pct`, `rr_artifact_pct`; summary `quality.gapCount`, `quality.longestGapSec`, `quality.sampleRateHz` | The summary object is not in the export bundle: get it from `GET /api/v1/sessions` (each item has a `summary`) or compute it with core `summarizeSession` / Python `summarize_session` |
 | Sensor | Source and model | `sensor_source`; JSON `sensor.source`, `sensor.name` | Watch (health-store) sessions use an adaptive gap rule (1.5 × median sample spacing, 5 s–15 min); analyse sources separately or as a covariate |
 | Provenance | Synthetic data flag; analytics version | `simulated` (1/0), `analytics_version` | Exclude `simulated` = 1; do not pool rows with different `analytics_version` |
 | Screening covariates | Medications, arrhythmia history, [on-call status, alcohol, illness] | [Screening/case report form] | Not captured by the app |
@@ -257,7 +258,9 @@ server's `?shiftDates=true` or the dashboard's de-identified bundle) for any sha
   summaries CSV) or from the dashboard **Export** page.
 - Use the [Python toolkit](../analysis/README.md): `surgeonpulse summarize export.json -o summaries.csv` for one row
   per session, and `surgeonpulse frames export.json -o outdir/` for long-format samples, RR, events, sessions and
-  participants. The CSVs are byte-identical to the app's.
+  participants. The samples, RR and events CSVs are byte-identical to the app's, and the parity tests check the
+  summary values against the TypeScript implementation within a small floating-point tolerance (see the
+  [toolkit README](../analysis/README.md)).
 - Drop synthetic rows (`simulated` = 1) and check that every row has the same `analytics_version`. Add the items
   that are not in the summaries CSV (for example years of experience) from the JSON bundle, and reshape phase columns
   to long format:
@@ -359,8 +362,9 @@ events logged by `team` vs `self` vs `retrospective`, and participant feedback o
 
 ## 10. Feedback to participants
 
-- Participants see their own live heart rate, session pages (phase chart, HRV, zones, episodes, data quality) and
-  Insights in the app; the research team can also show the participant feedback view in the dashboard.
+- Participants see their own live heart rate (unless they hide it in Settings), session pages (phase chart, HRV,
+  zones, episodes, data quality) and Insights in the app; the research team can also show the participant feedback
+  view in the dashboard.
 - Feedback is framed as reflection, not evaluation. Cohort comparisons show only an anonymised median.
 - [Offer an individual feedback session at the end of the study; provide support information.]
 - Participants receive a plain-language summary of the overall results.
@@ -388,7 +392,7 @@ events logged by `team` vs `self` vs `retrospective`, and participant feedback o
 | Use of data against participants (performance management, credentialing, legal) | Stated purpose limits; pseudonymous codes; aggregate reporting; minimum cell sizes; date shifting for shared data |
 | Distress from feedback | Non-judgemental wording; support resources; optional researcher debrief; option to opt out of feedback [if feasible] |
 | Incidental findings | Procedure in [privacy and ethics](privacy-ethics.md#incidental-findings); participant choice to be told |
-| Visible heart rate in theatre | Disclosed in the PICF; phone angled towards the person logging |
+| Visible heart rate in theatre | Disclosed in the PICF; **Show heart rate on the live screen** turned off if the participant prefers (still recorded); phone angled towards the person logging |
 | Re-identification in small specialties | Coarsen experience; drop birth year and time zone; date shifting; aggregate reporting |
 | Patient details entering free text | Warnings in the app; notes discouraged; notes removed at export by default |
 | Discomfort or skin irritation from the strap | Participant may remove it at any time; check materials |
@@ -434,11 +438,11 @@ minimum cell size. No individual surgeon identifiable.]
   8:213.
 - Shaffer F, Ginsberg JP (2017). An overview of heart rate variability metrics and norms. *Frontiers in Public
   Health* 5:258.
+- Tanaka H, Monahan KD, Seals DR (2001). Age-predicted maximal heart rate revisited. *Journal of the American College
+  of Cardiology* 37(1):153–156.
 - Task Force of the European Society of Cardiology and the North American Society of Pacing and Electrophysiology
   (1996). Heart rate variability: standards of measurement, physiological interpretation and clinical use.
-  *Circulation* 93:1043–1065.
+  *Circulation* 93(5):1043–1065.
 - Wilson MR, Poolton JM, Malhotra N, Ngo K, Bright E, Masters RSW (2011). Development and validation of a surgical
   workload measure: the Surgery Task Load Index (SURG-TLX). *World Journal of Surgery* 35(9):1961–1969.
-- Tanaka H, Monahan KD, Seals DR (2001). Age-predicted maximal heart rate revisited. *Journal of the American College
-  of Cardiology* 37:153–156.
 - [Add device validation and surgical stress references.]

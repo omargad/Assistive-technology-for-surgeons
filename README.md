@@ -67,7 +67,9 @@ See [architecture](docs/architecture.md) for component, data-flow and sequence d
 
 ¹ Needs a development or store build; in Expo Go only the simulator works. These native paths have been tested with
 mocks and compiled bundles, **not yet on physical devices**.
-² Health Connect is built into Android 14 and later; on Android 9–13 the Health Connect app must be installed.
+² Health Connect is built into Android 14 and later; on Android 9–13 the Health Connect app must be installed. Whether
+a given watch's companion app writes heart rate to Health Connect, and how often, varies by vendor; check it before a
+study relies on it.
 ³ The server's `CORS_ORIGINS` must list the web build's origin.
 
 The **dashboard** runs in current desktop and tablet browsers (Chrome/Edge 111+, Firefox 114+, Safari 16+) on Windows,
@@ -137,7 +139,7 @@ To use real sensors on a phone you need a development build: see the
 │   ├── test/             Vitest unit tests, one file per module
 │   └── scripts/          generate-fixtures.ts
 ├── apps/
-│   ├── mobile/           Expo app for iOS, Android and the web (src/app, components, services, state, theme)
+│   ├── mobile/           Expo app for iOS, Android and the web (src/app, components, services, state, theme; e2e/ web flow)
 │   ├── dashboard/        Vite + React dashboard (src/pages, components, state, lib; e2e/ Playwright tests)
 │   └── server/           Fastify + node:sqlite ingest server (src/, test/, scripts/, Dockerfile)
 ├── analysis/             Python toolkit (src/surgeonpulse_analysis, tests/)
@@ -161,8 +163,8 @@ Details are in the [development guide](docs/development.md#tests-type-checks-and
 | Core & server on Windows and macOS | The core and server typecheck and test commands | The same suites on `windows-latest` and `macos-latest` |
 | Dashboard | `npm run typecheck -w @surgeonpulse/dashboard`<br>`npm test -w @surgeonpulse/dashboard`<br>`npm run build -w @surgeonpulse/dashboard` | State, filters, file reading, downloads, exports, server client, components |
 | Dashboard end-to-end | `npx playwright install --with-deps chromium` (in `apps/dashboard`)<br>`npm run e2e -w @surgeonpulse/dashboard -- --trace off` | Full research workflow in Chromium, layout, theme, server token handling |
-| Mobile | `npm run typecheck -w @surgeonpulse/mobile`<br>`npm test -w @surgeonpulse/mobile -- --ci`<br>In `apps/mobile`: `npx jest --ci --preset jest-expo/android src/components __tests__/ui`<br>`npx expo export --platform ios --platform android --output-dir <dir>` | Recording state machine, storage, sensors and health import with mocks, upload, export, charts and screens (also under the Android preset); both native bundles build |
-| Mobile web end-to-end | In `apps/mobile`: `npx expo export --platform web --output-dir dist-web`<br>`node e2e/serve-spa.mjs dist-web 8090 &`<br>`node e2e/web-flow.mjs http://127.0.0.1:8090` | The exported web build in Chromium: onboarding, simulator recording, debrief, session detail, Insights, Settings, reload; fails on any console error |
+| Mobile | `npm run typecheck -w @surgeonpulse/mobile`<br>`npm test -w @surgeonpulse/mobile -- --ci`<br>In `apps/mobile`: `npx jest --ci --preset jest-expo/android src/components __tests__/ui`<br>`npx expo export --platform ios --platform android --output-dir <dir>`<br>`npx expo config --type public` | Recording state machine, storage, sensors and health import with mocks, upload, export, charts and screens (also under the Android preset); both native bundles build and the app config resolves |
+| Mobile web end-to-end | In `apps/mobile`: `npx playwright install --with-deps chromium`<br>`npx expo export --platform web --output-dir dist-web`<br>`node e2e/serve-spa.mjs dist-web 8090 &`<br>`node e2e/web-flow.mjs http://127.0.0.1:8090` | The exported web build in Chromium: onboarding, simulator recording, debrief, session detail, Insights, Settings, reload; fails on a failed step or any console error or warning |
 | Python | `python -m pip install -e "analysis[dev]"`<br>`python -m pytest -q analysis`<br>`surgeonpulse summarize fixtures/cohort-small.json -o analysis-out/summaries.csv` | Unit and TypeScript ↔ Python parity tests on Linux, Windows and macOS, Python 3.10 and 3.13; CLI smoke test |
 
 ## Project status and known limitations
@@ -180,9 +182,16 @@ SurgeonPulse is a **version 0.1.0 research prototype**. It has not yet been used
   banner. Export regularly when recording in a browser.
 - **Thresholds are project defaults**, not validated cut-offs: stress-episode thresholds, baseline-relative zones and
   the insight rules (see [metrics](docs/metrics.md)).
-- **Known gaps** affecting privacy and data handling, such as real dates in app exports, iOS backups and the web
-  build's token storage, are listed in [privacy and ethics](docs/privacy-ethics.md#known-gaps-and-limitations).
-- HRV values imported from Apple Health or Health Connect are stored but not used in the metrics.
+- **iOS backups include the session database.** Android app backup is off, but iOS device and iCloud backups still
+  contain the app's SQLite file; excluding it needs a native change that has not been made yet. (The enrolment token is
+  stored for this device only, so a backup cannot carry it to another device.)
+- **The web build keeps the enrolment token in `localStorage`**, because browsers have no secure store. Use
+  **Delete all data** before leaving a shared computer.
+- **Other known gaps** affecting privacy and data handling, such as real dates in app uploads and JSON exports, plain
+  HTTP being accepted for local network addresses, and deleted data lingering briefly in the phone's SQLite
+  write-ahead log, are listed in [privacy and ethics](docs/privacy-ethics.md#known-gaps-and-limitations).
+- Pre-computed HRV values imported from Apple Health (SDNN) or Health Connect (RMSSD) are stored but not used in the
+  metrics. (Apple Watch heartbeat series, when present, are imported as RR intervals and are used.)
 - The server is a single-instance reference implementation (in-memory rate limiting, one SQLite file).
 
 ## Safety, ethics and privacy

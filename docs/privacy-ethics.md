@@ -36,10 +36,12 @@ Related documents: [study protocol template](study-protocol.md) · [user guide](
   addresses, staff numbers or contact details**.
 - Codes are checked by core's `isValidParticipantCode` in the app, the server and on every de-identification:
   2–32 characters from `A–Z a–z 0–9 _ -`, starting with a letter or digit, and **not e-mail-like** (an `@`, or
-  disguised forms such as `jane-at-hospital-org`, are rejected). De-identification refuses to process a session whose
+  disguised forms such as `name-at-hospital-org`, are rejected). De-identification refuses to process a session whose
   code fails the check, because it cannot repair a direct identifier.
-- The app converts the code a participant types to upper case. The server compares codes exactly, so the research
-  team should issue codes in upper case (see the [user guide](user-guide.md#creating-participants-and-enrolment-tokens)).
+- The app converts the code a participant types to upper case. The server also stores codes in upper case and
+  matches them case-insensitively, so `sp-014` and `SP-014` are the same participant. Issuing codes in upper case
+  keeps the research team's own records consistent (see the
+  [user guide](user-guide.md#creating-participants-and-enrolment-tokens)).
 - The app warns: "Use the code from your research team, e.g. SP-014. Do not use your name."
 - The link between codes and real identities (the **code key**) is not held by SurgeonPulse at all. The research
   team keeps it separately (see [what is stored where](#what-is-stored-where)).
@@ -137,7 +139,7 @@ From the [server README](../apps/server/README.md#privacy-and-security):
   write transaction; browser `localStorage` on the web) until the participant exports or uploads them. Uploads go only
   to the server configured with the participant's enrolment token. The app has no analytics or tracking. The enrolment
   token is kept in `expo-secure-store` on iOS and Android (Keychain / Keystore, `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`,
-  so it is not carried in backups) and under its own `localStorage` key on the web (browsers have no secure store); it
+  so a backup cannot carry it to another device) and under its own `localStorage` key on the web (browsers have no secure store); it
   is never logged or exported. Android app backup is off (`allowBackup: false`).
 - **Dashboard.** Files are read into the browser tab's memory and never uploaded. Closing or reloading the tab clears
   them. The only network request is to a research server the user configures. The server URL is remembered in
@@ -166,7 +168,7 @@ The audit log keeps the participant code, the action and the counts of a withdra
 | Participant's phone (app) | Full sessions: HR samples, RR intervals, events **with notes**, debrief **with notes**, procedure (including any custom name), sensor name and id, real timestamps and time-zone offset; profile (code, optional training level, specialty, years of experience, birth year, resting and max HR, consent record); settings including the server URL; the enrolment token (secure store). Only a summary of the resting baseline is kept, not its raw samples. | Device security (passcode, encryption by the OS); app sandbox; SQLite `secure_delete`; token in Keychain / Keystore (this device only); Android backup off. iOS device and iCloud backups include the sessions | Delete session; Delete all data (sessions, profile, consent, server URL and token); uninstall the app for everything |
 | Browser (app web build) | As above, in `localStorage` (keys `surgeonpulse.sessions.v1`, `surgeonpulse.settings.v1`, and `surgeonpulse.researchToken.v1` for the token) | Browser profile; anyone with access to the browser profile can read it | Delete all data; clear site data |
 | Exported files (JSON/CSV) | De-identified sessions (see options above) | Wherever the participant or researcher saves or shares them (the system share sheet on phones) | Manual deletion; outside SurgeonPulse's control |
-| Research server (SQLite file) | De-identified sessions and their summaries; participant profiles as uploaded by the app (training level, specialty, years of experience, birth year, resting/max HR, consent version and dates); enrolments (hashed tokens, labels, dates); audit log; the date-shift key | University-hosted server, TLS proxy, admin token, `secure_delete` plus a WAL checkpoint after each erasure, file mode 0700 | Withdrawal endpoints; `DELETE /api/v1/sessions/:id`; backups under the backup policy |
+| Research server (SQLite file) | De-identified sessions and their summaries; participant profiles as uploaded by the app (training level, specialty, years of experience, birth year, resting/max HR, consent version and dates); enrolments (hashed tokens, labels, dates); audit log; the date-shift key | University-hosted server, TLS proxy, admin token, `secure_delete` plus a WAL checkpoint after each erasure; data directory created with mode 0700 and database file with mode 0600 (POSIX) | Withdrawal endpoints; `DELETE /api/v1/sessions/:id`; backups under the backup policy |
 | Server backups | Copies of the SQLite file | As the university's backup policy requires; must be encrypted | Expiry under the retention schedule |
 | Dashboard (browser memory) | Whatever the researcher loads | Browser session; nothing persisted except the server URL (and the admin token if "Remember" is ticked) | Clear all data, close the tab |
 | Research team's analysis storage | Exports, Python/R outputs | University research data storage | Retention schedule |
@@ -203,12 +205,17 @@ developers to change before the study starts:
   Android app backup is off, but Android 12+ device-to-device transfer can still copy the app's data.
 - **The web build keeps the enrolment token in `localStorage`** (under its own key). On a shared computer, use
   **Delete all data** before leaving.
-- **Plain HTTP is accepted for private LAN addresses** (10.x, 192.168.x, `*.local`) for testing, so a misconfigured
-  study server on hospital Wi-Fi would receive tokens and data unencrypted. Use HTTPS for every real deployment.
+- **Plain HTTP is accepted for local and private LAN addresses** (`localhost`, 127.x, 10.x, 172.16–31.x, 192.168.x,
+  `*.local`) for testing, so a misconfigured study server on hospital Wi-Fi would receive tokens and data
+  unencrypted. Use HTTPS for every real deployment.
+- **Deleted data on the phone may linger briefly in SQLite's write-ahead log.** The phone database runs in WAL mode
+  with `secure_delete`, but the app does not force a WAL checkpoint after **Delete session** or **Delete all data**
+  (the server does after its erasures), so deleted content can remain in the `-wal` file until SQLite's next
+  automatic checkpoint. Uninstalling the app removes the files.
 - **Shared rate limits.** Phones behind one hospital NAT share the server's per-IP limits, and an address locked out
   after repeated authentication failures also delays requests with valid tokens for a short time.
-- **The live screen shows the surgeon's heart rate** to everyone in the theatre by default. Settings → **Show heart
-  rate on the live screen** can hide it (it is still recorded), but there is no study-level blinded arm, and the
+- **The live screen shows the surgeon's heart rate** to everyone in the theatre by default. **Settings → Recording → Show
+  heart rate on the live screen** can hide it (it is still recorded), but there is no study-level blinded arm, and the
   consent text does not yet mention that the theatre team can see the number.
 - **Android has no foreground service**: recording pauses if the app leaves the foreground or the screen locks (the
   app saves what it has and tells the team afterwards).
@@ -254,8 +261,9 @@ exact name in the HREC application and check the current version.
 
 - The **Australian Code for the Responsible Conduct of Research, 2018** sets the principles and responsibilities for
   institutions and researchers, supported by guides including **Management of Data and Information in Research**.
-  Relevant here: data management planning, retention, secure storage, attribution and the handling of breaches. A
-  review of the research integrity framework was announced in 2026; check for updates.
+  Relevant here: data management planning, retention, secure storage, attribution and the handling of breaches. In
+  2026 the ARC and NHMRC, working with Universities Australia, announced work to assess and strengthen Australia's
+  research integrity system; check whether the Code or its guides have been updated before relying on them.
 
 ### Privacy law
 
@@ -301,7 +309,9 @@ may include:
   - the TGA's guidance on software-based medical devices (including "How the TGA regulates software-based medical
     devices");
   - the **Therapeutic Goods (Excluded Goods) Determination 2018**, as amended (including its 2021 amendments for
-    software), and the TGA's guidance interpreting the software exclusion criteria.
+    software), and the TGA's guidance interpreting the software exclusion criteria (published as "Excluded software"
+    guidance in July 2024 at the time of writing). Software that meets the medical device definition is regulated
+    unless an exclusion or exemption clearly applies, so do not assume that an exclusion covers SurgeonPulse.
 - Keep the intended purpose consistent everywhere: the participant information sheet, the app's About screen and
   onboarding (which already state "Research tool — not a medical device"), publications and presentations. Adding
   features that interpret heart rhythm, flag arrhythmias, or advise on fitness to operate could change the
@@ -321,8 +331,9 @@ may include:
   withdrawing free of consequence and say so.
 - **Confidential participation.** Do not tell supervisors who has or has not enrolled. Note that a strap and a phone
   on a stand make participation visible in theatre; discuss this in the information sheet.
-- **Visible heart rate.** The live screen shows heart rate in large digits to everyone in the theatre. Participants
-  should consent to this knowingly, and may choose to angle the phone so that only the person logging events can see
+- **Visible heart rate.** By default the live screen shows heart rate in large digits to everyone in the theatre.
+  Participants should consent to this knowingly. They can turn off **Settings → Recording → Show heart rate on the
+  live screen** (heart rate is still recorded), or angle the phone so that only the person logging events can see
   it.
 - **No use for credentialing, performance management or medico-legal purposes.** State in the information sheet and
   the protocol that data will be used only for research and for the participant's own reflection, and will not be

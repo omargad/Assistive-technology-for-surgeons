@@ -53,8 +53,9 @@ skipped, and a warning on stderr names the session index and the field at fault.
 
 All CSVs follow RFC 4180 with CRLF line endings and UTF-8 encoding. Numbers are formatted like
 JavaScript's `String(n)` and times as ISO-8601 UTC (`2026-01-05T08:00:00.000Z`). As a result,
-`samples.csv`, `rr.csv`, `events.csv` and `summaries.csv` are **byte-identical** to the files the
-app produces.
+`samples.csv`, `rr.csv` and `events.csv` are **byte-identical** to the files the app produces (the
+parity tests compare them byte for byte), and `summaries.csv` has the same columns in the same order
+with the same values (compared cell by cell, numbers within the parity tolerance).
 
 ## Python API
 

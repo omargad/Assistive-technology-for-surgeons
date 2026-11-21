@@ -33,7 +33,7 @@ the simulator.
 | Source (label in the app) | iOS | Android | Web | When data arrives | Beat-to-beat (RR) intervals | Code |
 | --- | --- | --- | --- | --- | --- | --- |
 | Bluetooth heart-rate strap | Yes | Yes | — | Live, about once per second | Yes, if the sensor sends them | [`ble.native.ts`](../apps/mobile/src/services/sensors/ble.native.ts) |
-| Bluetooth heart-rate strap (browser) | — | Chrome / Edge | Chrome / Edge | Live | Yes, if the sensor sends them | [`ble.web.ts`](../apps/mobile/src/services/sensors/ble.web.ts) |
+| Bluetooth heart-rate strap (browser) | — | Chrome (web build) | Chrome / Edge | Live | Yes, if the sensor sends them | [`ble.web.ts`](../apps/mobile/src/services/sensors/ble.web.ts) |
 | Apple Watch (via Apple Health) | Yes | — | — | Imported after the case | Only from Apple Watch heartbeat series, which are rarely present | [`health/index.ios.ts`](../apps/mobile/src/services/health/index.ios.ts) |
 | Smartwatch (via Health Connect) | — | Yes | — | Imported after the case | No (Health Connect does not store RR) | [`health/index.android.ts`](../apps/mobile/src/services/health/index.android.ts) |
 | Simulator (demo) | Yes | Yes | Yes | Live, generated | Yes (simulated) | [`simulated.ts`](../apps/mobile/src/services/sensors/simulated.ts) |
@@ -79,7 +79,7 @@ specification):
 | Flag bit | Meaning | How SurgeonPulse uses it |
 | --- | --- | --- |
 | 0 | Heart-rate value is `uint8` (0) or `uint16` (1) | Read the bpm value in the right width |
-| 1–2 | Sensor contact: bit 2 = supported, bit 1 = detected | `contact` is stored only when the sensor supports it; the status pill shows "no skin contact". Samples with `contact: false` are kept but excluded from every heart-rate metric and count as uncovered time |
+| 1–2 | Sensor contact: bit 2 = supported, bit 1 = detected | `contact` is stored only when the sensor supports it; the sensor pill shows "No contact" (read out as "no skin contact" by screen readers). Samples with `contact: false` are kept but excluded from every heart-rate metric and count as uncovered time |
 | 3 | Energy Expended field present | Skipped (not stored) |
 | 4 | One or more RR intervals follow | Each `uint16` is in units of 1/1024 s and is converted to ms as `raw × 1000 / 1024`, rounded to 3 decimals |
 
@@ -100,11 +100,16 @@ What is stored for each notification:
   de-duplicated, heart-rate devices are listed first, then by signal strength (RSSI): "Strong signal" at −65 dBm or
   better, "Good signal" down to −80 dBm, otherwise "Weak signal".
 - **Connect.** Connection times out after 15 seconds. The app discovers services, reads Body Sensor Location and
-  Battery Level if present, and watches for disconnection. Heart-rate notifications start when the baseline or the
-  recording starts.
+  Battery Level if present, watches for disconnection and subscribes to heart-rate notifications straight away, so
+  the screen shows the current heart rate and whether beat-to-beat data arrives before the case. Data are kept only
+  from the start of the baseline or the recording.
 - **Remembered sensor.** The app remembers the last sensor you connected, or the one you chose from
-  **Settings → Heart-rate sensor** (shown as "your usual sensor"). The **New case** screen then offers
-  **Connect _name_**.
+  **Settings → Recording → Heart-rate sensor** (shown as "your usual sensor"; choosing a strap there only remembers
+  it and does not connect). The **New case** screen then offers **Connect _name_**.
+- **Beat-to-beat (RR) indicator.** While a live sensor is connected, the **New case** and sensor screens say
+  "Beat-to-beat (RR) intervals: receiving." when an RR interval arrived in the last 15 seconds, or "…not received…"
+  once the sensor has streamed for about 10 seconds without one. The sensor pill on the live screen then shows
+  **No RR**.
 - **Permissions.** iOS asks for Bluetooth permission (`NSBluetoothAlwaysUsageDescription`). Android 12 and later
   asks for `BLUETOOTH_SCAN` (declared `neverForLocation`) and `BLUETOOTH_CONNECT`; Android 11 and earlier asks for
   `ACCESS_FINE_LOCATION`, which those versions require for BLE scanning. The full list is in the
@@ -141,7 +146,7 @@ and Web Bluetooth), so a strap running down shows as low (red below 20 %) during
 
 The web build of the app can record from the same straps through the Web Bluetooth API.
 
-- **Browsers.** Chromium-based browsers such as Chrome and Edge on desktop and Android. Safari and Firefox do not
+- **Browsers.** Chrome and Edge on desktop computers, and Chrome on Android. Safari and Firefox do not
   implement Web Bluetooth, and at the time of writing every browser on iPhone and iPad uses Safari's engine, so the
   option shows as unavailable there. The simulator still works.
 - **Secure context.** The page must be served over `https://` or from `localhost`. Otherwise the browser blocks
@@ -153,8 +158,9 @@ The web build of the app can record from the same straps through the Web Bluetoo
   Body Sensor Location are read on connect if the strap offers them; the battery is read again after a reconnect and
   every 5 minutes. A `gattserverdisconnected` event triggers the same 1 s → 30 s back-off.
 - **Storage.** On the web, sessions are kept in the browser's `localStorage` (about 4 MB budget). Several long
-  sessions with RR intervals can fill it; the heart-rate data of the oldest finished cases is then dropped first and
-  **History** shows a "Browser storage is full" banner asking you to export all sessions before closing the page.
+  sessions with RR intervals can fill it; the heart-rate data of the oldest finished cases are then no longer saved
+  in the browser (they stay in memory until the page is closed), and **History** shows a "Browser storage is full"
+  banner asking you to export all sessions from Settings before closing the page.
   Clearing site data deletes everything. Use the web build for demonstrations, training and short pilot recordings;
   use the native app for study cases.
 
@@ -187,7 +193,8 @@ What is read, for the window from case start to case end (read-only; the app nev
 Things to know:
 
 - HealthKit never tells an app whether **read** access was granted. An import that finds no data is the only sign
-  that access is missing (check **Settings › Health › Data Access** on the iPhone).
+  that access is missing (check the iPhone's Health settings, for example **Settings → Health → Data Access &
+  Devices** or **Settings → Privacy & Security → Health**, depending on the iOS version).
 - Re-importing the same window adds only new data, so it is safe to retry.
 - Watch heart-rate samples are often less frequent than one per second. For Apple Health and Health Connect sessions
   the analytics therefore treat a gap as uncovered only when it is longer than 1.5 × the session's median sample
@@ -224,8 +231,11 @@ target heart rate, and a **Complication** marker visibly raises it.
   `sensor.source: "simulated"`.
 - **Load demo data** (Insights, History or Settings) adds a set of simulated sessions tagged `demo`. Demo-tagged
   sessions are never uploaded.
-- Sessions recorded live with the simulator are **not** tagged `demo`, and the upload client does not block them.
-  Do not upload them, and filter on `sensor.source` in analysis.
+- Sessions recorded live with the simulator are **not** tagged `demo`, but they are still never uploaded: the app
+  refuses any session with `sensor.source: "simulated"` ("Sessions recorded with the simulator are never
+  uploaded."), and the server rejects simulated and demo sessions unless it runs with `ACCEPT_SIMULATED=true`. They
+  are also left out of the app's summaries CSV. If simulated data reach an analysis by another route (for example a
+  JSON export), exclude rows with `simulated` = 1 in the summaries CSV, or filter on `sensor.source`.
 
 Use the simulator to train theatre teams in logging phases and events before the first real case.
 
@@ -250,7 +260,8 @@ life and the number of simultaneous connections differ between models and firmwa
 
 > **Check before you buy in bulk.** Model-specific behaviour changes with firmware. Check the manufacturer's
 > documentation, then confirm RR output in the app with a test recording (see the pilot checklist below). The
-> **Sensors** screen shows connection state, battery and skin contact, but not whether RR intervals are arriving.
+> sensor screen and the **New case** screen show connection state, battery, skin contact and whether beat-to-beat
+> (RR) intervals are arriving.
 
 ### Selection checklist
 
@@ -275,8 +286,9 @@ life and the number of simultaneous connections differ between models and firmwa
   to sweat.
 - **Position.** Follow the manufacturer's guidance (usually just below the chest muscles, snug but comfortable). A
   loose strap moves when the surgeon leans over the table.
-- **Record the baseline** seated or standing quietly before scrubbing (default 3 minutes, adjustable 1–5 minutes in
-  **Settings → Recording → Resting baseline length**).
+- **Record the baseline** sitting quietly before scrubbing, the same way before every case (default 3 minutes,
+  adjustable 1–5 minutes in **Settings → Recording → Resting baseline length**; baselines shorter than 60 seconds are
+  not used). The baseline screen asks for a seated baseline because standing raises heart rate.
 - **Charge the phone** and plan to keep it plugged in for long cases: the screen stays on for the whole recording.
 
 ### Phone placement, range and interference
@@ -320,12 +332,16 @@ life and the number of simultaneous connections differ between models and firmwa
 Run this on every phone model and sensor model the study will use, using a development or preview build of the app
 (see the [mobile README](../apps/mobile/README.md#running-on-a-phone-development-build)).
 
-1. **Pair.** Find the strap on the sensor screen (try **Show all devices** if it does not appear) and connect.
-2. **Confirm RR output.** Record a 1-minute baseline. The **Your resting baseline** card shows an RMSSD value only if
-   beat-to-beat data arrived (it says "Needs beat-to-beat data" otherwise). After a short test case, the session page
-   should show RMSSD and an RR artefact percentage, and **Export RR intervals (CSV)** should be available.
-3. **Range.** Walk away from the phone until the sensor reconnects; check the **Signal lost** banner appears after
-   15 seconds and clears when you return.
+1. **Pair.** Start a test case (**Record → Start new case**), choose the Bluetooth source and connect the strap
+   (**Find sensors**; try **Show all devices** if it does not appear).
+2. **Confirm RR output.** Once connected, the **New case** screen should say "Beat-to-beat (RR) intervals:
+   receiving." Record a 1-minute baseline: the **Your resting baseline** card shows an RMSSD value only if
+   enough clean beat-to-beat data arrived (it says "Needs beat-to-beat data" otherwise). After a short test case, the
+   session page should show RMSSD and an RR artefact percentage, and **Export RR intervals (CSV)** should be
+   available.
+3. **Range.** During the test recording, walk away from the phone until the connection drops; check that the
+   **Signal lost** notice appears after 15 seconds without data, and that it clears when the strap reconnects as you
+   return.
 4. **Lock and background.** Lock the screen (iOS) or turn keep-awake off briefly (Android) during a test recording,
    and check whether data continued. On Android this pauses recording: expect a gap and the "was in the background"
    banner. Record the result for each phone model.
@@ -343,9 +359,9 @@ Run this on every phone model and sensor model the study will use, using a devel
 | Strap not found in the scan | Strap not worn or electrodes dry (many straps sleep until they detect skin contact); strap connected to another app or watch; strap does not advertise the service | Wear and moisten the strap; close other apps and disconnect watches or gym equipment; turn on **Show all devices**; tap **Scan again** |
 | "Bluetooth is off" or "Bluetooth permission was denied" | Adapter off, or permission refused | Turn Bluetooth on; allow Bluetooth (iOS) or Nearby devices (Android 12+) for SurgeonPulse in the phone's settings |
 | Bluetooth source shown as unavailable on a phone | Running in Expo Go, which has no Bluetooth module | Install the study's development or preview build |
-| Bluetooth option unavailable in a browser | Safari, Firefox or any iPhone/iPad browser; or the page is not on `https://`/`localhost` | Use Chrome or Edge on desktop or Android over HTTPS, or use the native app |
+| Bluetooth option unavailable in a browser | Safari, Firefox or any iPhone/iPad browser; or the page is not on `https://`/`localhost` | Use Chrome or Edge on a desktop computer, or Chrome on Android, over HTTPS; or use the native app |
 | "Could not connect to the sensor" | Out of range, battery flat, or strap busy with another device | Move closer, check the battery, disconnect other devices, try again |
-| Heart rate shown but baseline says "Needs beat-to-beat data" | Sensor does not send RR intervals (common with optical devices) | Use an ECG chest strap that sends RR; check the manufacturer's documentation |
+| Heart rate shown, but "Beat-to-beat (RR) intervals: not received", **No RR** in the sensor pill, or "Needs beat-to-beat data" on the baseline card | Sensor does not send RR intervals (common with optical devices) | Use an ECG chest strap that sends RR; check the manufacturer's documentation |
 | "Signal lost" banner during the case | Dry or loose electrodes, out of range, lead apron, interference, flat battery | Leave it; recording continues and reconnects automatically. Fix fit and phone position before the next case |
 | Frequent short dropouts | Phone too far away or blocked by the body; 2.4 GHz congestion | Move the phone closer and into line of sight |
 | High RR artefact percentage | Diathermy interference, movement, poor contact, ectopic beats | Check strap fit and moisture; compare cases with and without heavy diathermy; review the RR CSV `valid` column |

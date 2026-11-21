@@ -264,10 +264,13 @@ A metric must be defined once in core, ported to Python, pinned by fixtures and 
    - For trends and group comparisons, add a `MetricKey`, a `METRICS` entry (label, unit, `higherIsBetter`,
      decimals) and a `metricValue` case in [`analytics/trends.ts`](../packages/core/src/analytics/trends.ts). The
      dashboard's Analysis page lists `METRICS` keys automatically.
-   - For the summary CSV, add the column to `SUMMARY_BASE_COLUMNS` in [`io/csv.ts`](../packages/core/src/io/csv.ts)
-     and a description to the dashboard's [`lib/columnDictionary.ts`](../apps/dashboard/src/lib/columnDictionary.ts)
-     (a test fails if a column is undescribed). Adding columns shifts positions, so tell analysts whose scripts read
-     the CSV by position.
+   - For the summary CSV, append the column at the **end** (after the existing `SUMMARY_PROVENANCE_COLUMNS` in
+     [`io/csv.ts`](../packages/core/src/io/csv.ts), as analytics version 2 did with columns 61–73), so that scripts
+     that read the CSV by position keep working, and add a description to the dashboard's
+     [`lib/columnDictionary.ts`](../apps/dashboard/src/lib/columnDictionary.ts) (a test fails if a column is
+     undescribed or out of order).
+   - **Bump `ANALYTICS_VERSION`** in [`types.ts`](../packages/core/src/types.ts) whenever a new or changed definition
+     alters any summary value, so that cached summaries are recomputed (see below) and analysts can tell rows apart.
 3. **Python port.** Implement the same definition in `analysis/src/surgeonpulse_analysis/` (for example `hrv.py`,
    `summary.py`, `cohort.py` with `SUMMARY_CSV_COLUMNS` and `METRIC_COLUMNS`), with unit tests in `analysis/tests/`.
    Match JavaScript arithmetic: left-to-right sums and half-up rounding.
@@ -280,11 +283,13 @@ A metric must be defined once in core, ported to Python, pinned by fixtures and 
    CSV, to [data-model.md](data-model.md#summary-csv).
 
 **Cached summaries.** The mobile app caches each session's summary when the debrief is submitted, and the server
-stores a summary per session when the session is first uploaded or changes. Existing cached summaries do not gain a
-new field, or a corrected value, until they are recomputed. On the server an identical re-upload is `unchanged` and
-does not recompute, and no endpoint does so yet, so the server's summaries CSV can lag behind the code. The dashboard
-and the Python toolkit always recompute from the sessions, so prefer the JSON export for analysis after an analytics
-change.
+stores a summary per session when the session is first uploaded or changes. Every summary records the
+`analyticsVersion` that computed it. When that differs from the current `ANALYTICS_VERSION`, the server recomputes the
+stored summary at start-up ([`services/recompute.ts`](../apps/server/src/services/recompute.ts), with an audit row) and
+when an `unchanged` re-upload arrives, and the app recomputes cached summaries in the background and when a session is
+opened. A definition change made **without** bumping `ANALYTICS_VERSION` is not picked up by any cache, so the app's and
+the server's summaries CSVs would then lag behind the code. The dashboard and the Python toolkit always recompute from
+the sessions.
 
 ## Coding conventions
 
@@ -358,8 +363,8 @@ a final newline.
 ### Python
 
 - Function names are snake_case ports of the TypeScript names; options become keyword arguments.
-- Match JavaScript arithmetic for parity: left-to-right summation, half-up rounding (`floor(x + 0.5)`), `None` where
-  TypeScript returns `null`.
+- Match JavaScript arithmetic for parity: left-to-right summation (`naive_sum`), half-up rounding like `Math.round`
+  (`js_round`, never Python's banker's `round`), `None` where TypeScript returns `null`.
 
 ## Native builds (EAS and prebuild)
 
@@ -418,7 +423,7 @@ test on devices.
 
 | Symptom | Cause and fix |
 | --- | --- |
-| Server exits with "Invalid configuration" | `ADMIN_TOKEN` is missing, shorter than 32 characters or contains spaces. Set it in `apps/server/.env` or the environment. |
+| Server exits with "Invalid configuration" | Usually `ADMIN_TOKEN` is missing, shorter than 32 characters or contains whitespace; any other invalid variable (for example `CORS_ORIGINS` with `*`, or an unrecognised `TRUST_PROXY` value) is listed in the same message. Fix it in `apps/server/.env` or the environment. |
 | `ExperimentalWarning` about SQLite | Node 22 marks `node:sqlite` as experimental. `main.ts` filters that one warning; it is harmless. |
 | `node:sqlite` cannot be found | Node is older than 22.13. Upgrade Node. |
 | Bluetooth option shows as unavailable on the web | Web Bluetooth needs Chrome or Edge on `https://` or `localhost`. Safari and Firefox do not support it. |

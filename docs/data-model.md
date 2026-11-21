@@ -101,7 +101,8 @@ One recorded case. "Req." means the field is required.
 1900–2100), `maxHr` and `restingHr` (bpm, 0–300).
 
 **`HeartRateSample`**: `t` (EpochMs, req.), `bpm` (0–300, req.; integer from BLE, may be fractional from imports) and
-`contact` (boolean; absent when the sensor cannot detect skin contact). The analytics ignore samples outside 25–250 bpm.
+`contact` (boolean; absent when the sensor cannot detect skin contact). The analytics ignore samples outside 25–250 bpm
+and samples recorded with `contact: false`.
 
 **`RRInterval`**: `t` (time the interval was received, req.) and `ms` (0–5000, req.).
 
@@ -315,7 +316,8 @@ same three shapes.
 | Bundle `version` | `1` | `ExportBundle.version`, checked by `parseImport` |
 | Mobile SQLite schema | migration 1 | `schema_version` table in `surgeonpulse.db` |
 | Mobile web storage | format `v: 1` | key `surgeonpulse.sessions.v1` |
-| Server database | migration 1 | `schema_version` table in `surgeonpulse.sqlite` |
+| Server database | migration 2 (adds `server_secrets`) | `schema_version` table in `surgeonpulse.sqlite` |
+| Analytics definitions | `'2'` (`ANALYTICS_VERSION`) | stored in every summary as `analyticsVersion` (CSV `analytics_version`) |
 
 `migrateSession(raw)` behaves as follows:
 
@@ -391,7 +393,7 @@ pool rows with different `analytics_version`** (recompute them first; the server
 | 11 | `complexity` | 1–5 | |
 | 12 | `duration_min` | min | `durationSec / 60` |
 | 13–18 | `hr_mean`, `hr_median`, `hr_min`, `hr_max`, `hr_sd`, `hr_p95` | bpm | Whole-session HR statistics |
-| 19 | `rmssd` | ms | Whole-session RMSSD (empty when more than 10 % of RR intervals are artefacts) |
+| 19 | `rmssd` | ms | Whole-session RMSSD (empty when more than 10 % of RR intervals are artefacts or fewer than 30 are valid) |
 | 20 | `sdnn` | ms | Whole-session SDNN (depends on case length; do not compare across durations) |
 | 21 | `pnn50` | % | Whole-session pNN50 |
 | 22 | `mean_rr` | ms | Mean valid RR interval |
@@ -415,7 +417,7 @@ pool rows with different `analytics_version`** (recompute them first; the server
 | 63 | `tz_offset_min` | min | Local time-zone offset at the start, minutes east of UTC (e.g. 660 for AEDT) |
 | 64 | `started_local` | ISO 8601 with offset | Local session start, e.g. `2026-01-05T19:00:00.000+11:00` (empty when the offset is unknown) |
 | 65 | `baseline_source` | | `measured`, `manual` or `profile` |
-| 66 | `baseline_duration_s` | s | Length of the baseline window (0 for a profile baseline; measured baselines are at least 60 s) |
+| 66 | `baseline_duration_s` | s | Length of the baseline window (0 for a profile baseline; the app stores a measured baseline only when it is at least 60 s) |
 | 67 | `max_hr` | bpm | Maximum HR used for `high_intensity_pct` (measured value from the snapshot, or age-predicted) |
 | 68 | `peak_hr` | bpm | Robust peak HR: highest 11-s rolling median |
 | 69 | `hrv_n` | count | Valid RR intervals behind the whole-session HRV |
@@ -465,7 +467,7 @@ time shift and set `dropTzOffset`.
 | Mobile app, all of the above | A session whose participant code fails `isValidParticipantCode` is skipped and counted instead of making the whole export throw. |
 | Server, on upload | Each session is de-identified **again** with the defaults (defence in depth), then summarised and stored. The server also keeps a specialty only if it is a catalogue specialty, keeps `sensor.location` only if it is a standard body-sensor location, and rejects simulated or demo sessions unless `ACCEPT_SIMULATED=true`. |
 | Server, `GET /api/v1/export` and `/export/summaries.csv` | Bundle built with `deidentify: true`. With `?shiftDates=true`, every timestamp of a participant moves by a secret, consistent whole number of weeks (±1–52, from an HMAC of the code with a server key), and `exportedAt` becomes the latest shifted session end. |
-| Dashboard, de-identified bundle (Export page) | Defaults, plus optional `dropTzOffset`, `dropBirthYear` and a random time shift of whole weeks per participant (up to 52 by default), the same for all of a participant's sessions and never stored or shown. |
+| Dashboard, de-identified bundle (Export page) | Defaults, plus options preset on the page: a random time shift of whole weeks per participant (on, up to 52 weeks by default; the same for all of a participant's sessions and never stored or shown), `dropBirthYear` (on) and `dropTzOffset` (off). |
 
 **Pseudonymised, not anonymous.** De-identified SurgeonPulse data is still linked to a study code, and the research
 team can link codes back to people through the enrolment records kept outside SurgeonPulse. Combinations of training

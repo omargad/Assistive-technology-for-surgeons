@@ -9,10 +9,13 @@ The browser dashboard for SurgeonPulse, built with Vite, React 19, TypeScript an
 
 It's **local-first**. Files you open are read into the tab's memory and are never uploaded. The only network request
 the dashboard makes is to a research server you configure yourself (`GET {url}/api/v1/export` with a bearer token;
-see `apps/server/SPEC.md`). All analytics come from `@surgeonpulse/core`. The dashboard doesn't re-implement any of
+see the [server SPEC](../server/SPEC.md)). All analytics come from `@surgeonpulse/core`. The dashboard doesn't re-implement any of
 them. SurgeonPulse is a research tool, not a medical device.
 
 ## Scripts
+
+Run these in `apps/dashboard`, or from the repository root with `-w @surgeonpulse/dashboard` (the root's
+`npm run dashboard` is a shortcut for `dev`). Install dependencies once at the root with `npm ci`.
 
 ```bash
 npm run dev         # development server

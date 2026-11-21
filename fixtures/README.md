@@ -47,8 +47,8 @@ fixtures and fails if `fixtures/` changes.
 | `sim-55` | No baseline and no resting HR; %HRmax zones from `birthYear` |
 | `sim-89` | Explicit `SummaryOptions` (`maxHr`, `atYear`, `episodeThresholdBpm`, `maxGapMs`), 2 s sampling, no post-op report |
 | `sim-144` | Dropouts and artefacts; NASA-TLX with invalid weights → `weighted: null` |
-| `edge-phases` | Hand-built. Phase before the start (clamped), duplicate phase, zero-length middle segment, final phase at the session end, invalid bpm inside episodes, gaps of exactly 5 s and 6 s, merged and dropped episodes, an RR dropout, out-of-range RR |
-| `edge-window` | Hand-built. Samples, RR and events before `startedAt` and after `endedAt` (window clipping), unaligned sample times |
+| `edge-phases` | Hand-built. Phase before the start (clamped), duplicate phase, zero-length middle segment, A / B (zero length) / A phases merged into one segment, final phase at the session end, invalid bpm inside episodes, gaps of exactly 5 s and 6 s (plus a 12 s dropout and a 4 s spacing), merged and dropped episodes, an RR dropout, out-of-range RR, and a formula-like event note (CSV formula guard) |
+| `edge-window` | Hand-built. Samples, RR and events before `startedAt` and after `endedAt` (window clipping), unaligned sample times, snapshot `maxHr` without a baseline (median-based episode threshold, %HRmax zones) |
 | `edge-sparse` | One HR sample, 12 RR intervals, no events, no `endedAt` |
 | `edge-empty` | No data at all, zero-length window |
 | `edge-watch` | Hand-built. Health Connect at about one sample per minute (source-aware gap rule for coverage, dwell and episodes), `contact: false` samples, `tzOffsetMin`, sleep/caffeine/outcome covariates and a `demo` tag (`simulated: true`) |
@@ -66,4 +66,4 @@ TypeScript discrepancy with `xfail(strict=True)` (see `TS_DISCREPANCIES` in that
 RFC 4180 CRLF line endings and are compared byte for byte, so Git for Windows
 (`core.autocrlf=true`) must not rewrite them.
 
-The fixtures total about 6.7 MB; keep them under 15 MB (a test enforces this).
+The fixtures total about 7.1 MB; keep them under 15 MB (a test enforces this).
