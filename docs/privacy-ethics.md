@@ -136,8 +136,9 @@ From the [server README](../apps/server/README.md#privacy-and-security):
 ### 6. Local-first apps
 
 - **Mobile app.** Data stay on the device (SQLite `surgeonpulse.db` on iOS/Android, with `secure_delete` on every
-  write transaction; browser `localStorage` on the web) until the participant exports or uploads them. Uploads go only
-  to the server configured with the participant's enrolment token. The app has no analytics or tracking. The enrolment
+  write transaction and a write-ahead-log checkpoint, `PRAGMA wal_checkpoint(TRUNCATE)`, after every deletion; browser
+  `localStorage` on the web) until the participant exports or uploads them. Uploads go only to the server configured
+  with the participant's enrolment token. The app has no analytics or tracking. The enrolment
   token is kept in `expo-secure-store` on iOS and Android (Keychain / Keystore, `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`,
   so a backup cannot carry it to another device) and under its own `localStorage` key on the web (browsers have no secure store); it
   is never logged or exported. Android app backup is off (`allowBackup: false`).
@@ -156,6 +157,7 @@ From the [server README](../apps/server/README.md#privacy-and-security):
 | `POST /api/v1/me/withdraw` with the participant's enrolment token | Participant (or researcher with the participant's token) | Deletes all of the participant's sessions on the server, revokes all their tokens, clears the profile back to the bare code and retires the code (it cannot be re-enrolled; a re-consenting participant gets a new code) | Backups taken before the withdrawal still contain the data |
 | `DELETE /api/v1/admin/participants/:code` | Researcher | Same effect as the participant's own withdrawal | As above |
 | **Delete session** (session page) | Participant | Deletes the session: heart rate, RR, events and debrief | Not offered for the case being recorded |
+| **Remove demo data** (Settings → Data, shown only when demo sessions exist) | Participant | Deletes only the simulated demo sessions (tag `demo`) | Keeps the participant's own and imported sessions, simulator recordings, the profile and consent record, and the study server settings. Never deletes the case being recorded. |
 | **Delete all data** (Settings → Data) | Participant | Deletes every session, the profile and consent record, the server URL and the enrolment token, then restarts onboarding | Not possible while a case is being recorded. Data already uploaded is not affected. Other settings (e.g. display preferences) stay; uninstalling the app (or clearing the browser's site data) removes everything. |
 | **Clear all data** (dashboard Data page) or closing the tab | Researcher | Removes data from the browser's memory | Does not affect files downloaded earlier |
 
@@ -165,7 +167,7 @@ The audit log keeps the participant code, the action and the counts of a withdra
 
 | Location | What is stored | Protection | How it is removed |
 | --- | --- | --- | --- |
-| Participant's phone (app) | Full sessions: HR samples, RR intervals, events **with notes**, debrief **with notes**, procedure (including any custom name), sensor name and id, real timestamps and time-zone offset; profile (code, optional training level, specialty, years of experience, birth year, resting and max HR, consent record); settings including the server URL; the enrolment token (secure store). Only a summary of the resting baseline is kept, not its raw samples. | Device security (passcode, encryption by the OS); app sandbox; SQLite `secure_delete`; token in Keychain / Keystore (this device only); Android backup off. iOS device and iCloud backups include the sessions | Delete session; Delete all data (sessions, profile, consent, server URL and token); uninstall the app for everything |
+| Participant's phone (app) | Full sessions: HR samples, RR intervals, events **with notes**, debrief **with notes**, procedure (including any custom name), sensor name and id, real timestamps and time-zone offset; profile (code, optional training level, specialty, years of experience, birth year, resting and max HR, consent record); settings including the server URL; the enrolment token (secure store). Only a summary of the resting baseline is kept, not its raw samples. | Device security (passcode, encryption by the OS); app sandbox; SQLite `secure_delete` plus a WAL checkpoint after each deletion; token in Keychain / Keystore (this device only); Android backup off. iOS device and iCloud backups include the sessions | Delete session; Delete all data (sessions, profile, consent, server URL and token); uninstall the app for everything |
 | Browser (app web build) | As above, in `localStorage` (keys `surgeonpulse.sessions.v1`, `surgeonpulse.settings.v1`, and `surgeonpulse.researchToken.v1` for the token) | Browser profile; anyone with access to the browser profile can read it | Delete all data; clear site data |
 | Exported files (JSON/CSV) | De-identified sessions (see options above) | Wherever the participant or researcher saves or shares them (the system share sheet on phones) | Manual deletion; outside SurgeonPulse's control |
 | Research server (SQLite file) | De-identified sessions and their summaries; participant profiles as uploaded by the app (training level, specialty, years of experience, birth year, resting/max HR, consent version and dates); enrolments (hashed tokens, labels, dates); audit log; the date-shift key | University-hosted server, TLS proxy, admin token, `secure_delete` plus a WAL checkpoint after each erasure; data directory created with mode 0700 and database file with mode 0600 (POSIX) | Withdrawal endpoints; `DELETE /api/v1/sessions/:id`; backups under the backup policy |
@@ -208,10 +210,6 @@ developers to change before the study starts:
 - **Plain HTTP is accepted for local and private LAN addresses** (`localhost`, 127.x, 10.x, 172.16–31.x, 192.168.x,
   `*.local`) for testing, so a misconfigured study server on hospital Wi-Fi would receive tokens and data
   unencrypted. Use HTTPS for every real deployment.
-- **Deleted data on the phone may linger briefly in SQLite's write-ahead log.** The phone database runs in WAL mode
-  with `secure_delete`, but the app does not force a WAL checkpoint after **Delete session** or **Delete all data**
-  (the server does after its erasures), so deleted content can remain in the `-wal` file until SQLite's next
-  automatic checkpoint. Uninstalling the app removes the files.
 - **Shared rate limits.** Phones behind one hospital NAT share the server's per-IP limits, and an address locked out
   after repeated authentication failures also delays requests with valid tokens for a short time.
 - **The live screen shows the surgeon's heart rate** to everyone in the theatre by default. **Settings → Recording → Show

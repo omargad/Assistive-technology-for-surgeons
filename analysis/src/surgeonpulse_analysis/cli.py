@@ -46,7 +46,15 @@ def _add_summary_options(p: argparse.ArgumentParser) -> None:
     g.add_argument("--max-hr", type=float, help="override max HR (bpm) for every session")
     g.add_argument("--at-year", type=int, help="year used for age-predicted max HR (default: session year)")
     g.add_argument("--episode-threshold", type=float, help="stress-episode threshold in bpm")
-    g.add_argument("--max-gap-ms", type=float, help="longest gap (ms) counted as covered time (default 5000)")
+    g.add_argument(
+        "--max-gap-ms",
+        type=float,
+        help=(
+            "longest sample spacing (ms) treated as continuous for coverage, zone time and stress episodes "
+            "(default: per session, 5000 for most sources such as chest straps; for healthkit / health-connect "
+            "sessions 1.5 x the median spacing of consecutive valid samples, clamped to 5000-900000 ms (15 min))"
+        ),
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

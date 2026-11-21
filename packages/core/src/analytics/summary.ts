@@ -80,6 +80,26 @@ function bpmOrNull(x: number | undefined | null): number | null {
 }
 
 /**
+ * The max HR {@link summarizeSession} uses for a session's %HRmax zones and `highIntensityFraction`:
+ * `opts.maxHr ?? participantSnapshot.maxHr ??` Tanaka (2001) `208 − 0.7·age` from `participantSnapshot.birthYear`
+ * (age at `opts.atYear ??` the UTC year of `startedAt`), else null. Each candidate is used only when it is a
+ * plausible bpm (25–250), otherwise the next one is tried. Exported so a live display can colour zones exactly as
+ * the stored summary will (from the session's own snapshot, not the current profile or the local calendar year).
+ */
+export function sessionMaxHr(
+  session: Pick<SurgicalSession, 'startedAt' | 'participantSnapshot'>,
+  opts: Pick<SummaryOptions, 'maxHr' | 'atYear'> = {},
+): number | null {
+  const snapshot = session.participantSnapshot;
+  let maxHr = bpmOrNull(opts.maxHr) ?? bpmOrNull(snapshot?.maxHr);
+  if (maxHr === null && typeof snapshot?.birthYear === 'number' && Number.isFinite(snapshot.birthYear)) {
+    const atYear = opts.atYear ?? new Date(session.startedAt).getUTCFullYear();
+    if (Number.isFinite(atYear)) maxHr = bpmOrNull(estimateMaxHr(snapshot.birthYear, atYear));
+  }
+  return maxHr;
+}
+
+/**
  * A fresh copy of a baseline with its keys in `types.ts` order. The summary therefore never shares an object with
  * the input session (a consumer editing `summary.baseline` cannot reach into the session), and it serialises to
  * the same JSON whatever produced the session: the app, the simulator, or `parseImport`, whose zod output orders
@@ -164,9 +184,9 @@ function qualityWith(session: SurgicalSession, maxGapMs: number, rrArtifactRatio
  * - Baseline: `session.baseline`, else a `'profile'` baseline from `participantSnapshot.restingHr`, else null.
  *   A resting HR that is not a plausible bpm (finite, 25–250) counts as missing, so e.g. `restingHr: 0` never
  *   yields zones from 0 bpm or a 20 bpm episode threshold.
- * - Max HR: `opts.maxHr ?? participantSnapshot.maxHr ??` Tanaka (2001) `208 − 0.7·age` from `birthYear`
- *   (age at `opts.atYear ??` the UTC year of `startedAt`), else null; each candidate is used only when it is a
- *   plausible bpm (25–250), otherwise the next one is tried.
+ * - Max HR ({@link sessionMaxHr}): `opts.maxHr ?? participantSnapshot.maxHr ??` Tanaka (2001) `208 − 0.7·age`
+ *   from `birthYear` (age at `opts.atYear ??` the UTC year of `startedAt`), else null; each candidate is used only
+ *   when it is a plausible bpm (25–250), otherwise the next one is tried.
  * - Zones: baseline-relative zones when a baseline exists, else %HRmax zones, else `[]`.
  * - `highIntensityFraction`: time-weighted fraction of dwell time with bpm ≥ 70 % of max HR; null without
  *   max HR or when no dwell time was recorded (fewer than two valid samples), because 0/0 is "not enough data",
@@ -208,11 +228,7 @@ export function summarizeSession(session: SurgicalSession, opts: SummaryOptions 
   }
   const restingHr = baseline !== null ? baseline.restingHr : null;
 
-  let maxHr = bpmOrNull(opts.maxHr) ?? bpmOrNull(snapshot?.maxHr);
-  if (maxHr === null && typeof snapshot?.birthYear === 'number' && Number.isFinite(snapshot.birthYear)) {
-    const atYear = opts.atYear ?? new Date(startedAt).getUTCFullYear();
-    if (Number.isFinite(atYear)) maxHr = bpmOrNull(estimateMaxHr(snapshot.birthYear, atYear));
-  }
+  const maxHr = sessionMaxHr(session, opts);
 
   let zoneDefs: ZoneDefinition[] = [];
   if (restingHr !== null) zoneDefs = zonesFromBaseline(restingHr);

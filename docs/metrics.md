@@ -112,7 +112,7 @@ Where the flags appear:
 | Where | Rule | Source |
 | --- | --- | --- |
 | Dashboard Overview, "data-quality flags" | coverage `< 0.8` or `rrArtifactRatio > 0.05` | [`apps/dashboard/src/lib/quality.ts`](../apps/dashboard/src/lib/quality.ts) |
-| Insight `data-quality` | latest session coverage `< 0.8` (not when its sensor source is `simulated`; watch advice for health-store sources) | [Insight rule 5](#insight-rules) |
+| Insight `data-quality` | latest session coverage `< 0.8` (not when that session is synthetic: summary `simulated: true`, i.e. sensor source `simulated` or a `simulated` / `demo` tag; watch advice for health-store sources) | [Insight rule 5](#insight-rules) |
 | HRV and stress index blanked | `rrArtifactRatio > 0.1` (`MAX_HRV_ARTIFACT_RATIO`) | [Time-domain HRV](#time-domain-hrv) |
 | Summary CSV | `coverage_pct = coverage × 100`, `rr_artifact_pct = ratio × 100` | [Data model](data-model.md#summary-csv) |
 
@@ -309,7 +309,8 @@ Functions in [`analytics/zones.ts`](../packages/core/src/analytics/zones.ts).
 
 ### Maximum heart rate
 
-`summary.maxHr` is the first **valid** (25–250 bpm) value of:
+`summary.maxHr` is `sessionMaxHr(session, opts)` (in [`analytics/summary.ts`](../packages/core/src/analytics/summary.ts)),
+the first **valid** (25–250 bpm) value of:
 
 1. `SummaryOptions.maxHr` (an explicit override; the apps and the server do not pass one, so the same session gives
    the same numbers everywhere);
@@ -323,6 +324,12 @@ HRmax = round(208 − 0.7 · age)      computed as round((2080 − 7 · age) / 1
 
 Otherwise `maxHr` is `null`. Only the birth year is stored, to limit identifiability, so the age can be off by up to a
 year.
+
+The app's live screen colours heart rate with the same derivation, so the live zones match the stored summary: max HR
+is `sessionMaxHr(session)` (the session's own `participantSnapshot`, taken when the case started, and the UTC year of
+`startedAt`), and the resting HR is the session's baseline, else the snapshot's `restingHr`. It never uses the current
+profile or the local calendar year, so editing the profile during a case changes neither the live zones nor the
+summary.
 
 ### Zones from maximum heart rate
 
@@ -586,8 +593,10 @@ variable has no variance.
 `trendEvidence(points)` adds a slope t-test to `linearTrend`: `t = sign(slope) · √(r² · (n − 2) / (1 − r²))`, and
 `significant = |t| ≥ tCritical95(n − 2)` (two-sided p < 0.05; `null` t with fewer than 3 points). `tCritical95(df)` is
 Student's two-sided 5 % critical value from a fixed table, so every platform gives the same answer. Sessions are
-assumed independent. The app's trend chart uses it and says "no clear trend (the changes could be ordinary variation
-between sessions)" unless the slope is significant.
+assumed independent. The app's trend chart uses it but shows no R² or p-values: its caption gives the slope per
+session and says "This is unlikely to be chance." when the slope is significant, otherwise "No clear trend … The
+changes could be ordinary variation." (its screen-reader summary says the same). The dashboard's trend and
+learning-curve charts show the statistics (slope and R²).
 
 ## Insight rules
 
@@ -602,7 +611,7 @@ rules run in this order, and each produces at most one insight:
 | 2 | `hr-trend` | positive / attention | ≥ **8** sessions with `meanHrDelta` (else `meanHr`) | `trendEvidence` against session order is **significant (p < 0.05)** and \|slope\| ≥ **0.5 bpm/session**. Falling gives positive ("lower in recent sessions"), rising gives attention ("higher in recent sessions"). The text names other influences (case mix, workload, baseline conditions, sleep, caffeine) and never attributes a cause. |
 | 3 | `hrv-trend` | info | ≥ **8** sessions with RMSSD | Mean RMSSD of the last 3 sessions versus the earlier ones changes by **≥ 15 %** and **Welch's t-test** is significant (\|t\| ≥ `tCritical95` of the Welch–Satterthwaite df). The text says intra-operative HRV mostly reflects heart rate and arousal during the case and is not a fatigue or recovery measure; it gives no rest advice. |
 | 4 | `workload-hr` | info | ≥ **10** sessions with both raw workload and `meanHrDelta` | **\|Pearson r\| ≥ 0.5** and r differs from 0 at p < 0.05 (`t = \|r\|·√(n−2)/√(1−r²) ≥ tCritical95(n−2)`). The text gives r, n and p < 0.05 and says correlation is not causation. |
-| 5 | `data-quality` | attention | ≥ 1 session | The latest session's coverage is **< 0.8** and its sensor source (`sensorSource`) is not `simulated`. The tip matches the source (watch advice for Apple Health / Health Connect, strap fit otherwise). |
+| 5 | `data-quality` | attention | ≥ 1 session | The latest session's coverage is **< 0.8** and it is not synthetic: its summary has neither `simulated: true` (sensor source `simulated`, or a `simulated` / `demo` tag) nor `sensorSource: 'simulated'` (for older summaries without the flag). The tip matches the source (watch advice for Apple Health / Health Connect, strap fit otherwise). |
 | 6 | `episodes-after-markers` | info | `context.sessions`, and ≥ 3 episodes in total | **≥ 50 %** of episodes have a related `complication` or `interruption` marker among their `relatedEventIds`. |
 
 Every insight lists the supporting session ids in `evidence`. Rule 6 needs the full sessions, because a summary stores

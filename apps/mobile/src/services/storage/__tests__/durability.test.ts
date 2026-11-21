@@ -5,6 +5,8 @@
  *   make a session unreadable, on SQLite or in web storage.
  * - DOC-N2: SQLite writes run with `PRAGMA secure_delete = ON` (each exclusive transaction is a new
  *   connection in expo-sqlite, so the pragma is set per transaction).
+ * - M3: a delete is followed by `PRAGMA wal_checkpoint(TRUNCATE)`, so the deleted session does not linger in the
+ *   WAL file (`-wal`) until SQLite's next automatic checkpoint.
  * - SP-MOB-4: on the web, a quota error trims signals one session at a time (oldest finished first,
  *   in-progress recording last) instead of dropping every session's signals, and the sessions stored
  *   without signals are reported so the UI can ask the user to export them.
@@ -163,6 +165,26 @@ describe('SQLite repository durability', () => {
     sqlite.__lastTxn.secureDelete = -1;
     await repo.deleteSession('d');
     expect(sqlite.__lastTxn.secureDelete).toBe(1);
+  });
+
+  it('leaves no trace of a deleted session in the WAL file (M3)', async () => {
+    const sqlite = jest.requireMock<{ __paths: Map<unknown, string> }>('expo-sqlite');
+    const fs = require('fs') as {
+      existsSync(p: string): boolean;
+      readFileSync(p: string): { includes(s: string): boolean };
+      statSync(p: string): { size: number };
+    };
+    const marker = 'Whipple WAL marker 7f3a';
+    const repo = createSqliteRepository({ databaseName: 'wal-purge.db' });
+    await repo.saveSession({ ...session('w'), procedure: { name: marker } });
+    const path = [...sqlite.__paths.values()].find((p) => p.endsWith('-wal-purge.db')) as string;
+    const holdsMarker = (file: string) => fs.existsSync(file) && fs.readFileSync(file).includes(marker);
+    expect(holdsMarker(`${path}-wal`)).toBe(true); // committed to the WAL, not yet checkpointed
+
+    await repo.deleteSession('w');
+    expect(fs.statSync(`${path}-wal`).size).toBe(0);
+    expect(holdsMarker(`${path}-wal`)).toBe(false);
+    expect(holdsMarker(path)).toBe(false); // secure_delete zeroed it before the checkpoint copied the page
   });
 });
 

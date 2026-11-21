@@ -107,8 +107,8 @@ Path alias: `@/` → `src/` (tsconfig `paths`). Core library: `import { … } fr
     tell the team to keep the app open with the screen on.
   - `activeSessionOf(state)` names the session the flow owns (recording, debrief, or a resumed interrupted case).
     That session cannot be deleted (`useSessions.deleteSession` / `deleteAll` reject with
-    `CASE_IN_PROGRESS_ERROR`, wired through `state/activeSession.ts`), is never replaced by an import, and its
-    session detail hides "Edit events" and "Delete"; the event editor refuses it.
+    `CASE_IN_PROGRESS_ERROR`, wired through `state/activeSession.ts`; `removeDemoData` skips it), is never replaced
+    by an import, and its session detail hides "Edit events" and "Delete"; the event editor refuses it.
   - Sensor status transitions update `sensorStatus`. A long dropout (> 15 s without data while recording) sets a
     warning status for the UI. Data gaps are fine: analytics handles gaps.
   - The participant snapshot comes from the profile, and `tzOffsetMin` comes from `-new Date().getTimezoneOffset()`.
@@ -150,7 +150,10 @@ Path alias: `@/` → `src/` (tsconfig `paths`). Core library: `import { … } fr
   Batch inserts inside `withExclusiveTransactionAsync` (or `withTransactionAsync`) using prepared statements.
   Deleting a session deletes its signals. `getSession` reassembles and validates via `parseSession` (rows outside
   the schema's signal limits are skipped). Every write transaction sets `PRAGMA secure_delete = ON` (expo-sqlite
-  runs each exclusive transaction on a new connection, and the pragma is per connection).
+  runs each exclusive transaction on a new connection, and the pragma is per connection). `deleteSession`,
+  `deleteAll` and `deleteProfile` are followed, once committed and still inside the serial write queue, by
+  `PRAGMA wal_checkpoint(TRUNCATE)` on the main connection, so deleted data does not stay in `surgeonpulse.db-wal`;
+  a failed checkpoint is ignored (the delete has already committed). The web repository has no checkpoint.
 - **Storage (web)**: `memory.ts` persists to `localStorage` within a ~4 M-character budget, leaving out signals of
   the oldest finished sessions first. A quota error leaves out one more session's signals per retry (an
   in-progress recording last) instead of every session's. Sessions stored without signals, and failed writes, are
@@ -165,7 +168,13 @@ Path alias: `@/` → `src/` (tsconfig `paths`). Core library: `import { … } fr
   `services/secrets` (expo-secure-store, `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, on native; its own `localStorage` key
   on the web), and a token found in an older document is moved there on load. Never in logs or exports.
 - **Delete all data** (Settings) deletes every session (`repository.deleteAll`), the profile
-  (`repository.deleteProfile`) and the study server address and token, then returns to onboarding. **Withdraw
+  (`repository.deleteProfile`) and the study server address and token, then returns to onboarding. **Remove demo
+  data** (Settings › Data, between "Load demo data" and "Delete all data", shown only while demo sessions exist,
+  subtitle "N demo sessions; your own sessions are kept") confirms "Remove demo data?" (button "Remove"; a browser
+  confirm on the web), then `useSessions.removeDemoData()` deletes only the sessions tagged `demo` (`DEMO_TAG`),
+  one by one, skipping the session the recording flow owns, and returns the count for the toast "Removed N demo
+  sessions". Own and imported sessions, simulator recordings, the profile and consent, and the settings are kept. The
+  store refreshes its list even when a delete fails part-way. **Withdraw
   consent** records `consent.withdrawnAt` locally; when a server is configured it also offers
   `POST /api/v1/me/withdraw` (server deletes the participant's data and revokes the token), then forgets the token.
   No upload path (manual, per-session, automatic) sends anything once `consent.withdrawnAt` is set.
@@ -218,7 +227,7 @@ Path alias: `@/` → `src/` (tsconfig `paths`). Core library: `import { … } fr
     shows a crosshair readout of time, bpm and phase.
   - `Sparkline` for the live screen (last 10 min), `RollingHrvChart`, `ZoneBar` (stacked horizontal), `PhaseBars`
     (mean HR delta by phase), `TrendChart` (metric per session with a linear trend line, from `metricSeries` +
-    `linearTrend`), and `GroupBarChart` (aggregateMetric with mean ± sd whiskers).
+    `trendEvidence`), and `GroupBarChart` (aggregateMetric with mean ± sd whiskers).
   - Every chart has an `accessibilityLabel` summary (e.g. "Heart rate from 62 to 118 bpm; highest during critical phase").
 - **Live screen** (`record/live.tsx`): big HR (zone-coloured) with a trend arrow, elapsed clock, current phase chip,
   sensor pill (battery, contact, status, "No RR" when the sensor sends no beat-to-beat intervals), and a signal-lost
@@ -232,7 +241,10 @@ Path alias: `@/` → `src/` (tsconfig `paths`). Core library: `import { … } fr
   press or assistive-technology click asks "End the case now?" instead. Short phones (portrait < 740 pt high,
   landscape < 500 pt) use a denser layout so Complication is visible without scrolling at 360 × 640 and 844 × 390.
   `settings.showLiveHr` (default on) can hide the HR from the theatre team (it is still recorded). A timed session
-  (health-store source) shows "HR will be imported after the case".
+  (health-store source) shows "HR will be imported after the case". Zone colours come from the session itself,
+  exactly as the stored summary derives them: resting HR = `session.baseline`, else the recording store's baseline,
+  else `participantSnapshot.restingHr`; max HR = core `sessionMaxHr(session)` (snapshot `maxHr`, else Tanaka from the
+  snapshot `birthYear` at the UTC year of `startedAt`). Never the current profile or the local calendar year.
 - **Debrief:** SURG-TLX ratings and the optional items start unanswered (no default). The score shows once all six
   SURG-TLX items are rated; saving with some unrated asks, and then saves the report without `workload` (never
   midpoint defaults).
@@ -242,8 +254,13 @@ Path alias: `@/` → `src/` (tsconfig `paths`). Core library: `import { … } fr
   and actions (edit events, export JSON/CSV, import from Health, upload, delete).
 - **Insights:** insight cards (kind-coloured with an icon), TrendChart for meanHrDelta / rmssd / workload with a
   metric switcher, and a by-procedure GroupBarChart. Copy is plain and non-judgemental, framed as reflection rather
-  than evaluation. Only the participant's own cases count as "your" sessions: demo and simulator sessions are shown
-  only as a separate, labelled view. `generateInsights` gets `{ sessions }` (list metadata with events, no signals).
+  than evaluation. The TrendChart caption shows no R² or p-values: "Trend ±x unit per session over N sessions. This
+  is unlikely to be chance." when `trendEvidence` is significant, else "No clear trend over N sessions (…). The
+  changes could be ordinary variation." Only the participant's own cases count as "your" sessions: demo and simulator
+  sessions are shown only as a separate, labelled view. With no own cases yet, its banner ("Simulated data — not
+  your cases") says "These show what Insights looks like. Your own recorded cases replace them here once you complete
+  one." plus, while demo-tagged sessions exist, "To delete the demo sessions, use Settings › Remove demo data."
+  `generateInsights` gets `{ sessions }` (list metadata with events, no signals).
 - **Sensors / setup:** a beat-to-beat line reports whether RR intervals are arriving (store `rrSeenAt`/`streamSince`).
 - **Onboarding:** short and friendly. Consent is an explicit checkbox plus "I agree". The participant code is
   validated with `isValidParticipantCode`, with a hint like "Use the code from your research team, e.g. SP-014. Do not

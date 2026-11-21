@@ -41,3 +41,18 @@ describe('sensor registry (iOS)', () => {
     await expect(getSource('health-connect').isSupported()).resolves.toBe(false);
   });
 });
+
+describe('sensor registry (Android: Health Connect)', () => {
+  it('describes Health Connect without promising any vendor (support varies by vendor)', async () => {
+    let options: Awaited<ReturnType<typeof availableSources>> = [];
+    await jest.isolateModulesAsync(async () => {
+      jest.doMock('../../health', () => ({
+        healthStore: { source: 'health-connect', label: 'Health Connect', isAvailable: async () => true },
+      }));
+      options = await (require('../registry') as typeof import('../registry')).availableSources();
+    });
+    const hc = options.find((o) => o.choice === 'health-connect');
+    expect(hc?.label).toBe('Smartwatch (via Health Connect)');
+    expect(hc?.description).toMatch(/writes to Health Connect .*support varies by vendor/);
+  });
+});

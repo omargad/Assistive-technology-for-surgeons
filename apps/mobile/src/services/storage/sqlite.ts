@@ -11,7 +11,9 @@
  * - `getSession` reassembles and validates the session with core `parseSession`
  *   (signal rows outside the schema's limits are skipped, never fatal).
  * - `PRAGMA secure_delete` is on for every connection that writes, so deleted
- *   sessions are overwritten instead of lingering in free pages.
+ *   sessions are overwritten instead of lingering in free pages, and every
+ *   delete is followed by `PRAGMA wal_checkpoint(TRUNCATE)` so the deleted
+ *   data does not linger in the WAL file either.
  *
  * Never imported by the web bundle (see `index.web.ts`).
  */
@@ -175,6 +177,21 @@ async function writeSignals(
   await insertRows(txn, 'rr', ['session_id', 'seq', 't', 'ms'], rrRows(id, rr, firstSeq));
 }
 
+/**
+ * Copy every committed change into the database file and truncate the WAL file (`surgeonpulse.db-wal`).
+ * `secure_delete` overwrites deleted rows in the database file, but the WAL keeps the original page images until a
+ * checkpoint resets it, which otherwise happens only every ~1000 pages or when the last connection closes. Must run
+ * outside a transaction (a checkpoint cannot run inside one). Never throws: it runs after a delete has already
+ * committed, so a busy or failed checkpoint only means the WAL is reset by the next automatic checkpoint.
+ */
+async function purgeJournal(handle: SQLiteDatabase): Promise<void> {
+  try {
+    await handle.getFirstAsync('PRAGMA wal_checkpoint(TRUNCATE)');
+  } catch {
+    // The delete itself succeeded; SQLite checkpoints the WAL again on its own.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Repository
 // ---------------------------------------------------------------------------
@@ -206,8 +223,12 @@ export function createSqliteRepository(options: SqliteRepositoryOptions = {}): S
     return dbPromise;
   }
 
-  /** Run a write in an exclusive transaction, serialised with every other write. */
-  function write(task: (txn: SQLiteDatabase) => Promise<void>): Promise<void> {
+  /**
+   * Run a write in an exclusive transaction, serialised with every other write. `purge`: the write deletes health
+   * data, so once it has committed the WAL is checkpointed and truncated ({@link purgeJournal}), still inside the
+   * write queue so no other write's transaction is open meanwhile. A failed write throws and is not followed by one.
+   */
+  function write(task: (txn: SQLiteDatabase) => Promise<void>, opts: { purge?: boolean } = {}): Promise<void> {
     return writes.run(async () => {
       const handle = await db();
       await handle.withExclusiveTransactionAsync(async (txn) => {
@@ -216,6 +237,7 @@ export function createSqliteRepository(options: SqliteRepositoryOptions = {}): S
         await txn.execAsync('PRAGMA secure_delete = ON;');
         await task(txn);
       });
+      if (opts.purge) await purgeJournal(handle);
     });
   }
 
@@ -354,17 +376,23 @@ export function createSqliteRepository(options: SqliteRepositoryOptions = {}): S
     },
 
     deleteSession(id: string): Promise<void> {
-      return write(async (txn) => {
-        await txn.runAsync('DELETE FROM samples WHERE session_id = ?', id);
-        await txn.runAsync('DELETE FROM rr WHERE session_id = ?', id);
-        await txn.runAsync('DELETE FROM sessions WHERE id = ?', id);
-      });
+      return write(
+        async (txn) => {
+          await txn.runAsync('DELETE FROM samples WHERE session_id = ?', id);
+          await txn.runAsync('DELETE FROM rr WHERE session_id = ?', id);
+          await txn.runAsync('DELETE FROM sessions WHERE id = ?', id);
+        },
+        { purge: true },
+      );
     },
 
     deleteAll(): Promise<void> {
-      return write(async (txn) => {
-        await txn.execAsync('DELETE FROM samples; DELETE FROM rr; DELETE FROM sessions;');
-      });
+      return write(
+        async (txn) => {
+          await txn.execAsync('DELETE FROM samples; DELETE FROM rr; DELETE FROM sessions;');
+        },
+        { purge: true },
+      );
     },
 
     async findInterrupted(): Promise<SessionMeta[]> {
@@ -397,9 +425,12 @@ export function createSqliteRepository(options: SqliteRepositoryOptions = {}): S
     },
 
     deleteProfile(): Promise<void> {
-      return write(async (txn) => {
-        await txn.execAsync('DELETE FROM profile;');
-      });
+      return write(
+        async (txn) => {
+          await txn.execAsync('DELETE FROM profile;');
+        },
+        { purge: true },
+      );
     },
   };
 }

@@ -49,7 +49,7 @@ flowchart LR
   sim["Simulator (core createLiveSimulator)"] --> store
   parse -->|"HR sample + RR intervals"| store["Recording store"]
   store -->|"flush every 5 s"| db[("SQLite (iOS/Android) or localStorage (web)")]
-  watch["Apple Watch / Wear OS / Fitbit / Garmin"] -->|"sync"| hs["Apple Health / Health Connect"]
+  watch["Apple Watch, or an Android watch whose app writes to Health Connect"] -->|"sync"| hs["Apple Health / Health Connect"]
   hs -->|"import after the case"| merge["Merge into session"]
   merge --> db
   db --> summary["summarizeSession (core)"]
@@ -204,8 +204,10 @@ Things to know:
 
 ## Android wearables via Health Connect
 
-The Android equivalent uses Health Connect, which collects data synced by watch apps (for example Wear OS, Samsung
-Health, Fitbit or Garmin Connect, depending on the vendor's own sync support).
+The Android equivalent uses Health Connect, which holds heart rate that watch apps write to it (for example Wear OS,
+Samsung Health or Fitbit). Support varies by vendor and app version: other vendors' watches (Garmin, for example) work
+only where their app writes heart rate to Health Connect, so check the exact watch and app version before a study
+relies on it.
 
 - Health Connect is built into Android 14 and later. On Android 9–13, install the Health Connect app from the Play
   Store. The app reports the source as unavailable otherwise.
@@ -230,7 +232,8 @@ target heart rate, and a **Complication** marker visibly raises it.
 - It is labelled everywhere: "Simulated data — for demos and training only." Sessions recorded with it have
   `sensor.source: "simulated"`.
 - **Load demo data** (Insights, History or Settings) adds a set of simulated sessions tagged `demo`. Demo-tagged
-  sessions are never uploaded.
+  sessions are never uploaded. **Settings → Data → Remove demo data** deletes only them; simulator recordings are
+  kept.
 - Sessions recorded live with the simulator are **not** tagged `demo`, but they are still never uploaded: the app
   refuses any session with `sensor.source: "simulated"` ("Sessions recorded with the simulator are never
   uploaded."), and the server rejects simulated and demo sessions unless it runs with `ACCEPT_SIMULATED=true`. They
@@ -288,7 +291,8 @@ life and the number of simultaneous connections differ between models and firmwa
   loose strap moves when the surgeon leans over the table.
 - **Record the baseline** sitting quietly before scrubbing, the same way before every case (default 3 minutes,
   adjustable 1–5 minutes in **Settings → Recording → Resting baseline length**; baselines shorter than 60 seconds are
-  not used). The baseline screen asks for a seated baseline because standing raises heart rate.
+  not used). The baseline screen and the hint under that setting ask for a seated baseline every time, because
+  standing raises heart rate.
 - **Charge the phone** and plan to keep it plugged in for long cases: the screen stays on for the whole recording.
 
 ### Phone placement, range and interference

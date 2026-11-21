@@ -188,6 +188,37 @@ def test_cli_report(export_file: Path, tmp_path: Path, capsys: pytest.CaptureFix
     assert "SurgeonPulse cohort report" in out and (tmp_path / "r.txt").read_text(encoding="utf-8") == out
 
 
+@pytest.mark.parametrize("command", ["summarize", "report"])
+def test_cli_max_gap_help_describes_source_aware_default(
+    command: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from surgeonpulse_analysis.summary import DEFAULT_MAX_GAP_MS, effective_max_gap_ms
+
+    monkeypatch.setenv("COLUMNS", "200")
+    with pytest.raises(SystemExit) as exc:
+        main([command, "--help"])
+    assert exc.value.code == 0
+    text = " ".join(capsys.readouterr().out.split())  # argparse wraps lines; compare with single spaces
+    assert "(default 5000)" not in text
+    # the bounds in the help are the ones effective_max_gap_ms applies
+    strap = make_session(sensor={"source": "ble"})
+    sparse = make_session(
+        sensor={"source": "healthkit"},
+        samples=[{"t": 1_000_000 + i * 3_600_000, "bpm": 70} for i in range(3)],
+    )
+    dense = make_session(
+        sensor={"source": "health-connect"},
+        samples=[{"t": 1_000_000 + i * 1000, "bpm": 70} for i in range(3)],
+    )
+    assert effective_max_gap_ms(strap) == DEFAULT_MAX_GAP_MS == 5000
+    assert effective_max_gap_ms(dense) == 5000 and effective_max_gap_ms(sparse) == 900_000
+    assert "5000 for most sources such as chest straps" in text
+    assert (
+        "for healthkit / health-connect sessions 1.5 x the median spacing of consecutive valid samples, "
+        "clamped to 5000-900000 ms (15 min)"
+    ) in text
+
+
 def test_cli_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["summarize", str(tmp_path / "missing.json")]) == 2
     bad = tmp_path / "bad.json"

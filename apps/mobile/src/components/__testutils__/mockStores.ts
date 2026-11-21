@@ -102,6 +102,7 @@ export function makeSessionsStore(profile: ParticipantProfile | null = { code: '
     deleteSession: asyncNoop(),
     deleteAll: asyncNoop(),
     loadDemoData: asyncNoop(),
+    removeDemoData: jest.fn(async () => 0),
     importBundle: jest.fn(async () => ({ imported: 0, warnings: [] })),
   }));
 }

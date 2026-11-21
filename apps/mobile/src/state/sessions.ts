@@ -2,7 +2,8 @@
  * Session list + participant profile store (zustand).
  *
  * Also hosts the data-management actions of the Settings screen: delete,
- * demo data (core simulator, tagged `demo`, never uploaded) and import of
+ * demo data (core simulator, tagged `demo`, never uploaded; "Remove demo data"
+ * deletes only those sessions) and import of
  * export bundles (core `parseImport`; sessions whose participant code is not a
  * pseudonymous study code, and sessions already on this device, are skipped
  * with a warning). Delete actions refuse the session the recording flow owns.
@@ -99,6 +100,18 @@ export function createSessionsStore(deps: SessionsDeps) {
       return get().profile ?? (await repo.getProfile());
     }
 
+    /** Delete every demo-tagged session except the one the recording flow owns; returns how many were deleted. */
+    async function deleteDemoSessions(): Promise<number> {
+      const active = deps.activeSessionId?.() ?? null;
+      let deleted = 0;
+      for (const item of await repo.listSessions()) {
+        if (!item.meta.tags?.includes(DEMO_TAG) || item.meta.id === active) continue;
+        await repo.deleteSession(item.meta.id);
+        deleted += 1;
+      }
+      return deleted;
+    }
+
     return {
       items: [],
       profile: null,
@@ -148,9 +161,7 @@ export function createSessionsStore(deps: SessionsDeps) {
         const code = profile?.code ?? DEMO_PARTICIPANT_CODE;
 
         // Replace earlier demo data rather than duplicating it.
-        for (const item of await repo.listSessions()) {
-          if (item.meta.tags?.includes(DEMO_TAG)) await repo.deleteSession(item.meta.id);
-        }
+        await deleteDemoSessions();
 
         const start = now() - (DEMO_SESSIONS * DEMO_SPACING_DAYS + 1) * DAY_MS;
         const cohort = simulateCohort({
@@ -174,6 +185,15 @@ export function createSessionsStore(deps: SessionsDeps) {
           }
         }
         await get().refresh();
+      },
+
+      async removeDemoData() {
+        try {
+          return await deleteDemoSessions();
+        } finally {
+          // Sessions are deleted one by one: after a failed delete, list the ones already gone as gone.
+          await get().refresh();
+        }
       },
 
       async importBundle(text) {

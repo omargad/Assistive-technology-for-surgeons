@@ -159,8 +159,14 @@ Points worth knowing:
   "save the debrief again" message) until storage holds every captured sample and RR interval. Only then is the
   session marked `completed` and summarised, so the cached summary always matches the stored signals.
 - **The case in progress is owned by the recording store.** `activeSessionOf(state)` names the session while the stage
-  is not `idle` or `done`; the sessions store refuses to delete it (or "delete all"), and the event editor and the
-  session page's Edit/Delete actions are disabled until the case has ended.
+  is not `idle` or `done`; the sessions store refuses to delete it (or "delete all"), **Remove demo data** skips it,
+  and the event editor and the session page's Edit/Delete actions are disabled until the case has ended.
+- **Live zones match the stored summary.** The live screen colours heart rate with zones taken from the session
+  itself: its baseline (else the recording store's baseline, else the resting HR in the session's
+  `participantSnapshot`) or, without one, %HRmax zones from core `sessionMaxHr(session)` (the snapshot's max HR, else
+  Tanaka from the snapshot's birth year at the UTC year of the start). This is the derivation `summarizeSession`
+  uses. The live screen never reads the current profile, so editing the profile during a case changes neither the
+  live zones nor the stored summary.
 - **Interrupted cases.** The session's status stays `recording` until the debrief is submitted. On the next launch,
   `findInterrupted()` lists such sessions and the app offers to resume (`recoverInterrupted`, which continues the same
   session after reconnecting a sensor) or to finish (`finishInterrupted`, which sets `endedAt` to the last data point
@@ -326,6 +332,10 @@ recorded in `schema_version (version INTEGER NOT NULL)`. Migration 1 creates:
   fail with "database is locked". Each transaction starts with `PRAGMA secure_delete = ON` (expo-sqlite opens a new
   connection per exclusive transaction, and the pragma is per connection), so deleted sessions are overwritten in the
   file rather than left recoverable; `migrate()` sets it on the main connection too.
+- `secure_delete` does not reach the page images kept in the write-ahead log (`surgeonpulse.db-wal`). After
+  `deleteSession`, `deleteAll` and `deleteProfile` commit, the main connection therefore runs
+  `PRAGMA wal_checkpoint(TRUNCATE)`, still inside the serial write queue and never inside a transaction. A failed
+  checkpoint does not fail the delete; SQLite checkpoints the WAL again on its own.
 - Signals are inserted with multi-row prepared `INSERT`s of 200 rows (4 parameters each, below SQLite's historic limit
   of 999 bound parameters).
 - `getSession` reassembles the session (`samples` ordered by `t, rowid`, `rr` by `seq`) and validates it with core's

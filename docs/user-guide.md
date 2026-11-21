@@ -180,7 +180,9 @@ If you use a watch instead of a strap, there is no live heart rate; it is import
 The import is offered only for cases recorded with the watch (health store) as the source, or cases without any
 heart-rate data. It never mixes watch data into a case recorded with a strap.
 
-Health Connect is built into Android 14 and later; on Android 9–13 install it from the Play Store.
+Health Connect is built into Android 14 and later; on Android 9–13 install it from the Play Store. Only heart rate
+that your watch app writes to Health Connect can be imported (for example from Wear OS, Samsung or Fitbit watches);
+support varies by vendor and app version, so check your watch with the research team before relying on it.
 
 ### The debrief
 
@@ -234,15 +236,20 @@ After the debrief, the session page opens. You can reopen any session from **His
 - **History** lists your sessions. Search by procedure or specialty, or filter with the specialty chips.
 - **Insights** shows observations about **your own** cases once you have enough of them, for example which phase
   usually has your highest heart rate (from three cases), how many of your sustained heart-rate rises followed a
-  complication or interruption marker, and data-quality tips. Trend, HRV and workload–heart-rate observations need 8–10 cases and appear only when
-  the pattern is clear enough not to be ordinary variation; they note other possible influences. They are prompts for
-  reflection, not a judgement of performance. **Over time** charts one metric per session (**HR vs rest**, **HRV** or
-  **Workload**) and says "no clear trend" unless the trend is statistically clear; **By procedure** compares
-  procedures.
+  complication or interruption marker, and data-quality tips (never for demo or simulator sessions). Trend, HRV and
+  workload–heart-rate observations need 8–10 cases and appear only when the pattern is clear enough not to be
+  ordinary variation; they note other possible influences. They are prompts for reflection, not a judgement of
+  performance. **Over time** charts one metric per session (**HR vs rest**, **HRV** or
+  **Workload**). From three sessions its caption gives the trend per session in plain language: "This is unlikely to
+  be chance." when the trend is statistically clear, otherwise "No clear trend … The changes could be ordinary
+  variation." The app shows no R² or p-values (the dashboard does). **By procedure** compares procedures.
 - **Load demo data** adds simulated sessions, labelled "Demo", to explore the app (loading it again replaces the
   earlier demo sessions). Insights keeps them in a separate, labelled view (**Your cases / Demo**, "Simulated data —
-  not your cases"). They are never uploaded. Remove them one at a time with **Delete session**; there is no separate
-  "delete demo data" action, and **Settings → Data → Delete all data** also deletes your own sessions and profile.
+  not your cases"). Until you have completed a case of your own, Insights shows them with the note "These show what
+  Insights looks like. Your own recorded cases replace them here once you complete one. To delete the demo sessions,
+  use Settings › Remove demo data." They are never uploaded. To delete them, use **Settings → Data → Remove demo
+  data** (shown only while there are demo sessions), which deletes only the demo sessions; see
+  [Deleting your data](#deleting-your-data).
 
 ### Exporting your data
 
@@ -290,6 +297,10 @@ You can stop taking part at any time without giving a reason and without any con
 ### Deleting your data
 
 - **Delete session** on a session page deletes that case from the phone.
+- **Settings → Data → Remove demo data** (shown only while there are demo sessions; for example "12 demo sessions;
+  your own sessions are kept") deletes only the simulated demo sessions, after you confirm **Remove demo data?** with
+  **Remove**. Your own and imported sessions, simulator recordings, your profile and consent, and the study server
+  settings are kept, and the case being recorded is never deleted.
 - **Settings → Data → Delete all data** deletes every session, your profile and consent record, and the study server
   address and token from the phone, then starts setup again. It does not affect data already uploaded, and it is not
   possible while a case is being recorded (end the case first).
@@ -409,7 +420,7 @@ cleared when the tab is closed or reloaded.
 
 | Page | What it is for |
 | --- | --- |
-| **Overview** | Key figures (**Participants**, **Sessions**, **Hours recorded**, **Median coverage**, **Median RR artefact**), heart-rate change by phase, workload distribution, sessions per month, and data-quality flags (coverage below 80 % or RR artefact above 5 %) |
+| **Overview** | Key figures (**Participants**, **Sessions**, **Hours recorded**, **Median coverage**, **Median RR artefact**), heart-rate change by phase, workload distribution (raw, unweighted SURG-TLX / NASA-TLX scores), sessions per month, and data-quality flags (coverage below 80 % or RR artefact above 5 %) |
 | **Sessions** | Sortable table with filters (**Search**, **Participant**, **Procedure**, **Specialty**, **Approach**, **Role**, **From**, **To**). The filters also apply to Overview, Analysis and Export. |
 | Session detail | Heart-rate timeline with phases, events, baseline and episode threshold; rolling RMSSD; zones; phases; episodes; events; post-op report; data quality; per-session CSV downloads |
 | **Participants** | List of participants. A participant's page is the **feedback view** to go through with that surgeon: insights, learning curve, phase profile against an anonymised cohort median (other participants' codes are never shown), workload and heart rate, sessions by procedure |
@@ -522,4 +533,5 @@ about continued use, and about uploads after the study closes.
 
 **What does "Simulated" or "Demo" mean?**
 Generated data for training and demonstrations. It is never real, demo sessions are never uploaded, and simulated
-sessions are labelled throughout the app and dashboard.
+sessions are labelled throughout the app and dashboard. In the app, **Settings → Data → Remove demo data** deletes the
+demo sessions and keeps your own.

@@ -117,7 +117,8 @@ export default function InsightsScreen() {
           title="Simulated data — not your cases"
           message={
             own.summaries.length === 0
-              ? 'These show what Insights looks like. Your own recorded cases replace them here once you complete one. Demo data can be deleted in Settings.'
+              ? 'These show what Insights looks like. Your own recorded cases replace them here once you complete one.' +
+                (hasDemo ? ' To delete the demo sessions, use Settings › Remove demo data.' : '')
               : 'Demo data and simulator recordings are kept out of your own Insights.'
           }
           live={false}

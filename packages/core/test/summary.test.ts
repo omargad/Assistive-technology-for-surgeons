@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dataQuality, effectiveMaxGapMs, isSyntheticSession, summarizeSession } from '../src/analytics/summary';
+import { dataQuality, effectiveMaxGapMs, isSyntheticSession, sessionMaxHr, summarizeSession } from '../src/analytics/summary';
 import { baevskyStressIndex, cleanRr, windowedStressIndex } from '../src/analytics/rr';
 import { robustPeakHr } from '../src/analytics/hr';
 import { computeBaseline } from '../src/analytics/baseline';
@@ -286,6 +286,22 @@ describe('summarizeSession', () => {
 
     const c = summarizeSession(fullSession(), { atYear: 2036 }); // age 50 → 208 − 35
     expect(c.maxHr).toBe(173);
+  });
+
+  it('sessionMaxHr is the max HR the summary uses: snapshot first, then Tanaka at the UTC year of startedAt', () => {
+    expect(sessionMaxHr({ startedAt: S, participantSnapshot: { maxHr: 130, birthYear: 1986 } })).toBe(130);
+    // 2026-01-05 UTC → age 40 → 208 − 28 = 180
+    expect(sessionMaxHr({ startedAt: S, participantSnapshot: { birthYear: 1986 } })).toBe(180);
+    // 2025-12-31 23:30 UTC is 2026 in UTC+1, but the age is taken at the UTC year: 39 → 208 − 27.3 = 180.7 → 181
+    expect(sessionMaxHr({ startedAt: Date.UTC(2025, 11, 31, 23, 30), participantSnapshot: { birthYear: 1986 } })).toBe(181);
+    // implausible values fall through; options override like summarizeSession's
+    expect(sessionMaxHr({ startedAt: S, participantSnapshot: { maxHr: 0, birthYear: 1986 } })).toBe(180);
+    expect(sessionMaxHr({ startedAt: S, participantSnapshot: { birthYear: 1986 } }, { atYear: 2036 })).toBe(173);
+    expect(sessionMaxHr({ startedAt: S, participantSnapshot: { birthYear: 1986 } }, { maxHr: 150 })).toBe(150);
+    expect(sessionMaxHr({ startedAt: S })).toBeNull();
+    expect(sessionMaxHr({ startedAt: Number.NaN, participantSnapshot: { birthYear: 1986 } })).toBeNull();
+    const s = fullSession({ participantSnapshot: { birthYear: 1986 } });
+    expect(summarizeSession(s).maxHr).toBe(sessionMaxHr(s));
   });
 
   it('falls back to %HRmax zones without a baseline, and to nothing without either', () => {

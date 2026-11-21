@@ -46,7 +46,7 @@ Hash routes work on any static host, with no server rewrites:
 
 | Route | Contents |
 | --- | --- |
-| `#/overview` | KPIs, HR Δ by phase (± SD), workload distribution, sessions per month, data-quality flags |
+| `#/overview` | KPIs, HR Δ by phase (± SD), workload distribution (raw, unweighted SURG-TLX / NASA-TLX scores), sessions per month, data-quality flags |
 | `#/sessions` | Filterable, sortable table. Paginated above 200 rows |
 | `#/sessions/:id` | HR timeline (phases, markers, baseline, episode threshold, brush zoom), rolling RMSSD, zones, phases, episodes, events, post-op SURG-TLX, data quality, per-session CSVs |
 | `#/participants` | Participant list, with a notice that responses are not for comparing or ranking surgeons |

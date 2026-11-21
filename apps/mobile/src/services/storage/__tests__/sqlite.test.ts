@@ -18,22 +18,40 @@ interface MockNodeDb {
   exec(sql: string): void;
   prepare(sql: string): MockStmt;
 }
+interface MockLog {
+  exclusive: number;
+  prepared: number;
+  statements: { sql: string; inTxn: boolean }[];
+  failOn: RegExp | null;
+}
 
 jest.mock('expo-sqlite', () => {
   const { DatabaseSync } = jest.requireActual<{ DatabaseSync: new (path: string) => MockNodeDb }>('node:sqlite');
   const flat = (params: unknown[]): unknown[] => (params.length === 1 && Array.isArray(params[0]) ? params[0] : params);
   const databases = new Map<string, MockNodeDb>();
 
-  function wrap(db: MockNodeDb, log: { exclusive: number; prepared: number }) {
+  function wrap(db: MockNodeDb, log: MockLog) {
     let inTxn = false;
+    /** Record a statement (and whether it ran inside the exclusive transaction); throw when `log.failOn` matches. */
+    const record = (sql: string) => {
+      log.statements.push({ sql, inTxn });
+      if (log.failOn?.test(sql)) throw new Error(`mock failure: ${sql}`);
+    };
     const api = {
       log,
-      execAsync: async (sql: string) => db.exec(sql),
+      execAsync: async (sql: string) => {
+        record(sql);
+        db.exec(sql);
+      },
       runAsync: async (sql: string, ...params: unknown[]) => {
+        record(sql);
         const r = db.prepare(sql).run(...flat(params));
         return { changes: Number(r.changes), lastInsertRowId: Number(r.lastInsertRowid) };
       },
-      getFirstAsync: async (sql: string, ...params: unknown[]) => db.prepare(sql).get(...flat(params)) ?? null,
+      getFirstAsync: async (sql: string, ...params: unknown[]) => {
+        record(sql);
+        return db.prepare(sql).get(...flat(params)) ?? null;
+      },
       getAllAsync: async (sql: string, ...params: unknown[]) => db.prepare(sql).all(...flat(params)),
       prepareAsync: async (sql: string) => {
         log.prepared += 1;
@@ -65,7 +83,7 @@ jest.mock('expo-sqlite', () => {
     return api;
   }
 
-  const log = { exclusive: 0, prepared: 0 };
+  const log: MockLog = { exclusive: 0, prepared: 0, statements: [], failOn: null };
   return {
     __log: log,
     openDatabaseAsync: jest.fn(async (name: string) => {
@@ -167,6 +185,52 @@ describe('SQLite repository', () => {
     // "Delete all data" also removes the profile (DOC-S1).
     await repo.deleteProfile();
     expect(await repo.getProfile()).toBeNull();
+  });
+
+  it('checkpoints and truncates the WAL after each delete, outside the write transaction (M3)', async () => {
+    const { __log: log } = jest.requireMock<{ __log: MockLog }>('expo-sqlite');
+    const repo = freshRepo();
+    await repo.saveSession({ ...makeSession('a', T0, 'completed'), samples: samples(T0, 5) });
+    await repo.saveProfile({ code: 'SP-014' });
+    const CHECKPOINT = 'PRAGMA wal_checkpoint(TRUNCATE)';
+    const after = async (fn: () => Promise<void>) => {
+      log.statements = [];
+      await fn();
+      return log.statements;
+    };
+
+    // Other writes do not checkpoint.
+    const summaryWrite = await after(() => repo.saveSummary('a', { sessionId: 'a' } as unknown as SessionSummary));
+    expect(summaryWrite.map((x) => x.sql)).not.toContain(CHECKPOINT);
+
+    for (const remove of [() => repo.deleteSession('a'), () => repo.deleteAll(), () => repo.deleteProfile()]) {
+      const statements = await after(remove);
+      const checkpoints = statements.filter((x) => x.sql === CHECKPOINT);
+      expect(checkpoints).toEqual([{ sql: CHECKPOINT, inTxn: false }]);
+      // ... and only after the delete: it is the last statement, following the DELETE statements.
+      expect(statements.at(-1)?.sql).toBe(CHECKPOINT);
+      expect(statements.findIndex((x) => x.sql.startsWith('DELETE'))).toBeLessThan(statements.length - 1);
+    }
+  });
+
+  it('a failed checkpoint does not fail the delete; a failed delete still throws (M3)', async () => {
+    const { __log: log } = jest.requireMock<{ __log: MockLog }>('expo-sqlite');
+    const repo = freshRepo();
+    await repo.saveSession({ ...makeSession('a', T0, 'completed'), samples: samples(T0, 5) });
+    await repo.saveSession({ ...makeSession('b', T0, 'completed'), samples: samples(T0, 5) });
+    try {
+      log.failOn = /wal_checkpoint/;
+      await expect(repo.deleteSession('a')).resolves.toBeUndefined();
+      expect(await repo.getSession('a')).toBeNull();
+
+      log.failOn = /^DELETE FROM sessions/;
+      log.statements = [];
+      await expect(repo.deleteSession('b')).rejects.toThrow(/mock failure/);
+      expect(log.statements.map((x) => x.sql)).not.toContain('PRAGMA wal_checkpoint(TRUNCATE)');
+    } finally {
+      log.failOn = null;
+    }
+    expect((await repo.getSession('b'))?.samples).toHaveLength(5); // rolled back
   });
 
   it('serialises concurrent writes (exclusive transactions never overlap)', async () => {

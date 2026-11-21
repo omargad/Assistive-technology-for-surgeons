@@ -59,7 +59,7 @@ See [architecture](docs/architecture.md) for component, data-flow and sequence d
 | Live Bluetooth chest strap (native, `react-native-ble-plx`) | Yes ¹ | Yes ¹ | — | — |
 | Bluetooth strap via Web Bluetooth | — (uses native BLE) | — (uses native BLE) | Chrome on Android only; not on iPhone or iPad | Chrome and Edge; not Safari or Firefox |
 | Apple Health import (Apple Watch) | Yes ¹ | — | — | — |
-| Health Connect import (Wear OS, Fitbit, Samsung, Garmin sync) | — | Yes ¹ ² | — | — |
+| Health Connect import (watches whose app writes heart rate to Health Connect, e.g. Wear OS, Samsung, Fitbit) | — | Yes ¹ ² | — | — |
 | Simulator (demo data) | Yes | Yes | Yes | Yes |
 | Local storage | SQLite (`surgeonpulse.db`) | SQLite (`surgeonpulse.db`) | `localStorage`, about 4 MB | `localStorage`, about 4 MB |
 | Export (JSON bundle, CSV) | Share sheet | Share sheet | File download | File download |
@@ -68,8 +68,8 @@ See [architecture](docs/architecture.md) for component, data-flow and sequence d
 ¹ Needs a development or store build; in Expo Go only the simulator works. These native paths have been tested with
 mocks and compiled bundles, **not yet on physical devices**.
 ² Health Connect is built into Android 14 and later; on Android 9–13 the Health Connect app must be installed. Whether
-a given watch's companion app writes heart rate to Health Connect, and how often, varies by vendor; check it before a
-study relies on it.
+a given watch's companion app writes heart rate to Health Connect, and how often, varies by vendor and app version
+(Garmin, for example, only where its app does so); check it before a study relies on it.
 ³ The server's `CORS_ORIGINS` must list the web build's origin.
 
 The **dashboard** runs in current desktop and tablet browsers (Chrome/Edge 111+, Firefox 114+, Safari 16+) on Windows,
@@ -187,9 +187,9 @@ SurgeonPulse is a **version 0.1.0 research prototype**. It has not yet been used
   stored for this device only, so a backup cannot carry it to another device.)
 - **The web build keeps the enrolment token in `localStorage`**, because browsers have no secure store. Use
   **Delete all data** before leaving a shared computer.
-- **Other known gaps** affecting privacy and data handling, such as real dates in app uploads and JSON exports, plain
-  HTTP being accepted for local network addresses, and deleted data lingering briefly in the phone's SQLite
-  write-ahead log, are listed in [privacy and ethics](docs/privacy-ethics.md#known-gaps-and-limitations).
+- **Other known gaps** affecting privacy and data handling, such as real dates in app uploads and JSON exports, and
+  plain HTTP being accepted for local network addresses, are listed in
+  [privacy and ethics](docs/privacy-ethics.md#known-gaps-and-limitations).
 - Pre-computed HRV values imported from Apple Health (SDNN) or Health Connect (RMSSD) are stored but not used in the
   metrics. (Apple Watch heartbeat series, when present, are imported as RR intervals and are used.)
 - The server is a single-instance reference implementation (in-memory rate limiting, one SQLite file).

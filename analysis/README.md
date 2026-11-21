@@ -47,6 +47,15 @@ surgeonpulse report export.json
 surgeonpulse report export.json -o report.txt
 ```
 
+`summarize` and `report` take the same summary options (`SummaryOptions` in the TypeScript core):
+`--max-hr` (max HR in bpm for every session), `--at-year` (year for the age-predicted max HR; default
+the session's year), `--episode-threshold` (stress-episode threshold in bpm) and `--max-gap-ms` (the
+longest sample spacing treated as continuous for coverage, zone time and stress episodes). Without
+`--max-gap-ms` the gap rule is chosen per session: 5000 ms for most sources (BLE / Web Bluetooth
+straps, simulated, import), and for `healthkit` / `health-connect` sessions 1.5 × the median spacing of
+consecutive valid samples, clamped to 5000–900000 ms (15 min), or 5000 ms when there is no spacing.
+`surgeonpulse summarize --help` lists them.
+
 `export.json` can be an export bundle (`format: "surgeonpulse-export"`), a single session, or a
 JSON array of sessions. That's the same input the app's `parseImport` accepts. Invalid sessions are
 skipped, and a warning on stderr names the session index and the field at fault.

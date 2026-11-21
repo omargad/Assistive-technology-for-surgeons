@@ -611,14 +611,18 @@ function workloadInsight(sorted: readonly SessionSummary[]): Insight | null {
   };
 }
 
-/** Rule 5: signal coverage of the latest session, with advice that matches the sensor used. */
+/**
+ * Rule 5: signal coverage of the latest session, with advice that matches the sensor used. Synthetic sessions are
+ * skipped: `simulated: true` (set from `isSyntheticSession`: sensor source `simulated` or a `simulated` / `demo` tag),
+ * or `sensorSource: 'simulated'` for older summaries without the flag.
+ */
 function qualityInsight(sorted: readonly SessionSummary[]): Insight | null {
   const latest = sorted[sorted.length - 1];
   if (latest === undefined) return null;
   const coverage = latest.quality.coverage;
   if (!Number.isFinite(coverage) || !(coverage < 0.8)) return null;
   const source = latest.sensorSource;
-  if (source === 'simulated') return null;
+  if (source === 'simulated' || latest.simulated === true) return null;
   const tip =
     source === 'healthkit' || source === 'health-connect'
       ? `Watches often record heart rate only every few minutes unless a workout is running. For a denser ` +
@@ -691,8 +695,8 @@ function episodeMarkerInsight(
  * 3. `hrv-trend` (info): with ≥ 8 sessions with RMSSD, last-3 mean vs earlier mean; |change| ≥ 15 % and Welch
  *    t-test p < 0.05.
  * 4. `workload-hr` (info): with ≥ 10 sessions with workload and meanHrDelta, |Pearson r| ≥ 0.5 and p < 0.05.
- * 5. `data-quality` (attention): latest session coverage < 0.8 (not for simulated sessions); the tip depends on
- *    `sensorSource` (watch vs strap).
+ * 5. `data-quality` (attention): latest session coverage < 0.8 (not for synthetic sessions: `simulated: true` or
+ *    `sensorSource: 'simulated'`); the tip depends on `sensorSource` (watch vs strap).
  * 6. `episodes-after-markers` (info): ≥ 50 % of ≥ 3 episodes have a related complication/interruption event.
  *    Summaries only store event ids, so this rule needs `context.sessions` and is skipped without it.
  *

@@ -41,7 +41,7 @@ Module layout (`src/`):
 | `analytics/phases.ts` | analytics | `derivePhases`, `phaseAt`, `sessionEnd` |
 | `analytics/episodes.ts` | analytics | `detectStressEpisodes`, `defaultEpisodeThreshold` |
 | `analytics/baseline.ts` | analytics | `computeBaseline` |
-| `analytics/summary.ts` | analytics | `summarizeSession`, `dataQuality`, `effectiveMaxGapMs`, `isSyntheticSession`, `MIN_PHASE_HRV_SEC` |
+| `analytics/summary.ts` | analytics | `summarizeSession`, `sessionMaxHr`, `dataQuality`, `effectiveMaxGapMs`, `isSyntheticSession`, `MIN_PHASE_HRV_SEC` |
 | `analytics/trends.ts` | analytics | `METRICS`, `metricValue`, `aggregateMetric`, `metricSeries`, `generateInsights`, `trendEvidence`, `tCritical95` |
 | `instruments/tlx.ts` | analytics | `SURG_TLX_DIMENSIONS`, `NASA_TLX_DIMENSIONS`, `tlxPairs`, `scoreWorkload` |
 | `ble/heartRate.ts` | io | GATT UUIDs, `parseHeartRateMeasurement`, `parseBodySensorLocation`, `parseBatteryLevel`, `base64ToBytes`, `bytesToBase64` |
@@ -300,7 +300,14 @@ valid samples (sorted by t), clamped to [5000, 900000]; 5000 when there is no sp
 ```ts
 interface SummaryOptions { maxHr?: number; atYear?: number; episodeThresholdBpm?: number; maxGapMs?: number }
 summarizeSession(session: SurgicalSession, opts?: SummaryOptions): SessionSummary
+sessionMaxHr(session: Pick<SurgicalSession, 'startedAt' | 'participantSnapshot'>,
+             opts?: Pick<SummaryOptions, 'maxHr' | 'atYear'>): number | null
 ```
+`sessionMaxHr` is the max HR `summarizeSession` uses (rule below). It is exported so that a live display (the app's
+live screen) colours zones exactly as the stored summary will, from the session's own snapshot rather than the current
+profile or the local calendar year.
+
+`summarizeSession`:
 - `maxGapMs = effectiveMaxGapMs(session, opts.maxGapMs)` (5000 for straps; data-driven for watch imports). It is
   used for coverage, zone dwell, `highIntensityFraction` and the episode run rule, and reported as `summary.maxGapMs`.
 - `endedAt = sessionEnd(session)`. `durationSec = (endedAt − startedAt)/1000`.
@@ -315,7 +322,7 @@ summarizeSession(session: SurgicalSession, opts?: SummaryOptions): SessionSummar
   such as a `0` meaning "not entered", counts as missing.
 - `baseline` = `session.baseline` (when its `restingHr` is valid). Otherwise, when `participantSnapshot.restingHr` is
   valid, build `{source:'profile', restingHr, startedAt: startedAt, endedAt: startedAt}`. Otherwise null.
-- `maxHr` = the first valid value of `opts.maxHr`, `participantSnapshot.maxHr`,
+- `maxHr` = `sessionMaxHr(session, opts)`: the first valid value of `opts.maxHr`, `participantSnapshot.maxHr`,
   `estimateMaxHr(birthYear, atYear ?? UTC year of startedAt)` (when birthYear is known), else null.
 - `zones`: use `zonesFromBaseline` when a baseline exists, else `zonesFromMaxHr` when maxHr is known, else `[]`.
 - `highIntensityFraction`: the time-weighted (same dwell rule as `timeInZones`) fraction with bpm ≥ 0.7·maxHr.
@@ -388,7 +395,8 @@ no fatigue or recovery advice). Rules, in this order:
 4. **Workload vs physiology.** With ≥ 10 sessions that have both workload (raw) and meanHrDelta, compute the Pearson
    r. Give `info` when |r| ≥ 0.5 **and** `t = |r|·√(n−2)/√(1−r²) ≥ tCritical95(n−2)` (|r| = 1 always qualifies). The
    text gives r, n and p < 0.05 and says that correlation does not show causation.
-5. **Data quality.** If the latest session has coverage < 0.8 and is not `sensorSource: 'simulated'`, give
+5. **Data quality.** If the latest session has coverage < 0.8 and is not synthetic (neither `simulated: true`, set
+   from `isSyntheticSession`, nor `sensorSource: 'simulated'` for older summaries without the flag), give
    `attention` with a tip that matches the source (watch advice for `healthkit`/`health-connect`, strap fit
    otherwise).
 6. **Episodes after markers.** If ≥ 50 % of the episodes (with ≥ 3 episodes total) have a related `complication`

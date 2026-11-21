@@ -31,7 +31,8 @@ npm run web                 # same as: npx expo start --web
 Then: complete onboarding (use a study code such as `SP-001`), tap **Start new case**, pick a procedure, choose
 **Simulator (demo)**, record a baseline (**Finish early** is available after 60 seconds) or skip it, mark phases and
 events on the live screen, hold **End case** for
-1.5 seconds and fill in the debrief. **Insights → Load demo data** adds 12 simulated sessions to explore trends.
+1.5 seconds and fill in the debrief. **Insights → Load demo data** adds 12 simulated sessions to explore trends, and
+**Settings → Data → Remove demo data** deletes them again.
 
 To produce a static site (for a demo server or automated tests):
 
@@ -113,15 +114,25 @@ Before building for a study, check two values under `expo.extra` in `app.json`:
 - **Ending the case.** Hold **End case** for 1.5 seconds. On the web, keyboard users hold Space or Enter, and a
   keyboard or assistive-technology activation asks "End the case now?" instead.
 - **Heart rate on screen.** Settings → Recording → **Show heart rate on the live screen** (on by default) can hide the
-  number from the theatre team; heart rate is still recorded. After 15 s without data the number becomes "--" with
-  "No signal · last … bpm" beneath it and a **Signal lost** notice (recording continues), and the sensor pill shows
-  "No RR" when the sensor sends heart rate without beat-to-beat intervals.
+  number from the theatre team; heart rate is still recorded. The number is coloured by the same zones the stored
+  summary uses, taken from the session itself (its baseline or the participant snapshot taken when the case started),
+  not from the current profile, so editing the profile during a case does not change them. After 15 s without data
+  the number becomes "--" with "No signal · last … bpm" beneath it and a **Signal lost** notice (recording
+  continues), and the sensor pill shows "No RR" when the sensor sends heart rate without beat-to-beat intervals.
 - **Debrief.** The six SURG-TLX sliders start unanswered (no thumb, "Not rated"). The workload score is saved only
   when all six are rated; saving with some unrated asks first and stores the debrief without workload ratings.
   The optional items (self-rated performance, perceived stress, sleep) also start unanswered and have a **Clear**
   button.
+- **Resting baseline.** Settings → Recording → **Resting baseline length** (1–5 minutes, default 3) explains: "Sit
+  quietly before scrubbing, seated every time: standing raises heart rate, so a standing baseline is not comparable.
+  Three minutes is a good balance between accuracy and time."
 - **Insights** shows your own cases only. Demo and simulator data appear in a separate, labelled view ("Your cases /
-  Demo").
+  Demo"). Before your first own case, Insights shows the demo sessions with "These show what Insights looks like. Your
+  own recorded cases replace them here once you complete one. To delete the demo sessions, use Settings › Remove demo
+  data." (the last sentence only while demo sessions exist). The **Over time** caption is plain language, with no R²
+  or p-values: for example "Trend +1.2 bpm per session over 9 sessions. This is unlikely to be chance." when the
+  slope test is significant (two-sided p < 0.05), otherwise "No clear trend over 9 sessions (+0.3 bpm per session).
+  The changes could be ordinary variation." The dashboard shows the statistics.
 
 ## Heart-rate sources and supported sensors
 
@@ -131,7 +142,7 @@ Choose the source on the **New case** screen, or set a preferred one in **Settin
 | --- | --- | --- | --- | --- |
 | Bluetooth heart-rate strap | Yes | Yes | Chrome / Edge (Web Bluetooth) | Live HR, plus RR intervals when the sensor sends them |
 | Apple Watch (via Apple Health) | Yes | — | — | Imported after the case |
-| Smartwatch (via Health Connect) | — | Yes | — | Imported after the case |
+| Smartwatch (via Health Connect) | — | Yes | — | Imported after the case, for watches whose app writes heart rate to Health Connect (e.g. Wear OS, Samsung, Fitbit; support varies by vendor and app version) |
 | Simulator (demo) | Yes | Yes | Yes | Generated, clearly labelled as simulated |
 
 **Bluetooth sensors.** Any device that implements the standard Bluetooth LE **Heart Rate Profile** (service
@@ -188,11 +199,13 @@ awake setting remind the team to keep the app open with the screen on.
 
 - **Pseudonymous.** Participants are identified only by a study code (e.g. `SP-014`), checked so that it can't be an
   email address. Procedures come from a catalogue, and free-text fields warn against entering identifiers.
-- **Local first.** Data stays on the device: SQLite (`surgeonpulse.db`, with `secure_delete` on every write) on
-  iOS/Android, `localStorage` on the web. Signals are saved every 5 s while recording and whenever the app leaves the
-  foreground, so a crash loses at most a few seconds, and an interrupted case is offered for recovery on the next
-  launch. The debrief is saved only once every captured sample is stored; otherwise it says so and asks you to save
-  again (nothing is lost). The case being recorded can't be deleted or event-edited until it has ended.
+- **Local first.** Data stays on the device: SQLite (`surgeonpulse.db`, with `secure_delete` on every write, and
+  `PRAGMA wal_checkpoint(TRUNCATE)` after deleting a session, all data or the profile, so deleted data does not stay
+  in `surgeonpulse.db-wal`) on iOS/Android, `localStorage` on the web. Signals are saved every 5 s while recording and
+  whenever the app leaves the foreground, so a crash loses at most a few seconds, and an interrupted case is offered
+  for recovery on the next launch. The debrief is saved only once every captured sample is stored; otherwise it says
+  so and asks you to save again (nothing is lost). The case being recorded can't be deleted or event-edited until it
+  has ended.
 - **Backups.** Android app backup is turned off (`allowBackup: false`). iOS device and iCloud backups include the
   sessions; Android 12+ device-to-device transfer may copy them.
 - **Exports** (Settings → Data, or a session's actions) are de-identified by default: notes and device ids are
@@ -214,6 +227,10 @@ awake setting remind the team to keep the app open with the screen on.
   (`POST /api/v1/me/withdraw`) and then forgets the token. Settings → Data → **Delete all data** removes every session,
   the profile and consent record, the server URL and the token, and restarts onboarding (not possible while a case is
   being recorded).
+- **Demo data.** Settings → Data → **Remove demo data** (shown only while demo sessions exist: "N demo sessions; your
+  own sessions are kept") asks **Remove demo data?** (**Remove**; a browser confirmation on the web) and deletes only
+  the sessions tagged `demo`, then shows "Removed N demo sessions". Own and imported sessions, simulator recordings,
+  the profile and consent, and the study server settings are kept, and the case being recorded is never deleted.
 
 ## Testing
 

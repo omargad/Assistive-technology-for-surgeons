@@ -138,7 +138,7 @@ export function OverviewPage() {
             <Card>
               <SimpleBarChart
                 title="Workload distribution"
-                subtitle={`SURG-TLX / NASA-TLX scores (weighted where available), ${plural(model.workloadN, 'session')}.`}
+                subtitle={`Raw (unweighted) SURG-TLX / NASA-TLX scores, ${plural(model.workloadN, 'session')}.`}
                 data={model.workload}
                 valueLabel="Sessions"
                 summary={`Workload scores of ${model.workloadN} sessions in 10-point bins: ${model.workload

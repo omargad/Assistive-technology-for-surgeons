@@ -136,6 +136,11 @@ export interface SessionsStore {
   deleteAll(): Promise<void>;
   /** Load a simulated history for demos/training (marks sessions with tag 'demo'). */
   loadDemoData(): Promise<void>;
+  /**
+   * Delete only the demo sessions (tag 'demo'); the participant's own and imported sessions, the profile and the
+   * settings are kept, and the session the recording flow owns is never deleted. Returns how many were deleted.
+   */
+  removeDemoData(): Promise<number>;
   /** Import an export bundle (JSON text). Returns counts + warnings. */
   importBundle(text: string): Promise<{ imported: number; warnings: string[] }>;
 }

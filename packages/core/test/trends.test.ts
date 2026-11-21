@@ -540,6 +540,13 @@ describe('generateInsights', () => {
       expect(watch!.detail.toLowerCase()).not.toContain('electrodes');
       expect(byId(generateInsights([makeSummary('s', T0, { ...q(0.5), sensorSource: 'simulated' })]), 'data-quality')).toBeUndefined();
     });
+    it('stays silent when the latest session is flagged synthetic (e.g. a demo-tagged strap session)', () => {
+      const demo = makeSummary('d', T0 + DAY, { ...q(0.5), sensorSource: 'ble', simulated: true });
+      expect(byId(generateInsights([makeSummary('old', T0, q(0.95)), demo]), 'data-quality')).toBeUndefined();
+      // the flag only suppresses the rule when set: a real low-coverage strap session still gets the tip
+      const real = makeSummary('r', T0 + DAY, { ...q(0.5), sensorSource: 'ble', simulated: false });
+      expect(byId(generateInsights([real]), 'data-quality')!.evidence).toEqual(['r']);
+    });
     it('ignores earlier sessions and coverage of exactly 0.8', () => {
       expect(byId(generateInsights([makeSummary('old', T0, q(0.5)), makeSummary('new', T0 + DAY, q(0.9))]), 'data-quality')).toBeUndefined();
       expect(byId(generateInsights([makeSummary('only', T0, q(0.8))]), 'data-quality')).toBeUndefined();

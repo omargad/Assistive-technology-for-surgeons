@@ -28,7 +28,7 @@ import { consentVersion, defaultResearchServerUrl } from '@/services/platform';
 import { repository } from '@/services/storage';
 import { checkEnrolment, uploadSessions, withdrawFromStudy } from '@/services/upload/research';
 import { activeSessionId } from '@/state/activeSession';
-import { CASE_IN_PROGRESS_ERROR, useSessions } from '@/state/sessions';
+import { CASE_IN_PROGRESS_ERROR, DEMO_TAG, useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { formatDate, useStyles, type Theme } from '@/theme';
 
@@ -70,6 +70,7 @@ export default function SettingsScreen() {
     () => completed.filter((i) => !(i.meta.tags ?? []).some((t) => t.startsWith('uploaded:'))),
     [completed],
   );
+  const demoCount = useMemo(() => items.filter((i) => i.meta.tags?.includes(DEMO_TAG)).length, [items]);
 
   const guarded = (key: string, title: string, fn: () => Promise<void>) =>
     void run(key, async () => {
@@ -162,6 +163,19 @@ export default function SettingsScreen() {
       await useSessions.getState().loadDemoData();
       show('Demo sessions loaded (tagged “Demo”)');
     });
+
+  const removeDemo = async () => {
+    const ok = await confirmAsync({
+      title: 'Remove demo data?',
+      message: `The ${demoCount} simulated demo session${demoCount === 1 ? '' : 's'} (tagged “Demo”) will be deleted from this device. Your own sessions, your profile and consent, and the study server settings are kept.`,
+      confirmLabel: 'Remove',
+      destructive: true,
+    });
+    if (ok) guarded('removeDemo', 'Could not remove demo data', async () => {
+      const removed = await useSessions.getState().removeDemoData();
+      show(`Removed ${removed} demo session${removed === 1 ? '' : 's'}`);
+    });
+  };
 
   /** Forget the study server address and enrolment token on this device. */
   const forgetServer = async () => {
@@ -269,7 +283,8 @@ export default function SettingsScreen() {
             size="sm"
           />
           <AppText variant="caption" tone="faint">
-            Sit or stand quietly before scrubbing. Three minutes is a good balance between accuracy and time.
+            Sit quietly before scrubbing, seated every time: standing raises heart rate, so a standing baseline is not
+            comparable. Three minutes is a good balance between accuracy and time.
           </AppText>
         </Card>
         <ListGroup>
@@ -396,6 +411,17 @@ export default function SettingsScreen() {
           />
           <ListRow icon="download-outline" title="Import sessions" subtitle="From a SurgeonPulse JSON export" disabled={busy != null} onPress={importFile} />
           <ListRow icon="sparkles-outline" title="Load demo data" subtitle="Simulated sessions for training and demos" disabled={busy != null} onPress={loadDemo} />
+          {demoCount > 0 ? (
+            <ListRow
+              icon="close-circle-outline"
+              title="Remove demo data"
+              subtitle={`${demoCount} demo session${demoCount === 1 ? '' : 's'}; your own sessions are kept`}
+              destructive
+              disabled={busy != null}
+              onPress={() => void removeDemo()}
+              testID="settings-remove-demo"
+            />
+          ) : null}
           <ListRow icon="trash-outline" title="Delete all data" destructive disabled={busy != null} onPress={() => void deleteAll()} />
         </ListGroup>
 

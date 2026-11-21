@@ -47,7 +47,8 @@ const LABELS: Record<SourceChoice, { label: string; description: string }> = {
   'health-connect': {
     label: 'Smartwatch (via Health Connect)',
     description:
-      'No live heart rate. Wear OS, Fitbit, Samsung or Garmin data synced to Health Connect is imported after the case.',
+      'No live heart rate. Heart rate that your watch app writes to Health Connect (e.g. Wear OS, Samsung, Fitbit; ' +
+      'support varies by vendor and app version) is imported after the case.',
   },
   simulated: {
     label: 'Simulator (demo)',

@@ -7,9 +7,13 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import { Alert, AppState, Platform, type AlertButton } from 'react-native';
 import { router } from 'expo-router';
 
+import { summarizeSession, zonesFromBaseline, zonesFromMaxHr } from '@surgeonpulse/core';
+import type { SurgicalSession } from '@surgeonpulse/core';
+
 import LiveScreen from '@/app/record/live';
 import { makeLiveSession } from '@/components/__testutils__/mockStores';
 import { useRecording } from '@/state/recording';
+import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
@@ -86,6 +90,39 @@ describe('Live screen', () => {
     expect(screen.queryByText(/Marked: Complication/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
     expect(useRecording.getState().lastEvent).toBeNull();
+  });
+
+  describe('zone colours agree with the stored summary when the profile changed after the case started', () => {
+    /** Label of the summary's zone containing `bpm` (the summary keeps zone ids; bounds come from its baseline / max HR). */
+    function summaryZoneLabel(live: SurgicalSession, bpm: number): string | undefined {
+      const summary = summarizeSession({ ...live, status: 'completed', endedAt: NOW });
+      const defs = summary.baseline
+        ? zonesFromBaseline(summary.baseline.restingHr)
+        : summary.maxHr != null
+          ? zonesFromMaxHr(summary.maxHr)
+          : [];
+      expect(summary.zones.map((z) => z.id)).toEqual(defs.map((z) => z.id));
+      return defs.find((z) => bpm >= z.minBpm && bpm < z.maxBpm)?.label;
+    }
+
+    it('max HR: the snapshot birth year at the UTC year of startedAt, not the edited profile', async () => {
+      const live = { ...makeLiveSession(NOW), participantSnapshot: { birthYear: 1975 } }; // 2026: 208 − 0.7·51 = 172
+      useRecording.setState({ session: live, baseline: null, currentBpm: 130 });
+      useSessions.setState({ profile: { code: 'SP-014', birthYear: 1995, maxHr: 210 } }); // edited mid-case
+      await render(<LiveScreen />);
+      const label = summaryZoneLabel(live, 130);
+      expect(label).toBe('Moderate'); // 130 / 172 = 76 % (by the profile's 210 it would be 62 %, "Light")
+      expect(screen.getByTestId('live-hr').props.accessibilityLabel).toMatch(/, zone Moderate$/);
+    });
+
+    it('resting HR: the snapshot resting HR when no baseline was measured, not the edited profile', async () => {
+      const live = { ...makeLiveSession(NOW), participantSnapshot: { restingHr: 60, maxHr: 190 } };
+      useRecording.setState({ session: live, baseline: null, currentBpm: 85 });
+      useSessions.setState({ profile: { code: 'SP-014', restingHr: 80, maxHr: 190 } }); // edited mid-case
+      await render(<LiveScreen />);
+      expect(summaryZoneLabel(live, 85)).toBe('High'); // 60 + 20 ≤ 85 < 60 + 30 (from 80 it would be "At rest")
+      expect(screen.getByTestId('live-hr').props.accessibilityLabel).toMatch(/, zone High$/);
+    });
   });
 
   it('End case requires a long press', async () => {

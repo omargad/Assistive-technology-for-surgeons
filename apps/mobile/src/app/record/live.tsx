@@ -23,8 +23,8 @@ import {
   PHASE_COLORS,
   PHASE_LABELS,
   PHASE_ORDER,
-  estimateMaxHr,
   formatClock,
+  sessionMaxHr,
 } from '@surgeonpulse/core';
 import type { MarkerKind, PhaseKind, SessionEvent } from '@surgeonpulse/core';
 
@@ -50,7 +50,6 @@ import { useElapsed } from '@/hooks/useNow';
 import { useOrientation } from '@/hooks/useOrientation';
 import { useRecording } from '@/state/recording';
 import { UNDO_WINDOW_MS } from '@/state/recordingStore';
-import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { ThemeProvider, useStyles, useTheme, zonesFor, type Theme } from '@/theme';
 
@@ -101,7 +100,6 @@ function LiveView() {
   const sensorStatus = useRecording((s) => s.sensorStatus);
   const storeBaseline = useRecording((s) => s.baseline);
   const error = useRecording((s) => s.error);
-  const profile = useSessions((s) => s.profile);
   const showLiveHr = useSettings((s) => s.settings.showLiveHr);
   const beatToBeat = useBeatToBeat();
 
@@ -113,12 +111,12 @@ function LiveView() {
 
   const elapsed = useElapsed(session?.startedAt);
   const trend = useHrTrend(session?.samples);
-  const baselineBpm = session?.baseline?.restingHr ?? storeBaseline?.restingHr ?? profile?.restingHr ?? null;
-  const zones = useMemo(() => {
-    const maxHr =
-      profile?.maxHr ?? (profile?.birthYear ? estimateMaxHr(profile.birthYear, new Date().getFullYear()) : null);
-    return zonesFor(baselineBpm, maxHr);
-  }, [baselineBpm, profile?.maxHr, profile?.birthYear]);
+  // Zones come from the session itself (its baseline and the participant snapshot taken when it started), exactly as
+  // the stored summary derives them, never from the current profile: a profile edited mid-case changes neither.
+  const baselineBpm =
+    session?.baseline?.restingHr ?? storeBaseline?.restingHr ?? session?.participantSnapshot?.restingHr ?? null;
+  const maxHr = session ? sessionMaxHr(session) : null;
+  const zones = useMemo(() => zonesFor(baselineBpm, maxHr), [baselineBpm, maxHr]);
 
   // The undo snackbar only covers what is left of the event's undo window (it is not restarted when the
   // screen is reopened after "Minimise"); a stale `lastEvent` is cleared instead of shown again.

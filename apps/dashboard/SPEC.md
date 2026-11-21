@@ -32,7 +32,8 @@ responsive, so compute progressively in chunks with `setTimeout`/`requestIdleCal
 
 - **Overview:** KPI tiles (participants, sessions, hours recorded, median coverage, median artefact %), a mean HR Δ
   vs baseline by phase chart (bar ± SD from aggregate over per-session phase values), sessions-per-month, workload
-  distribution, data-quality flags (sessions with coverage < 80 % or artefact > 5 %, linked).
+  distribution (raw, unweighted TLX score, as `metricValue('workload')`), data-quality flags (sessions with
+  coverage < 80 % or artefact > 5 %, linked).
 - **Sessions:** a sortable, filterable table (participant, procedure, specialty, approach, role, date range, text
   search). Columns: date, participant, procedure, duration, mean HR, Δ, RMSSD, SI, workload, coverage. Rows link to
   the detail page. Virtualise or paginate past 200 rows.

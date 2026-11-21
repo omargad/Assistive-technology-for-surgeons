@@ -66,6 +66,16 @@ describe('Insights screen', () => {
     expect(screen.getByTestId('insights-intro')).toHaveTextContent(/^Patterns across 6 simulated sessions \(demo data and simulator recordings\)\./);
     expect(screen.getByTestId('insights-intro')).not.toHaveTextContent(/your 6/);
     expect(screen.getByText('Simulated data — not your cases')).toBeOnTheScreen();
+    // Points at the action that deletes only the demo sessions (not "Delete all data").
+    expect(screen.getByTestId('insights-demo-banner')).toHaveTextContent(/To delete the demo sessions, use Settings › Remove demo data\./);
+  });
+
+  it('simulator recordings alone are not pointed at "Remove demo data" (it only removes demo sessions)', async () => {
+    const simulator = sessions(4, 'own', 5).map((s) => item({ ...s, sensor: { source: 'simulated' as const, name: 'Simulator' } }));
+    useSessions.setState({ items: simulator });
+    await render(<InsightsScreen />);
+    expect(screen.getByText('Simulated data — not your cases')).toBeOnTheScreen();
+    expect(screen.getByTestId('insights-demo-banner')).not.toHaveTextContent(/Remove demo data/);
   });
 
   it('own cases exclude demo and simulator sessions; demo is a separate view', async () => {
