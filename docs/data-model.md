@@ -152,7 +152,7 @@ export) and read by every import path.
 | `exportedAt` | EpochMs | Export time (shifted when a time shift is applied). |
 | `app` | `AppInfo` | Optional. The app or tool that wrote the bundle. |
 | `deidentified` | boolean | `true` when `deidentifySession` was applied to every session, whatever the options. |
-| `participants` | `ParticipantProfile[]` | Always includes a profile (at least `{ code }`) for every session's participant code. |
+| `participants` | `ParticipantProfile[]` | Bundles written by `createExportBundle` or returned by `parseImport` include a profile (at least `{ code }`) for every session's participant code. |
 | `sessions` | `SurgicalSession[]` | |
 
 **`ParticipantProfile`**: `code` (non-empty, req.), the snapshot fields above (`trainingLevel`, `specialty`,
@@ -424,7 +424,7 @@ input.
 | --- | --- | --- |
 | `dropNotes` | `true` | Removes `postOp.notes`, every `event.note` and every tag except `simulated` and `demo` (`DEIDENTIFY_KEPT_TAGS`, kept so synthetic data is never mistaken for real data). Replaces `procedure.name` with the catalogue name when `catalogId` resolves, or when the typed name exactly matches a catalogue name (trimmed, case-insensitive; `catalogId` is then set). Otherwise the name becomes `Unspecified procedure`. An unresolvable `catalogId` is removed. |
 | `dropSensorId` | `true` | Removes `sensor.id`, and reduces `sensor.name` to the device model with `sensorModelName` (`"Polar H10 A1B2C3D4"` → `"Polar H10"`, `"HRM-Dual:123456"` → `"HRM-Dual"`). |
-| `timeShiftMs` | `0` | Adds the same offset to **every** timestamp: session start and end, baseline window, samples, RR, external HRV, events, workload `completedAt`, consent `givenAt`/`withdrawnAt` and the bundle's `exportedAt`. Durations and offsets are unchanged. Must be finite. |
+| `timeShiftMs` | `0` | Adds the same offset to **every** timestamp: session start and end, baseline window, samples, RR, external HRV, events and workload `completedAt`; for bundles also consent `givenAt`/`withdrawnAt` and `exportedAt`. Durations and offsets are unchanged. Must be finite. |
 | `dropTzOffset` | `false` | Removes `tzOffsetMin` (local time of day). |
 | `dropBirthYear` | `false` | Removes `birthYear` from snapshots and profiles. |
 
@@ -443,6 +443,7 @@ time shift and set `dropTzOffset`.
 | --- | --- |
 | Mobile app, JSON export | De-identified by default (`createExportBundle({ deidentify: true })`). |
 | Mobile app, single-session CSVs | Always de-identified with the defaults before writing. |
+| Mobile app, summaries CSV | **Not** de-identified: it is written from the cached summaries, so a custom (non-catalogue) procedure name appears unchanged in `procedure_name`, and dates are real. |
 | Mobile app, research upload | Always de-identified with the defaults. Demo sessions (`demo` tag) and sessions still recording are never sent. |
 | Server, on upload | Each session is de-identified **again** with the defaults (defence in depth), then summarised and stored. |
 | Server, `GET /api/v1/export` | Bundle built with `deidentify: true`. |
@@ -460,7 +461,7 @@ department. Treat exports as potentially re-identifiable research data, handled 
 - it matches `/^[A-Za-z0-9][A-Za-z0-9_-]{1,31}$/` (2–32 characters from A–Z, a–z, 0–9, `_` and `-`, starting with a
   letter or digit); **and**
 - it is not e-mail-like: it contains no `@`, and does not look like an address with `@` and `.` spelled out, such as
-  `jane_doe-at-hospital-org` (`-at-` or `_at_` followed by a domain ending in a common suffix such as `org`, `com`,
+  `name-at-example-org` (`-at-` or `_at_` followed by a domain ending in a common suffix such as `org`, `com`,
   `edu`, `au` or `uk`).
 
 | Code | Valid? |
@@ -468,8 +469,8 @@ department. Treat exports as potentially re-identifiable research data, handled 
 | `SP-014` | yes |
 | `P07` | yes |
 | `A` | no (too short) |
-| `jane@hospital.org` | no |
-| `jane_doe-at-hospital-org` | no |
+| `name@example.org` | no |
+| `name-at-example-org` | no |
 
 Checked by the app's onboarding, by the server for every participant and enrolment, and by de-identification. Codes
 should be issued by the research team, such as `SP-001`, and must never be a name, e-mail address or staff number. If

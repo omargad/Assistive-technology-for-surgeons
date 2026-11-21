@@ -8,8 +8,8 @@ How the app, server and analysis tools behave is described from the current code
 exact, so the protocol can refer to them directly.
 
 Related documents: [privacy, ethics and governance](privacy-ethics.md) · [user guide](user-guide.md) ·
-[hardware](hardware.md) · [core analytics spec](../packages/core/SPEC.md) ·
-[Python toolkit](../analysis/README.md)
+[hardware](hardware.md) · [metrics](metrics.md) · [data model](data-model.md) ·
+[core analytics spec](../packages/core/SPEC.md) · [Python toolkit](../analysis/README.md)
 
 ---
 
@@ -190,8 +190,9 @@ a repeated phase is combined (duration-weighted) in the summaries CSV.
 ## 6. Measures
 
 All whole-case and phase metrics are computed by `summarizeSession` in
-[`@surgeonpulse/core`](../packages/core/SPEC.md) and identically by the Python toolkit. CSV columns are those of the
-summaries CSV (one row per session); JSON paths refer to the session objects in an export bundle.
+[`@surgeonpulse/core`](../packages/core/SPEC.md) and identically by the Python toolkit; exact definitions and caveats
+are in [metrics](metrics.md). CSV columns are those of the summaries CSV (one row per session); JSON paths refer to
+the session objects in an export bundle (see [data model](data-model.md)).
 
 | Construct | Measure | Where to find it | Notes |
 | --- | --- | --- | --- |

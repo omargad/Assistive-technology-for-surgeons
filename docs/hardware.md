@@ -21,7 +21,7 @@ Contents: [Sources at a glance](#sources-at-a-glance) ·
 [Pilot checklist](#pilot-checklist-before-the-first-real-case) · [Troubleshooting](#troubleshooting)
 
 Related documents: [user guide](user-guide.md) · [privacy and ethics](privacy-ethics.md) ·
-[study protocol template](study-protocol.md) · [mobile app README](../apps/mobile/README.md) ·
+[study protocol template](study-protocol.md) · [metrics](metrics.md) · [mobile app README](../apps/mobile/README.md) ·
 [core library spec](../packages/core/SPEC.md)
 
 ## Sources at a glance

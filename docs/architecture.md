@@ -5,8 +5,9 @@ between them, the recording state machine, how one codebase serves iOS, Android 
 the security model. It is written for developers. Researchers may find the [data flow](#data-flow) and
 [security model](#security-model) sections useful on their own.
 
-Related documents: [data model](data-model.md) · [metrics](metrics.md) · [development](development.md) · component
-specs: [core](../packages/core/SPEC.md), [mobile](../apps/mobile/SPEC.md), [dashboard](../apps/dashboard/SPEC.md),
+Related documents: [data model](data-model.md) · [metrics](metrics.md) · [development](development.md) ·
+[hardware](hardware.md) · [privacy and ethics](privacy-ethics.md) · component specs:
+[core](../packages/core/SPEC.md), [mobile](../apps/mobile/SPEC.md), [dashboard](../apps/dashboard/SPEC.md),
 [server](../apps/server/SPEC.md).
 
 ## Design principles
@@ -18,7 +19,7 @@ specs: [core](../packages/core/SPEC.md), [mobile](../apps/mobile/SPEC.md), [dash
 | **One shared core** | All analytics, parsing, validation, CSV, de-identification, labels and the simulator live in `@surgeonpulse/core`. The app, dashboard and server import it; none re-implements analytics. The Python toolkit is the one deliberate second implementation, kept honest by [parity fixtures](development.md#fixtures-and-parity). |
 | **Portable core** | Core is plain ES2022 plus `zod`, with no Node, browser or React Native APIs, so the same code runs on Hermes (iOS/Android), in browsers and in Node. Functions are pure and deterministic: clocks and seeds are injected, and outputs never contain `NaN` or `Infinity`. |
 | **Platform modules by file suffix** | Where platforms differ (Bluetooth, health stores, storage, files), the app has one module per platform selected by Metro's file-suffix resolution (`.ios.ts`, `.android.ts`, `.native.ts`, `.web.ts`). Native-only libraries never reach the web bundle. |
-| **Privacy by design** | No patient data is collected. Participants are pseudonymous study codes. Free text is discouraged and removed on export. De-identification runs on the device before anything leaves it, **and again on the server** for every uploaded session. |
+| **Privacy by design** | No patient data is collected. Participants are pseudonymous study codes. Free text is discouraged and removed on export. The app de-identifies JSON exports, per-session CSVs and uploads before they leave the device (the summaries CSV is the exception; see [data model](data-model.md#where-it-is-applied)), and the server de-identifies every uploaded session **again**. |
 | **Research tool, not a medical device** | No alarms, no clinical thresholds, no patient monitoring. Feedback is framed as reflection on the surgeon's own data. |
 
 ## Components
@@ -91,8 +92,8 @@ upload after each debrief, server-side de-identification, withdrawal handling an
 ## Live recording session
 
 The sequence below follows one case from connecting the sensor to the summary. "Team" is whoever taps the phone: the
-surgeon is sterile, so a circulating nurse, an anaesthetist or a researcher usually logs phases and markers, and the
-app records `loggedBy: 'team'`.
+surgeon is sterile, so a circulating nurse, an anaesthetist or a researcher usually logs phases and markers. The live
+screen's **Logged by: Self / Team** toggle sets each event's `loggedBy` to `self` or `team`.
 
 ```mermaid
 sequenceDiagram
@@ -234,9 +235,11 @@ sequenceDiagram
   RES->>SV: GET /api/v1/export/summaries.csv (for R, SPSS, Stata)
 ```
 
-Withdrawal is a single call: `POST /api/v1/me/withdraw` from the app, or
+Server-side withdrawal is a single call: `POST /api/v1/me/withdraw` with the participant's enrolment token, or
 `DELETE /api/v1/admin/participants/:code` by the researcher. Either deletes all of that participant's sessions, revokes
 every token, clears the profile and retires the code. See the [server README](../apps/server/README.md#privacy-and-security).
+The app's **Withdraw consent** action is currently local only: it records the withdrawal date and turns off automatic
+upload, but does not call the server, so the research team actions the server-side deletion.
 
 ## Cross-platform design
 
@@ -369,10 +372,11 @@ are recorded in `schema_version (version, applied_at)`. Source: [`apps/server/sr
 Indexes: `enrolments_participant (participant_code)`, `sessions_participant_started (participant_code, started_at)`
 and `sessions_started (started_at)`.
 
-The `summary` column is computed once, at upload. The researcher summary CSV (`GET /api/v1/export/summaries.csv`)
-and the session list return these stored summaries. After a change to the analytics, stored summaries keep their old
-values until the session is uploaded again, whereas the JSON export plus the dashboard or Python toolkit always
-recompute from the raw data.
+The `summary` column is computed when a session is first stored or its content changes. The researcher summary CSV
+(`GET /api/v1/export/summaries.csv`) and the session list return these stored summaries. After a change to the
+analytics, stored summaries keep their old values: re-uploading an identical session is reported as `unchanged` and
+does not refresh them, and there is currently no endpoint that recomputes them. The JSON export, read by the dashboard
+or the Python toolkit, is always summarised afresh from the raw data.
 
 ## Security model
 
@@ -390,8 +394,11 @@ A summary. The [server README](../apps/server/README.md#privacy-and-security) is
 | Browser access | CORS is off unless `CORS_ORIGINS` lists exact origins (`*` is refused). Security headers on every response, including `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `X-Frame-Options: DENY` and `Cache-Control: no-store`. |
 | Logging | Request bodies are never logged; `Authorization` and `Cookie` headers are redacted. |
 | Audit | Every change and every export is recorded (actor, action, target), never health data or secrets. |
-| Withdrawal | Deletes sessions, revokes tokens, clears the profile and retires the code. SQLite `secure_delete` overwrites deleted data. Backups taken earlier still contain it. |
+| Withdrawal (server) | Deletes sessions, revokes tokens, clears the profile and retires the code. SQLite `secure_delete` overwrites deleted data. Backups taken earlier still contain it. The app's own withdrawal is local only. |
 | Tokens on clients | The app keeps the enrolment token in its settings store only, never in logs or exports. The dashboard keeps the admin token in memory unless the user opts in to remembering it. |
+
+Known gaps in the current code (for example, withdrawal in the app is local only, and live simulator sessions are not
+blocked from upload) are listed in [privacy and ethics](privacy-ethics.md#known-gaps-and-limitations).
 
 **Not covered by the software** (needs organisational controls): device loss or theft (rely on device passcodes and
 OS encryption), physical and network security of the server host, backup encryption and retention, key management for

@@ -16,7 +16,8 @@ Contents: [What SurgeonPulse is](#what-surgeonpulse-is-and-is-not) ·
 [HREC checklist](#hrec-application-checklist) · [Data-flow table template](#template-data-flow-table)
 
 Related documents: [study protocol template](study-protocol.md) · [user guide](user-guide.md) ·
-[hardware](hardware.md) · [server README](../apps/server/README.md) · [mobile README](../apps/mobile/README.md) ·
+[hardware](hardware.md) · [data model](data-model.md) · [architecture](architecture.md) ·
+[server README](../apps/server/README.md) · [mobile README](../apps/mobile/README.md) ·
 [dashboard README](../apps/dashboard/README.md)
 
 ## What SurgeonPulse is and is not
@@ -170,7 +171,7 @@ flowchart LR
   files --> dash
   server -->|"export bundle / summaries CSV"| analysis["Python toolkit, R, SPSS, Stata"]
   dash -->|"de-identified bundle with date shift"| share["Collaborators (under a data-sharing agreement)"]
-  key["Code key and consent forms (kept separately by the research team)"] -.-|"never stored in SurgeonPulse"| server
+  key["Code key and consent forms: kept separately by the research team, never in SurgeonPulse"]
 ```
 
 ## Known gaps and limitations

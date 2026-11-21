@@ -214,7 +214,8 @@ inside that phase.
   case differ for reasons that have nothing to do with stress.
 - **Sensor type.** HRV needs beat-to-beat RR intervals. ECG chest straps (for example the Polar H10) provide them.
   Optical (PPG) armbands and watches often send heart rate only, and their pulse-to-pulse intervals are less precise,
-  especially during movement. Sessions without RR data have `hrv: null`.
+  especially during movement. Sessions without RR data have `hrv: null`. See [hardware](hardware.md) for choosing a
+  sensor.
 - **External HRV readings** imported from Apple Health (SDNN) or Health Connect (RMSSD) are stored in the session's
   `externalHrv` array but are **not** used by any summary metric, because the platforms compute them over windows and
   with methods SurgeonPulse does not control.
@@ -535,8 +536,9 @@ start times), dropping sessions where the value is `null`.
 **Trend lines.** `linearTrend(points)` in [`analytics/stats.ts`](../packages/core/src/analytics/stats.ts) is an
 ordinary-least-squares fit `y = slope · x + intercept` with `r2`. It ignores points with a non-finite coordinate and
 returns `null` with fewer than 2 points or when `x` has no variance. When `y` has no variance it returns `slope = 0`,
-`intercept = y`, `r2 = 0`. The app and the dashboard fit against the **session number** (0, 1, 2, … in the app; 1, 2,
-3, … in the dashboard), so the slope is "units per session", not per calendar day.
+`intercept = y`, `r2 = 0`. The app's trend chart and the dashboard's learning curves fit against the **position of
+the session in the `metricSeries` output** (sessions with a value, in time order; numbered from 0 in the app and from
+1 in the dashboard), so the slope is "units per session", not per calendar day.
 
 `pearsonCorrelation(points)` gives Pearson's r, clamped to [−1, 1], or `null` with fewer than 2 points or when either
 variable has no variance.
@@ -550,7 +552,7 @@ rules run in this order, and each produces at most one insight:
 
 | # | `id` | Kind | Needs | Fires when |
 | --- | --- | --- | --- | --- |
-| 1 | `peak-phase` | info | ≥ 3 sessions with at least one phase that has HR data | One phase has the highest phase mean HR in **≥ 50 %** of those sessions. Ties between phases within a session, and ties in the count, go to the earlier phase in `PHASE_ORDER`. |
+| 1 | `peak-phase` | info | ≥ 3 sessions with at least one phase that has HR data | One phase has the highest phase mean HR in **≥ 50 %** of those sessions. Within a session each segment is compared on its own, and a tie goes to the earlier segment in time. A tie in the count goes to the earlier phase in `PHASE_ORDER`. |
 | 2 | `hr-trend` | positive / attention | ≥ 5 sessions with `meanHrDelta`; if there are fewer, ≥ 5 with `meanHr` | OLS slope of the metric against session order (the index among all summaries) is **≤ −0.5 bpm/session** (positive: "settling with experience") or **≥ +0.5 bpm/session** (attention). No insight in between. `meanHr` is used only when fewer than 5 sessions have `meanHrDelta`. |
 | 3 | `hrv-trend` | attention / positive | ≥ 5 sessions with RMSSD | Mean RMSSD of the last 3 sessions versus the mean of the earlier ones: change **≤ −15 %** gives attention (suggests rest and recovery); **≥ +15 %** gives positive. Skipped when the earlier mean is not positive. |
 | 4 | `workload-hr` | info | ≥ 5 sessions with both `workload` and `meanHrDelta` | **\|Pearson r\| ≥ 0.5** between workload and HR rise above baseline. |
